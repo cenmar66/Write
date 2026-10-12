@@ -3,19 +3,20 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  --bg: #fbf9f5;
-  --surface: rgba(255, 255, 255, 0.62);
-  --surface-strong: rgba(255, 255, 255, 0.86);
-  --bar: rgba(253, 252, 250, 0.94);
-  --border: rgba(28, 25, 40, 0.08);
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --surface-strong: #f7f7f8;
+  --bar: rgba(255, 255, 255, 0.94);
+  --border: rgba(20, 20, 30, 0.08);
+  --shadow: 0 1px 2px rgba(20, 20, 40, 0.04), 0 8px 24px -12px rgba(20, 20, 40, 0.08);
   --ink: #1d1b26;
   --muted: #6e6a7c;
   --accent: #6d5dfc;
   --accent-2: #f472b6;
   --accent-3: #fbbf77;
-  --glow-1: rgba(139, 120, 255, 0.28);
-  --glow-2: rgba(244, 114, 182, 0.2);
-  --glow-3: rgba(251, 191, 119, 0.24);
+  --glow-1: transparent;
+  --glow-2: transparent;
+  --glow-3: transparent;
 }
 
 .dark {
@@ -24,6 +25,7 @@
   --surface-strong: rgba(30, 29, 44, 0.85);
   --bar: rgba(18, 17, 28, 0.94);
   --border: rgba(255, 255, 255, 0.08);
+  --shadow: none;
   --ink: #f2f0fa;
   --muted: #9a96ad;
   --accent: #9d8cff;
@@ -105,8 +107,12 @@ body {
 @keyframes drift-b { to { transform: translate(-10vmax, -6vmax) scale(1.15); } }
 @keyframes drift-c { to { transform: translate(-14vmax, 10vmax) scale(0.9); } }
 
-/* Fine grain so gradients don't look flat. */
+/* Fine grain so dark-mode gradients don't look flat. */
 .grain {
+  display: none;
+}
+.dark .grain {
+  display: block;
   position: fixed;
   inset: 0;
   z-index: -1;
@@ -115,9 +121,11 @@ body {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
+/* Cards: plain white with a hairline border in light mode, frosted in dark mode. */
 @utility glass {
   background: var(--surface);
   border: 1px solid var(--border);
+  box-shadow: var(--shadow);
   backdrop-filter: blur(20px) saturate(1.4);
   -webkit-backdrop-filter: blur(20px) saturate(1.4);
 }
@@ -153,4 +161,66 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .aurora::before, .aurora::after, .aurora span { animation: none; }
   .animate-rise { animation: none; }
+}
+
+/* ---------- Editor ---------- */
+.tiptap-doc {
+  outline: none;
+  font-size: 1.125rem;
+  line-height: 1.75;
+  min-height: 50dvh;
+  caret-color: var(--accent);
+}
+.tiptap-doc > * + * { margin-top: 0.9em; }
+.tiptap-doc h1, .tiptap-doc h2, .tiptap-doc h3 {
+  font-family: var(--font-fraunces), serif;
+  letter-spacing: -0.015em;
+  line-height: 1.2;
+  margin-top: 1.6em;
+}
+.tiptap-doc h1 { font-size: 2rem; }
+.tiptap-doc h2 { font-size: 1.6rem; }
+.tiptap-doc h3 { font-size: 1.3rem; }
+.tiptap-doc ul { list-style: disc; padding-left: 1.4em; }
+.tiptap-doc ol { list-style: decimal; padding-left: 1.4em; }
+.tiptap-doc li > p { margin: 0.2em 0; }
+.tiptap-doc li::marker { color: var(--muted); }
+.tiptap-doc blockquote {
+  border-left: 3px solid var(--accent);
+  padding-left: 1em;
+  color: var(--muted);
+  font-style: italic;
+}
+.tiptap-doc a { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
+.tiptap-doc code {
+  background: var(--surface-strong);
+  border-radius: 6px;
+  padding: 0.1em 0.35em;
+  font-size: 0.9em;
+}
+.tiptap-doc pre {
+  background: var(--surface-strong);
+  border-radius: 14px;
+  padding: 1em 1.2em;
+  font-size: 0.9em;
+  overflow-x: auto;
+}
+.tiptap-doc pre code { background: none; padding: 0; }
+.tiptap-doc hr { border: none; border-top: 1px solid var(--border); margin: 2em 0; }
+.tiptap-doc p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  color: var(--muted);
+  opacity: 0.6;
+  pointer-events: none;
+}
+.tiptap-doc ::selection { background: color-mix(in srgb, var(--accent) 22%, transparent); }
+
+/* ---------- Print / PDF ---------- */
+@media print {
+  .aurora, .grain { display: none !important; }
+  body { background: #fff; color: #000; }
+  .tiptap-doc { font-size: 12pt; min-height: 0; }
+  @page { margin: 2cm; }
 }

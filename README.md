@@ -2,7 +2,7 @@
 
 Your personal AI writing studio: an AI document editor, social post templates, publishing, and voice dictation, all in one app for laptop, tablet, and phone.
 
-**Status:** Phase 1 (setup + login) ✅ · Phase 2 editor · Phase 3 dictation · Phase 4 voice profile · Phase 5 social templates · Phase 6 publishing
+**Status:** Phase 1 (setup + login) ✅ · Phase 2 editor + AI ✅ · Phase 3 dictation · Phase 4 voice profile · Phase 5 social templates · Phase 6 publishing
 
 ---
 
@@ -32,7 +32,10 @@ You'll copy a few values between websites. Keep a notes file open to paste them 
    - **Project URL** (`https://xxxx.supabase.co`)
    - **Publishable key** (starts with `sb_publishable_`; older dashboards call it the **anon** key)
 3. Open **SQL Editor → New query**, paste everything from [`supabase/migrations/0001_lock_signups.sql`](supabase/migrations/0001_lock_signups.sql), and click **Run**. This is the "nobody but me" lock.
-4. **Upgrade to Pro** (you chose this): **Organization → Billing → Upgrade**.
+4. Do the same with [`supabase/migrations/0002_documents.sql`](supabase/migrations/0002_documents.sql). This creates the tables for documents, folders, version history, and chat.
+
+   > Whenever a new phase adds a file in `supabase/migrations/`, run it the same way, in number order.
+5. **Upgrade to Pro** (you chose this): **Organization → Billing → Upgrade**.
 
 ### 2. Make the sign-in email include a 6-digit code
 
@@ -57,7 +60,15 @@ The installed phone app can't open email links (they open in Safari/Chrome inste
 4. Copy the **Client ID** and **Client secret**.
 5. Back in Supabase: **Authentication → Sign In / Providers → Google** → turn it on → paste both → **Save**.
 
-### 4. Vercel (put it online)
+### 4. Claude API key (the AI)
+
+1. Go to [platform.claude.com](https://platform.claude.com) and sign up or log in.
+2. **Billing**: add a payment method and buy $10 of credits to start.
+3. **Limits**: set a monthly spend limit (for example $30) so there are never surprises.
+4. **API Keys → Create Key**: name it `write-ai` and copy it (it starts with `sk-ant-`). You only see it once.
+5. Keep it for the next step. Never paste it anywhere except Vercel.
+
+### 5. Vercel (put it online)
 
 1. Go to [vercel.com/new](https://vercel.com/new) → import the **cenmar66/write** GitHub repo.
 2. Before clicking Deploy, open **Environment Variables** and add:
@@ -67,12 +78,14 @@ The installed phone app can't open email links (they open in Safari/Chrome inste
    | `NEXT_PUBLIC_SUPABASE_URL` | your Supabase Project URL |
    | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | your publishable key |
    | `ALLOWED_EMAIL` | `cenmarf@gmail.com` |
+   | `ANTHROPIC_API_KEY` | your Claude API key |
 
+   Added a variable after deploying? Go to **Deployments → ⋯ → Redeploy** so it takes effect.
 3. Click **Deploy**. You'll get a web address like `write-ai-xxxx.vercel.app`.
 4. **Upgrade to Pro**: **Settings → Billing**.
 5. **Production branch:** until this work is merged into `main`, go to **Settings → Git → Production Branch** and set it to `claude/ai-writing-app-plan-21oakz`. (Or ask Claude to open a pull request into `main`.)
 
-### 5. Tell Supabase your web address
+### 6. Tell Supabase your web address
 
 Supabase → **Authentication → URL Configuration**:
 - **Site URL**: `https://YOUR-APP.vercel.app`
@@ -80,17 +93,30 @@ Supabase → **Authentication → URL Configuration**:
   - `https://YOUR-APP.vercel.app/auth/callback`
   - `http://localhost:3000/auth/callback` (only needed if you run it on your computer)
 
-### 6. Log in, then close the door
+### 7. Log in, then close the door
 
 1. Open your Vercel address and sign in with Google (or email).
 2. Optional extra lock: Supabase → **Authentication → Sign In / Providers** → turn **off** "Allow new users to sign up". The database already blocks everyone else, so this is belt and suspenders.
 
-### 7. Install it on your phone
+### 8. Install it on your phone
 
 - **iPhone (Safari):** open the site → **Share** → **Add to Home Screen**.
 - **Android (Chrome):** open the site → **⋮** menu → **Install app**.
 
 Inside the installed app, sign in with Google or with the 6-digit email code.
+
+---
+
+## Using the editor
+
+- **Autosave:** every change saves within a second. The badge at the top says *Saved*.
+- **AI on any text:** highlight words, then tap **Ask AI**: Rewrite, Shorten, Expand, Fix grammar, Simplify (7th-grade level), or Change tone. You see the draft first and choose **Replace**, **Insert below**, or **Try again**.
+- **Continue writing:** tap the button at the bottom, or press **⌘J** (Mac) / **Ctrl+J** (Windows).
+- **Chat:** the speech bubble at the top opens a chat that can see your whole document. Any reply can be inserted into the doc.
+- **Version history:** the clock icon. A snapshot is saved before every AI change, when you open a doc, and when you tap *Save now*. Tap any version to preview it and restore it.
+- **Export:** the download icon gives you Word, PDF (choose "Save as PDF" in the print window), or Markdown.
+
+The AI uses Claude Opus 5.5, Anthropic's current flagship model. To cut AI costs roughly in half, change `MODEL` in `src/lib/ai/claude.ts` to `claude-sonnet-5-5`.
 
 ---
 
@@ -110,7 +136,7 @@ npm run dev                   # open http://localhost:3000
 |---|---|
 | Vercel Pro | $20 |
 | Supabase Pro | $25 |
-| Claude API (normal personal use, from Phase 2) | ~$5–20 |
+| Claude API (normal personal use) | ~$5–20 (about 1–3¢ per AI edit, 2–5¢ per chat message) |
 | Deepgram (from Phase 3; ~10 hrs of talking) | ~$5, covered by the $200 free credit for a long time |
 | X / Twitter | $0 (we use a "copy + open X" button) |
 | **Total** | **~$50–70/mo** |
@@ -123,10 +149,13 @@ npm run dev                   # open http://localhost:3000
 src/
   app/
     (app)/            # pages behind login: home, docs, posts, calendar, settings
+    api/ai/           # AI endpoints (edit + chat); the API key never leaves the server
     login/            # sign-in screen
     auth/             # login callback + sign out
     manifest.ts       # makes it installable as a phone app
   components/         # shared UI pieces (nav, logo, theme toggle)
+  components/editor/  # the writing screen: AI menu, chat, history, export
+  lib/ai/             # Claude prompts and streaming (server-only)
   lib/supabase/       # database/login helpers
   proxy.ts            # checks every request: are you the owner?
 supabase/migrations/  # database setup scripts (run in order)

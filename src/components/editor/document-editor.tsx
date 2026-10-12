@@ -1,0 +1,486 @@
+"use client";
+
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { CharacterCount, Placeholder } from "@tiptap/extensions";
+import { Markdown } from "@tiptap/markdown";
+import { EditorContent, type JSONContent, useEditor } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import {
+  ArrowLeft,
+  Check,
+  CloudOff,
+  Download,
+  FileDown,
+  FileText,
+  FileType,
+  History,
+  Loader2,
+  MessageCircle,
+  Sparkles,
+} from "lucide-react";
+import Link from "next/link";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { EDIT_ACTIONS, type EditAction, type Tone } from "@/lib/ai/actions";
+import type { Doc, Version } from "@/lib/docs";
+import { streamFetch } from "@/lib/stream";
+import { createClient } from "@/lib/supabase/client";
+import { AiBubbleMenu } from "./ai-menu";
+import { ChatPanel } from "./chat-panel";
+import { exportDocx, exportMarkdown, exportPdf } from "./export";
+import { HistoryPanel } from "./history-panel";
+import { type Suggestion, SuggestionCard } from "./suggestion-card";
+
+type SaveStatus = "saved" | "saving" | "unsaved" | "error";
+type AiRun = { action: EditAction; tone?: Tone; from: number; to: number; abort: AbortController };
+
+const hasContent = (c: JSONContent) => Array.isArray(c?.content) && c.content.length > 0;
+const isMac = () => typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.userAgent);
+
+export function DocumentEditor({ id }: { id: string }) {
+  const supabase = useMemo(() => createClient(), []);
+  const [doc, setDoc] = useState<Doc | null | "missing">(null);
+
+  useEffect(() => {
+    supabase
+      .from("documents")
+      .select("id,title,content,content_text,folder_id,word_count,updated_at")
+      .eq("id", id)
+      .maybeSingle()
+      .then(({ data }) => setDoc((data as Doc) ?? "missing"));
+  }, [supabase, id]);
+
+  if (doc === null) return <EditorSkeleton />;
+  if (doc === "missing") {
+    return (
+      <div className="flex min-h-[60dvh] flex-col items-center justify-center text-center">
+        <p className="font-display text-3xl">This document doesn’t exist.</p>
+        <Link href="/docs" className="mt-3 text-accent hover:underline">
+          Back to documents
+        </Link>
+      </div>
+    );
+  }
+  return <LoadedEditor doc={doc} supabase={supabase} />;
+}
+
+function LoadedEditor({ doc, supabase }: { doc: Doc; supabase: SupabaseClient }) {
+  const [title, setTitle] = useState(doc.title);
+  const titleRef = useRef(doc.title);
+  const [status, setStatus] = useState<SaveStatus>("saved");
+  const [panel, setPanel] = useState<null | "chat" | "history">(null);
+  const [exportOpen, setExportOpen] = useState(false);
+  const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
+  const [toast, setToast] = useState<{ message: string; undo?: boolean } | null>(null);
+  const aiRun = useRef<AiRun | null>(null);
+  const dirty = useRef(false);
+  const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  // Latest versions of callbacks, for handlers registered once (editor, timers).
+  const saveRef = useRef<() => Promise<void>>(async () => {});
+  const startRef = useRef<(action: EditAction) => void>(() => {});
+
+  const scheduleSave = useCallback(() => {
+    dirty.current = true;
+    setStatus("unsaved");
+    clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => saveRef.current(), 900);
+  }, []);
+
+  const editor = useEditor({
+    immediatelyRender: false,
+    extensions: [
+      StarterKit.configure({ link: { openOnClick: false, autolink: true } }),
+      Placeholder.configure({ placeholder: "Start writing… or press ⌘J and let AI keep going." }),
+      CharacterCount,
+      Markdown,
+    ],
+    content: hasContent(doc.content) ? doc.content : undefined,
+    editorProps: {
+      attributes: { class: "tiptap-doc", spellcheck: "true" },
+      handleKeyDown: (_view, event) => {
+        if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "j") {
+          event.preventDefault();
+          startRef.current("continue");
+          return true;
+        }
+        return false;
+      },
+    },
+    onUpdate: scheduleSave,
+  });
+
+  const plainText = useCallback(() => editor?.getText({ blockSeparator: "\n\n" }) ?? "", [editor]);
+
+  const save = useCallback(async () => {
+    clearTimeout(saveTimer.current);
+    if (!editor || !dirty.current) return;
+    dirty.current = false;
+    setStatus("saving");
+    const { error } = await supabase
+      .from("documents")
+      .update({
+        title: titleRef.current,
+        content: editor.getJSON(),
+        content_text: plainText(),
+        word_count: editor.storage.characterCount.words(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", doc.id);
+    if (error) {
+      dirty.current = true;
+      setStatus("error");
+      saveTimer.current = setTimeout(() => saveRef.current(), 5000);
+    } else {
+      setStatus(dirty.current ? "unsaved" : "saved");
+    }
+  }, [editor, supabase, doc.id, plainText]);
+
+  useEffect(() => {
+    saveRef.current = save;
+  }, [save]);
+
+  // Save right away when you switch apps or leave the page.
+  useEffect(() => {
+    const flush = () => document.visibilityState === "hidden" && saveRef.current();
+    document.addEventListener("visibilitychange", flush);
+    return () => {
+      document.removeEventListener("visibilitychange", flush);
+      saveRef.current();
+    };
+  }, []);
+
+  const snapshot = useCallback(
+    async (label: string) => {
+      if (!editor) return;
+      await supabase.from("document_versions").insert({
+        document_id: doc.id,
+        label,
+        title: titleRef.current,
+        content: editor.getJSON(),
+        content_text: plainText(),
+      });
+    },
+    [editor, supabase, doc.id, plainText],
+  );
+
+  // A snapshot each time you open a doc (at most once an hour).
+  useEffect(() => {
+    if (!editor || !doc.content_text) return;
+    supabase
+      .from("document_versions")
+      .select("created_at")
+      .eq("document_id", doc.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .then(({ data }) => {
+        const last = data?.[0]?.created_at;
+        if (!last || Date.now() - new Date(last).getTime() > 3_600_000) snapshot("Opened");
+      });
+  }, [editor, supabase, doc.id, doc.content_text, snapshot]);
+
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 6000);
+    return () => clearTimeout(t);
+  }, [toast]);
+
+  const start = useCallback(
+    async (action: EditAction, tone?: Tone, range?: { from: number; to: number }) => {
+      if (!editor) return;
+      const sel = range ?? editor.state.selection;
+      let text: string;
+      let from = sel.from;
+      const to = sel.to;
+      if (action === "continue") {
+        from = to;
+        text = editor.state.doc.textBetween(0, to, "\n\n");
+        if (!text.trim()) {
+          setToast({ message: "Write a sentence or two first, then I'll keep going." });
+          return;
+        }
+      } else {
+        if (from === to) return;
+        text = editor.state.doc.textBetween(from, to, "\n\n");
+      }
+
+      aiRun.current?.abort.abort();
+      const abort = new AbortController();
+      aiRun.current = { action, tone, from, to, abort };
+      setSuggestion({
+        label: action === "tone" ? `Tone: ${tone}` : EDIT_ACTIONS[action].label,
+        text: "",
+        status: "streaming",
+        canReplace: action !== "continue",
+      });
+
+      try {
+        const result = await streamFetch(
+          "/api/ai/edit",
+          { action, tone, text, document: editor.getMarkdown() },
+          (soFar) => setSuggestion((s) => s && { ...s, text: soFar }),
+          abort.signal,
+        );
+        setSuggestion((s) => s && { ...s, text: result.trim(), status: "done" });
+      } catch (e) {
+        if (abort.signal.aborted) {
+          setSuggestion((s) => s && { ...s, text: s.text.trim(), status: s.text.trim() ? "done" : "error" });
+        } else {
+          setSuggestion((s) => s && { ...s, text: (e as Error).message, status: "error" });
+        }
+      }
+    },
+    [editor],
+  );
+
+  useEffect(() => {
+    startRef.current = (action) => start(action);
+  }, [start]);
+
+  async function apply(mode: "replace" | "below") {
+    const run = aiRun.current;
+    if (!editor || !run || !suggestion) return;
+    await snapshot(`Before AI: ${suggestion.label}`);
+    if (mode === "replace") {
+      editor.chain().focus().insertContentAt({ from: run.from, to: run.to }, suggestion.text, { contentType: "markdown" }).run();
+    } else {
+      // Drop it in as new paragraphs right after the block you were in.
+      const $pos = editor.state.doc.resolve(Math.min(run.to, editor.state.doc.content.size));
+      const after = $pos.depth > 0 ? $pos.after(1) : run.to;
+      editor.chain().focus().insertContentAt(after, suggestion.text, { contentType: "markdown" }).run();
+    }
+    aiRun.current = null;
+    setSuggestion(null);
+    setToast({ message: "Done. Changed your mind?", undo: true });
+  }
+
+  function discard() {
+    aiRun.current?.abort.abort();
+    aiRun.current = null;
+    setSuggestion(null);
+  }
+
+  async function insertFromChat(markdown: string) {
+    if (!editor) return;
+    await snapshot("Before inserting from chat");
+    editor.chain().focus("end").insertContent(markdown, { contentType: "markdown" }).run();
+    setToast({ message: "Added to the end of your doc.", undo: true });
+  }
+
+  async function restore(v: Version) {
+    if (!editor) return;
+    await snapshot("Before restoring");
+    editor.commands.setContent(v.content);
+    titleRef.current = v.title;
+    setTitle(v.title);
+    scheduleSave();
+    setToast({ message: "Version restored." });
+  }
+
+  function onTitle(value: string) {
+    const clean = value.replace(/\n/g, " ");
+    setTitle(clean);
+    titleRef.current = clean;
+    scheduleSave();
+  }
+
+  async function runExport(kind: "md" | "docx" | "pdf") {
+    setExportOpen(false);
+    if (!editor) return;
+    if (kind === "md") exportMarkdown(titleRef.current, editor.getMarkdown());
+    if (kind === "docx") await exportDocx(titleRef.current, editor.getJSON());
+    if (kind === "pdf") exportPdf();
+  }
+
+  const words = editor?.storage.characterCount.words() ?? doc.word_count;
+  const shortcut = isMac() ? "⌘J" : "Ctrl+J";
+
+  return (
+    <div className="-mt-2">
+      {/* Top bar */}
+      <div className="sticky top-0 z-30 -mx-5 flex items-center gap-1 bg-[var(--bar)] px-3 py-2 backdrop-blur-xl print:hidden md:-mx-10 md:px-6">
+        <Link href="/docs" aria-label="Back to documents" className="rounded-full p-2 text-muted hover:bg-surface-strong hover:text-ink">
+          <ArrowLeft size={20} />
+        </Link>
+        <SaveBadge status={status} />
+        <div className="ml-auto flex items-center gap-1">
+          <IconButton label="Chat" active={panel === "chat"} onClick={() => setPanel(panel === "chat" ? null : "chat")}>
+            <MessageCircle size={19} />
+          </IconButton>
+          <IconButton label="History" active={panel === "history"} onClick={() => setPanel(panel === "history" ? null : "history")}>
+            <History size={19} />
+          </IconButton>
+          <div className="relative">
+            <IconButton label="Export" active={exportOpen} onClick={() => setExportOpen(!exportOpen)}>
+              <Download size={19} />
+            </IconButton>
+            {exportOpen && (
+              <>
+                <div className="fixed inset-0 z-30" onClick={() => setExportOpen(false)} />
+                <div className="bar absolute top-11 right-0 z-40 w-52 rounded-2xl p-1.5 text-sm shadow-xl">
+                  <ExportItem icon={<FileType size={16} />} onClick={() => runExport("docx")}>
+                    Word (.docx)
+                  </ExportItem>
+                  <ExportItem icon={<FileDown size={16} />} onClick={() => runExport("pdf")}>
+                    PDF
+                  </ExportItem>
+                  <ExportItem icon={<FileText size={16} />} onClick={() => runExport("md")}>
+                    Markdown (.md)
+                  </ExportItem>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Writing surface */}
+      <article className="mx-auto max-w-2xl pt-8 pb-48 md:pt-14">
+        <textarea
+          value={title}
+          onChange={(e) => onTitle(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              editor?.commands.focus("start");
+            }
+          }}
+          rows={1}
+          placeholder="Untitled"
+          aria-label="Title"
+          className="w-full resize-none bg-transparent font-display text-4xl leading-tight tracking-tight outline-none [field-sizing:content] placeholder:text-muted/50 sm:text-5xl"
+        />
+        <EditorContent editor={editor} className="mt-6" />
+      </article>
+
+      {editor && !suggestion && <AiBubbleMenu editor={editor} onAction={(a, t) => start(a, t)} />}
+
+      {/* Bottom dock */}
+      {!suggestion && (
+        <div className="fixed inset-x-0 bottom-0 z-30 flex justify-center px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] print:hidden md:left-64">
+          <div className="bar flex items-center gap-1 rounded-full p-1.5 shadow-lg">
+            <button
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => start("continue")}
+              className="bg-gradient-brand flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-white"
+            >
+              <Sparkles size={16} /> Continue writing
+              <kbd className="hidden rounded bg-white/20 px-1.5 text-[11px] md:inline">{shortcut}</kbd>
+            </button>
+            <span className="px-3 text-xs text-muted tabular-nums">{words} words</span>
+          </div>
+        </div>
+      )}
+
+      {suggestion && (
+        <SuggestionCard
+          suggestion={suggestion}
+          onAccept={() => apply("replace")}
+          onInsertBelow={() => apply("below")}
+          onRetry={() => {
+            const run = aiRun.current;
+            if (run) start(run.action, run.tone, { from: run.from, to: run.to });
+          }}
+          onDiscard={discard}
+          onStop={() => aiRun.current?.abort.abort()}
+        />
+      )}
+
+      {toast && !suggestion && (
+        <div className="fixed inset-x-0 bottom-20 z-40 flex justify-center px-4 print:hidden md:left-64">
+          <div className="flex items-center gap-3 rounded-full bg-ink py-2 pr-2 pl-4 text-sm text-bg shadow-xl animate-rise">
+            {toast.message}
+            {toast.undo && (
+              <button
+                onClick={() => {
+                  editor?.commands.undo();
+                  setToast(null);
+                }}
+                className="rounded-full bg-white/15 px-3 py-1 font-medium"
+              >
+                Undo
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {panel === "chat" && (
+        <ChatPanel
+          supabase={supabase}
+          documentId={doc.id}
+          getDocument={() => ({ title: titleRef.current, markdown: editor?.getMarkdown() ?? "" })}
+          onInsert={insertFromChat}
+          onClose={() => setPanel(null)}
+        />
+      )}
+      {panel === "history" && (
+        <HistoryPanel
+          supabase={supabase}
+          documentId={doc.id}
+          onSaveVersion={() => snapshot("Saved by you")}
+          onRestore={restore}
+          onClose={() => setPanel(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+function SaveBadge({ status }: { status: SaveStatus }) {
+  const map = {
+    saved: { icon: <Check size={14} />, text: "Saved" },
+    saving: { icon: <Loader2 size={14} className="animate-spin" />, text: "Saving…" },
+    unsaved: { icon: <span className="size-1.5 rounded-full bg-accent-3" />, text: "Editing" },
+    error: { icon: <CloudOff size={14} />, text: "Offline, retrying…" },
+  }[status];
+  return (
+    <span className={`flex items-center gap-1.5 px-2 text-xs ${status === "error" ? "text-rose-500" : "text-muted"}`}>
+      {map.icon}
+      {map.text}
+    </span>
+  );
+}
+
+function IconButton({
+  label,
+  active,
+  onClick,
+  children,
+}: {
+  label: string;
+  active?: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+      className={`rounded-full p-2.5 transition ${active ? "bg-surface-strong text-accent" : "text-muted hover:bg-surface-strong hover:text-ink"}`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function ExportItem({ icon, onClick, children }: { icon: React.ReactNode; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button onClick={onClick} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-surface-strong">
+      <span className="text-accent">{icon}</span>
+      {children}
+    </button>
+  );
+}
+
+export function EditorSkeleton() {
+  return (
+    <div className="mx-auto max-w-2xl animate-pulse pt-20">
+      <div className="h-12 w-2/3 rounded-xl bg-surface-strong" />
+      <div className="mt-8 space-y-3">
+        <div className="h-4 rounded bg-surface-strong" />
+        <div className="h-4 w-11/12 rounded bg-surface-strong" />
+        <div className="h-4 w-4/5 rounded bg-surface-strong" />
+      </div>
+    </div>
+  );
+}

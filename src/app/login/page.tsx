@@ -31,7 +31,7 @@ export default function LoginPage({ searchParams }: { searchParams: SearchParams
           Write, speak, and publish from anywhere. Welcome back.
         </p>
 
-        <div className="glass mt-10 rounded-3xl p-6 shadow-[0_20px_60px_-20px_rgba(80,60,180,0.25)] sm:p-8">
+        <div className="glass mt-10 rounded-3xl p-6 sm:p-8">
           <Suspense fallback={<LoginForm />}>
             <FormWithError searchParams={searchParams} />
           </Suspense>

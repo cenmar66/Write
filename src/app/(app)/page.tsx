@@ -5,14 +5,14 @@ import { Suspense } from "react";
 
 const ACTIONS = [
   {
-    href: "/docs",
+    href: "/docs/new",
     title: "Start a document",
     blurb: "A blank page with a brilliant co-writer.",
     Icon: FileText,
     tint: "from-violet-500/20 to-indigo-500/5",
   },
   {
-    href: "/docs",
+    href: "/docs/new",
     title: "Just talk",
     blurb: "Speak in English or Spanish. Get clean text back.",
     Icon: Mic,
@@ -70,10 +70,11 @@ export default function HomePage() {
           <Link
             key={title}
             href={href}
+            prefetch={href.endsWith("/new") ? false : undefined}
             style={{ animationDelay: `${120 + i * 70}ms` }}
-            className="glass group relative overflow-hidden rounded-3xl p-6 transition duration-300 animate-rise hover:-translate-y-1 hover:shadow-[0_24px_60px_-24px_rgba(80,60,180,0.35)]"
+            className="glass group relative overflow-hidden rounded-3xl p-6 transition duration-300 animate-rise hover:-translate-y-1 hover:shadow-[0_18px_40px_-20px_rgba(40,30,90,0.18)]"
           >
-            <div className={`absolute inset-0 bg-gradient-to-br ${tint} opacity-70 transition group-hover:opacity-100`} />
+            <div className={`absolute inset-0 bg-gradient-to-br ${tint} opacity-0 transition duration-300 group-hover:opacity-60 dark:opacity-60 dark:group-hover:opacity-100`} />
             <div className="relative flex items-start justify-between">
               <div className="grid size-12 place-items-center rounded-2xl bg-surface-strong shadow-sm">
                 <Icon size={22} className="text-accent" />

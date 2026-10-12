@@ -19,9 +19,17 @@ function useActive() {
 }
 
 export function Sidebar() {
-  const isActive = useActive();
+  return <SidebarView isActive={useActive()} />;
+}
+
+/** Same sidebar with nothing highlighted, shown while the URL is still loading. */
+export function SidebarFallback() {
+  return <SidebarView isActive={() => false} />;
+}
+
+function SidebarView({ isActive }: { isActive: (href: string) => boolean }) {
   return (
-    <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col p-4 md:flex">
+    <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col p-4 print:hidden md:flex">
       <div className="glass flex h-full flex-col rounded-3xl p-4">
         <Link href="/" className="px-2 py-3">
           <Wordmark />
@@ -50,6 +58,9 @@ export function Sidebar() {
 
 export function BottomNav() {
   const isActive = useActive();
+  const path = usePathname();
+  // Inside a document the editor's own dock takes over the bottom of the screen.
+  if (/^\/docs\/[^/]+$/.test(path)) return null;
   return (
     <nav
       className="bar fixed inset-x-3 bottom-3 z-40 flex justify-around rounded-3xl px-2 py-1.5 shadow-lg md:hidden"
