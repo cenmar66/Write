@@ -2,7 +2,7 @@
 
 Your personal AI writing studio: an AI document editor, social post templates, publishing, and voice dictation, all in one app for laptop, tablet, and phone.
 
-**Status:** Phase 1 (setup + login) ✅ · Phase 2 editor + AI ✅ · Phase 3 dictation · Phase 4 voice profile · Phase 5 social templates · Phase 6 publishing
+**Status:** Phase 1 (setup + login) ✅ · Phase 2 editor + AI ✅ · Phase 3 dictation ✅ · Phase 4 voice profile · Phase 5 social templates · Phase 6 publishing
 
 ---
 
@@ -68,6 +68,13 @@ The installed phone app can't open email links (they open in Safari/Chrome inste
 4. **API Keys → Create Key**: name it `write-ai` and copy it (it starts with `sk-ant-`). You only see it once.
 5. Keep it for the next step. Never paste it anywhere except Vercel.
 
+### 4b. Deepgram API key (voice dictation)
+
+1. Go to [console.deepgram.com](https://console.deepgram.com) and sign up. New accounts get $200 of free credit, which covers hundreds of hours of talking.
+2. Open your project → **API Keys** → **Create a New API Key**.
+3. Name it `write-ai`. Set the permission to **Member** (needed so the app can create short-lived keys for your browser) and the expiration to **Never**.
+4. Copy the key and add it in Vercel as `DEEPGRAM_API_KEY` (type **Secret**, all environments), then redeploy.
+
 ### 5. Vercel (put it online)
 
 1. Go to [vercel.com/new](https://vercel.com/new) → import the **cenmar66/write** GitHub repo.
@@ -79,6 +86,7 @@ The installed phone app can't open email links (they open in Safari/Chrome inste
    | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | your publishable key |
    | `ALLOWED_EMAIL` | `cenmarf@gmail.com` |
    | `ANTHROPIC_API_KEY` | your Claude API key |
+   | `DEEPGRAM_API_KEY` | your Deepgram API key |
 
    Added a variable after deploying? Go to **Deployments → ⋯ → Redeploy** so it takes effect.
 3. Click **Deploy**. You'll get a web address like `write-ai-xxxx.vercel.app`.
@@ -116,6 +124,15 @@ Inside the installed app, sign in with Google or with the 6-digit email code.
 - **Version history:** the clock icon. A snapshot is saved before every AI change, when you open a doc, and when you tap *Save now*. Tap any version to preview it and restore it.
 - **Export:** the download icon gives you Word, PDF (choose "Save as PDF" in the print window), or Markdown.
 
+## Voice dictation
+
+- **Start:** tap the black mic in the editor's bottom bar, or press **⌘ + Shift + Space** (Mac) / **Ctrl + Shift + Space** (Windows). Press the shortcut again to finish. On the home screen, **Just talk** opens a new doc ready to dictate.
+- **Talk naturally** in English, Spanish, or both. Your words appear live as you speak.
+- **When you stop,** the AI removes "um" and "uh", fixes punctuation, and keeps only your corrections ("Monday, no wait, Tuesday" becomes "Tuesday"). Pick **Cleaned up** or **Exactly as said**, then **Insert**. Tick **Skip this step next time** to insert the cleaned text straight away.
+- **Spoken formatting:** "new paragraph", "new line", "comma", "period", "make that a bullet list", "numbered list".
+- **Voice commands:** say only a command, like "rewrite that shorter", "fix the grammar", "make it more professional", "make that a heading", or "delete that". It acts on your highlighted text, or on what you just dictated.
+- **Phones:** works in Safari (iPhone/iPad) and Chrome (Android). The first time, allow microphone access when asked.
+
 ## Choosing the AI model
 
 Pick the model in **Settings → AI model**, or tap the little model name in the editor's bottom bar. Your choice is saved to your account, so it follows you to every device.
@@ -150,7 +167,7 @@ npm run dev                   # open http://localhost:3000
 | Vercel Pro | $20 |
 | Supabase Pro | $25 |
 | Claude API (normal personal use) | ~$5–20 (about 1–3¢ per AI edit, 2–5¢ per chat message) |
-| Deepgram (from Phase 3; ~10 hrs of talking) | ~$5, covered by the $200 free credit for a long time |
+| Deepgram (~10 hrs of talking) | ~$5, covered by the $200 free credit for a long time |
 | X / Twitter | $0 (we use a "copy + open X" button) |
 | **Total** | **~$50–70/mo** |
 
@@ -168,6 +185,8 @@ src/
     manifest.ts       # makes it installable as a phone app
   components/         # shared UI pieces (nav, logo, theme toggle)
   components/editor/  # the writing screen: AI menu, chat, history, export
+  components/dictation/ # the dictation panel
+  lib/dictation/      # microphone capture + live Deepgram transcription
   lib/ai/             # prompts, model list, and providers (Claude today, local AI later)
   lib/supabase/       # database/login helpers
   proxy.ts            # checks every request: are you the owner?

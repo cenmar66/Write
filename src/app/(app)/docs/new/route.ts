@@ -12,5 +12,6 @@ export async function GET(request: Request) {
     .select("id")
     .single();
   if (error || !data) return NextResponse.redirect(new URL("/docs?error=create", url));
-  return NextResponse.redirect(new URL(`/docs/${data.id}`, url));
+  const dictate = url.searchParams.get("dictate") === "1" ? "?dictate=1" : "";
+  return NextResponse.redirect(new URL(`/docs/${data.id}${dictate}`, url));
 }

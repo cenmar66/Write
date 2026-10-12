@@ -16,15 +16,18 @@ import {
   History,
   Loader2,
   MessageCircle,
+  Mic,
   Sparkles,
 } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { EDIT_ACTIONS, type EditAction, type Tone } from "@/lib/ai/actions";
+import type { DictationResult } from "@/lib/ai/dictation";
 import type { Doc, Version } from "@/lib/docs";
 import { streamFetch } from "@/lib/stream";
 import { createClient } from "@/lib/supabase/client";
 import { ModelChip } from "../model-picker";
+import { DictationPanel, type DictationPanelHandle } from "../dictation/dictation-panel";
 import { AiBubbleMenu } from "./ai-menu";
 import { ChatPanel } from "./chat-panel";
 import { exportDocx, exportMarkdown, exportPdf } from "./export";
@@ -37,7 +40,7 @@ type AiRun = { action: EditAction; tone?: Tone; from: number; to: number; abort:
 const hasContent = (c: JSONContent) => Array.isArray(c?.content) && c.content.length > 0;
 const isMac = () => typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.userAgent);
 
-export function DocumentEditor({ id }: { id: string }) {
+export function DocumentEditor({ id, autoDictate = false }: { id: string; autoDictate?: boolean }) {
   const supabase = useMemo(() => createClient(), []);
   const [doc, setDoc] = useState<Doc | null | "missing">(null);
 
@@ -61,10 +64,10 @@ export function DocumentEditor({ id }: { id: string }) {
       </div>
     );
   }
-  return <LoadedEditor doc={doc} supabase={supabase} />;
+  return <LoadedEditor doc={doc} supabase={supabase} autoDictate={autoDictate} />;
 }
 
-function LoadedEditor({ doc, supabase }: { doc: Doc; supabase: SupabaseClient }) {
+function LoadedEditor({ doc, supabase, autoDictate }: { doc: Doc; supabase: SupabaseClient; autoDictate: boolean }) {
   const [title, setTitle] = useState(doc.title);
   const titleRef = useRef(doc.title);
   const [status, setStatus] = useState<SaveStatus>("saved");
@@ -73,6 +76,11 @@ function LoadedEditor({ doc, supabase }: { doc: Doc; supabase: SupabaseClient })
   const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
   const [toast, setToast] = useState<{ message: string; undo?: boolean } | null>(null);
   const aiRun = useRef<AiRun | null>(null);
+  // Dictation: where to insert, and what was dictated last (for "rewrite that").
+  const [dictating, setDictating] = useState<null | { startNow: boolean }>(autoDictate ? { startNow: false } : null);
+  const dictationPanel = useRef<DictationPanelHandle>(null);
+  const dictationTarget = useRef<{ from: number; to: number } | null>(null);
+  const lastDictated = useRef<{ from: number; to: number } | null>(null);
   const dirty = useRef(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   // Latest versions of callbacks, for handlers registered once (editor, timers).
@@ -236,6 +244,76 @@ function LoadedEditor({ doc, supabase }: { doc: Doc; supabase: SupabaseClient })
     startRef.current = (action) => start(action);
   }, [start]);
 
+  const openDictation = useCallback(
+    (startNow: boolean) => {
+      if (editor) dictationTarget.current = { from: editor.state.selection.from, to: editor.state.selection.to };
+      setDictating({ startNow });
+    },
+    [editor],
+  );
+
+  // ⌘/Ctrl + Shift + Space: start dictating, press again to finish.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.code === "Space") {
+        e.preventDefault();
+        if (dictating) dictationPanel.current?.toggle();
+        else openDictation(true);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [dictating, openDictation]);
+
+  function insertDictation(markdown: string) {
+    if (!editor || !markdown.trim()) return;
+    const size = editor.state.doc.content.size;
+    const target = dictationTarget.current ?? { from: editor.state.selection.from, to: editor.state.selection.to };
+    const from = Math.min(target.from, size);
+    const to = Math.min(target.to, size);
+    // Add a space when continuing a sentence mid-paragraph.
+    const before = from > 1 ? editor.state.doc.textBetween(from - 1, from, "\n") : "";
+    const needsSpace = before !== "" && !/\s/.test(before) && !markdown.includes("\n");
+    editor.chain().focus().insertContentAt({ from, to }, (needsSpace ? " " : "") + markdown, { contentType: "markdown" }).run();
+    lastDictated.current = { from, to: editor.state.selection.to };
+  }
+
+  async function runVoiceCommand(result: Extract<DictationResult, { kind: "command" }>) {
+    if (!editor) return;
+    const size = editor.state.doc.content.size;
+    const sel = dictationTarget.current;
+    const last = lastDictated.current;
+    let range: { from: number; to: number };
+    if (sel && sel.from !== sel.to) range = sel;
+    else if (last && last.to <= size) range = last;
+    else {
+      // Fall back to the paragraph the cursor is in.
+      const $pos = editor.state.doc.resolve(Math.min(sel?.from ?? editor.state.selection.from, size));
+      range = $pos.depth > 0 ? { from: $pos.start(1), to: $pos.end(1) } : { from: 0, to: size };
+    }
+    const chain = () => editor.chain().focus().setTextSelection(range);
+    switch (result.command) {
+      case "bullets":
+        chain().toggleBulletList().run();
+        break;
+      case "numbered":
+        chain().toggleOrderedList().run();
+        break;
+      case "heading":
+        chain().toggleHeading({ level: 2 }).run();
+        break;
+      case "delete":
+        await snapshot("Before voice delete");
+        editor.chain().focus().deleteRange(range).run();
+        lastDictated.current = null;
+        break;
+      default:
+        start(result.command, result.tone, range);
+        return;
+    }
+    setToast({ message: `Voice command: ${result.command === "numbered" ? "numbered list" : result.command}`, undo: true });
+  }
+
   async function apply(mode: "replace" | "below") {
     const run = aiRun.current;
     if (!editor || !run || !suggestion) return;
@@ -355,21 +433,40 @@ function LoadedEditor({ doc, supabase }: { doc: Doc; supabase: SupabaseClient })
       {editor && !suggestion && <AiBubbleMenu editor={editor} onAction={(a, t) => start(a, t)} />}
 
       {/* Bottom dock */}
-      {!suggestion && (
+      {!suggestion && !dictating && (
         <div className="fixed inset-x-0 bottom-0 z-30 flex justify-center px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] print:hidden md:left-64">
           <div className="bar flex items-center gap-1 rounded-full p-1.5 shadow-lg">
+            <button
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => openDictation(true)}
+              aria-label="Dictate"
+              title={`Dictate (${isMac() ? "⌘" : "Ctrl"}+Shift+Space)`}
+              className="grid size-10 place-items-center rounded-full bg-ink text-bg transition hover:scale-105"
+            >
+              <Mic size={18} />
+            </button>
             <button
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => start("continue")}
               className="bg-gradient-brand flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-white"
             >
-              <Sparkles size={16} /> Continue writing
+              <Sparkles size={16} /> <span className="max-[380px]:hidden">Continue writing</span>
               <kbd className="hidden rounded bg-white/20 px-1.5 text-[11px] md:inline">{shortcut}</kbd>
             </button>
             <ModelChip />
             <span className="pr-3 text-xs text-muted tabular-nums">{words} words</span>
           </div>
         </div>
+      )}
+
+      {dictating && (
+        <DictationPanel
+          ref={dictationPanel}
+          startNow={dictating.startNow}
+          onInsert={insertDictation}
+          onCommand={runVoiceCommand}
+          onClose={() => setDictating(null)}
+        />
       )}
 
       {suggestion && (
@@ -386,7 +483,7 @@ function LoadedEditor({ doc, supabase }: { doc: Doc; supabase: SupabaseClient })
         />
       )}
 
-      {toast && !suggestion && (
+      {toast && !suggestion && !dictating && (
         <div className="fixed inset-x-0 bottom-20 z-40 flex justify-center px-4 print:hidden md:left-64">
           <div className="flex items-center gap-3 rounded-full bg-ink py-2 pr-2 pl-4 text-sm text-bg shadow-xl animate-rise">
             {toast.message}

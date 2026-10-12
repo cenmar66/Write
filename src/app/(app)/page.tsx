@@ -12,7 +12,7 @@ const ACTIONS = [
     tint: "from-violet-500/20 to-indigo-500/5",
   },
   {
-    href: "/docs/new",
+    href: "/docs/new?dictate=1",
     title: "Just talk",
     blurb: "Speak in English or Spanish. Get clean text back.",
     Icon: Mic,
@@ -70,7 +70,7 @@ export default function HomePage() {
           <Link
             key={title}
             href={href}
-            prefetch={href.endsWith("/new") ? false : undefined}
+            prefetch={href.startsWith("/docs/new") ? false : undefined}
             style={{ animationDelay: `${120 + i * 70}ms` }}
             className="glass group relative overflow-hidden rounded-3xl p-6 transition duration-300 animate-rise hover:-translate-y-1 hover:shadow-[0_18px_40px_-20px_rgba(40,30,90,0.18)]"
           >
