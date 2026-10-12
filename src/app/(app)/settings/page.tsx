@@ -1,5 +1,6 @@
 import { LogOut } from "lucide-react";
 import { Suspense } from "react";
+import { ModelList } from "@/components/model-picker";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { createClient } from "@/lib/supabase/server";
 
@@ -19,6 +20,11 @@ export default function SettingsPage() {
         <Row title="Appearance" hint="Light, dark, or follow your device.">
           <ThemeToggle />
         </Row>
+        <section className="glass rounded-3xl p-5 sm:p-6">
+          <h2 className="font-medium">AI model</h2>
+          <p className="mb-4 text-sm text-muted">Used for every AI action and chat. Switch anytime, on any device.</p>
+          <ModelList />
+        </section>
         <Row
           title="Account"
           hint={

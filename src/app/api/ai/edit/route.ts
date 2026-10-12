@@ -1,12 +1,12 @@
 import { EDIT_ACTIONS, TONES, type EditAction, type Tone } from "@/lib/ai/actions";
-import { requireOwner, streamText } from "@/lib/ai/claude";
+import { requireOwner, selectedModel, streamText } from "@/lib/ai/server";
 import { editPrompt } from "@/lib/ai/prompts";
 
 export const maxDuration = 120;
 
 export async function POST(request: Request) {
-  const denied = await requireOwner();
-  if (denied) return denied;
+  const auth = await requireOwner();
+  if ("denied" in auth) return auth.denied;
 
   const body = (await request.json()) as {
     action?: string;
@@ -28,6 +28,7 @@ export async function POST(request: Request) {
   });
 
   return streamText({
+    model: await selectedModel(auth.supabase),
     system,
     messages: [{ role: "user", content: user }],
     effort: "low",

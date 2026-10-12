@@ -32,7 +32,7 @@ You'll copy a few values between websites. Keep a notes file open to paste them 
    - **Project URL** (`https://xxxx.supabase.co`)
    - **Publishable key** (starts with `sb_publishable_`; older dashboards call it the **anon** key)
 3. Open **SQL Editor → New query**, paste everything from [`supabase/migrations/0001_lock_signups.sql`](supabase/migrations/0001_lock_signups.sql), and click **Run**. This is the "nobody but me" lock.
-4. Do the same with [`supabase/migrations/0002_documents.sql`](supabase/migrations/0002_documents.sql). This creates the tables for documents, folders, version history, and chat.
+4. Do the same with [`supabase/migrations/0002_documents.sql`](supabase/migrations/0002_documents.sql) (documents, folders, version history, chat) and then [`supabase/migrations/0003_user_settings.sql`](supabase/migrations/0003_user_settings.sql) (your app settings, like which AI model to use).
 
    > Whenever a new phase adds a file in `supabase/migrations/`, run it the same way, in number order.
 5. **Upgrade to Pro** (you chose this): **Organization → Billing → Upgrade**.
@@ -116,7 +116,20 @@ Inside the installed app, sign in with Google or with the 6-digit email code.
 - **Version history:** the clock icon. A snapshot is saved before every AI change, when you open a doc, and when you tap *Save now*. Tap any version to preview it and restore it.
 - **Export:** the download icon gives you Word, PDF (choose "Save as PDF" in the print window), or Markdown.
 
-The AI uses Claude Opus 5.5, Anthropic's current flagship model. To cut AI costs roughly in half, change `MODEL` in `src/lib/ai/claude.ts` to `claude-sonnet-5-5`.
+## Choosing the AI model
+
+Pick the model in **Settings → AI model**, or tap the little model name in the editor's bottom bar. Your choice is saved to your account, so it follows you to every device.
+
+| Model | Best for | Rough cost |
+|---|---|---|
+| Claude Opus 5.5 (default) | Best all-round writing | ~2¢ per edit |
+| Claude Sonnet 5.5 | Fast and sharp, half the price | ~1¢ per edit |
+| Claude Haiku 5.5 | Quick fixes, cheapest | a fraction of a cent |
+| Claude Fable 5.1 | Anthropic's most capable, premium price | ~5¢ per edit |
+
+If your Claude account can't use a model, the AI shows a plain message and you can switch to another one.
+
+**Local AI (later):** the app talks to AI through "providers" (`src/lib/ai/providers/`). Claude is one provider. A local model becomes a second provider file plus an entry in `src/lib/ai/models.ts`, and nothing else changes. One thing to know ahead of time: the app runs on Vercel's servers, so a model on your own computer has to be reachable from the internet (for example through a secure tunnel), or you run the app on that computer.
 
 ---
 
@@ -155,7 +168,7 @@ src/
     manifest.ts       # makes it installable as a phone app
   components/         # shared UI pieces (nav, logo, theme toggle)
   components/editor/  # the writing screen: AI menu, chat, history, export
-  lib/ai/             # Claude prompts and streaming (server-only)
+  lib/ai/             # prompts, model list, and providers (Claude today, local AI later)
   lib/supabase/       # database/login helpers
   proxy.ts            # checks every request: are you the owner?
 supabase/migrations/  # database setup scripts (run in order)

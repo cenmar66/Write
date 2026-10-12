@@ -1,4 +1,4 @@
-import { requireOwner, streamText } from "@/lib/ai/claude";
+import { requireOwner, selectedModel, streamText } from "@/lib/ai/server";
 import { chatSystem } from "@/lib/ai/prompts";
 
 export const maxDuration = 300;
@@ -6,8 +6,8 @@ export const maxDuration = 300;
 type ChatTurn = { role: "user" | "assistant"; content: string };
 
 export async function POST(request: Request) {
-  const denied = await requireOwner();
-  if (denied) return denied;
+  const auth = await requireOwner();
+  if ("denied" in auth) return auth.denied;
 
   const body = (await request.json()) as { title?: string; document?: string; messages?: ChatTurn[] };
   const messages = (body.messages ?? []).filter(
@@ -18,6 +18,7 @@ export async function POST(request: Request) {
   }
 
   return streamText({
+    model: await selectedModel(auth.supabase),
     system: chatSystem({ title: body.title ?? "", document: body.document ?? "" }),
     messages,
     effort: "medium",

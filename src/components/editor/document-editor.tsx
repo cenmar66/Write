@@ -24,6 +24,7 @@ import { EDIT_ACTIONS, type EditAction, type Tone } from "@/lib/ai/actions";
 import type { Doc, Version } from "@/lib/docs";
 import { streamFetch } from "@/lib/stream";
 import { createClient } from "@/lib/supabase/client";
+import { ModelChip } from "../model-picker";
 import { AiBubbleMenu } from "./ai-menu";
 import { ChatPanel } from "./chat-panel";
 import { exportDocx, exportMarkdown, exportPdf } from "./export";
@@ -365,7 +366,8 @@ function LoadedEditor({ doc, supabase }: { doc: Doc; supabase: SupabaseClient })
               <Sparkles size={16} /> Continue writing
               <kbd className="hidden rounded bg-white/20 px-1.5 text-[11px] md:inline">{shortcut}</kbd>
             </button>
-            <span className="px-3 text-xs text-muted tabular-nums">{words} words</span>
+            <ModelChip />
+            <span className="pr-3 text-xs text-muted tabular-nums">{words} words</span>
           </div>
         </div>
       )}
