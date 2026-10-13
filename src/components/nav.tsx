@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, FileText, Home, Settings, Sparkles } from "lucide-react";
+import { CalendarDays, Feather, FileText, Home, Settings, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Wordmark } from "./logo";
@@ -10,6 +10,7 @@ export const NAV = [
   { href: "/docs", label: "Docs", Icon: FileText },
   { href: "/posts", label: "Posts", Icon: Sparkles },
   { href: "/calendar", label: "Calendar", Icon: CalendarDays },
+  { href: "/voice", label: "Voice", Icon: Feather },
   { href: "/settings", label: "Settings", Icon: Settings },
 ];
 
@@ -70,7 +71,7 @@ export function BottomNav() {
         <Link
           key={href}
           href={href}
-          className={`flex min-w-14 flex-col items-center gap-0.5 rounded-2xl px-2 py-1.5 text-[11px] transition ${
+          className={`flex min-w-12 flex-col items-center gap-0.5 rounded-2xl px-1.5 py-1.5 text-[11px] transition ${
             isActive(href) ? "text-accent" : "text-muted"
           }`}
         >

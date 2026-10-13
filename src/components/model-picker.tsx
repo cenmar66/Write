@@ -1,34 +1,49 @@
 "use client";
 
-import { Check, ChevronUp, Cpu, Laptop } from "lucide-react";
+import { Check, ChevronUp, Cpu, Feather, Laptop } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { DEFAULT_MODEL, findModel, MODELS } from "@/lib/ai/models";
 import { createClient } from "@/lib/supabase/client";
+import { Switch } from "./switch";
 
 /** Reads and saves the chosen AI model (stored in Supabase, so it syncs across devices). */
 function useAiModel() {
   const supabase = useMemo(() => createClient(), []);
   const [modelId, setModelId] = useState<string | null>(null);
+  const [voice, setVoice] = useState<{ enabled: boolean; hasProfile: boolean }>({ enabled: true, hasProfile: false });
 
   useEffect(() => {
     supabase
       .from("user_settings")
-      .select("ai_model")
+      .select("ai_model,voice_enabled,voice_profile")
       .maybeSingle()
-      .then(({ data }) => setModelId(findModel(data?.ai_model ?? DEFAULT_MODEL).id));
+      .then(({ data }) => {
+        setModelId(findModel(data?.ai_model ?? DEFAULT_MODEL).id);
+        setVoice({ enabled: data?.voice_enabled ?? true, hasProfile: !!data?.voice_profile });
+      });
   }, [supabase]);
+
+  async function save(patch: Record<string, unknown>) {
+    const { data: session } = await supabase.auth.getSession();
+    const { error } = await supabase
+      .from("user_settings")
+      .upsert({ user_id: session.session?.user.id, ...patch, updated_at: new Date().toISOString() });
+    return !error;
+  }
 
   async function choose(id: string) {
     const previous = modelId;
     setModelId(id);
-    const { data: session } = await supabase.auth.getSession();
-    const { error } = await supabase
-      .from("user_settings")
-      .upsert({ user_id: session.session?.user.id, ai_model: id, updated_at: new Date().toISOString() });
-    if (error) setModelId(previous);
+    if (!(await save({ ai_model: id }))) setModelId(previous);
   }
 
-  return { model: modelId ? findModel(modelId) : null, choose };
+  async function setVoiceEnabled(enabled: boolean) {
+    setVoice((v) => ({ ...v, enabled }));
+    if (!(await save({ voice_enabled: enabled }))) setVoice((v) => ({ ...v, enabled: !enabled }));
+  }
+
+  return { model: modelId ? findModel(modelId) : null, choose, voice, setVoiceEnabled };
 }
 
 /** Full list for the Settings page. */
@@ -85,7 +100,7 @@ export function ModelList() {
 
 /** Small switcher for the editor's bottom dock. */
 export function ModelChip() {
-  const { model, choose } = useAiModel();
+  const { model, choose, voice, setVoiceEnabled } = useAiModel();
   const [open, setOpen] = useState(false);
 
   return (
@@ -98,6 +113,7 @@ export function ModelChip() {
       >
         <Cpu size={13} />
         {model?.short ?? "…"}
+        {voice.hasProfile && voice.enabled && <Feather size={12} className="text-accent" aria-label="Your voice is on" />}
         <ChevronUp size={13} />
       </button>
       {open && (
@@ -122,6 +138,18 @@ export function ModelChip() {
                 {model?.id === m.id && <Check size={15} className="text-accent" />}
               </button>
             ))}
+            <div className="my-1 h-px bg-line" />
+            {voice.hasProfile ? (
+              <label className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm">
+                <Feather size={15} className="text-accent" />
+                <span className="flex-1">Write in my voice</span>
+                <Switch label="Write in my voice" checked={voice.enabled} onChange={setVoiceEnabled} />
+              </label>
+            ) : (
+              <Link href="/voice" className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-muted hover:bg-surface-strong hover:text-ink">
+                <Feather size={15} /> Teach it your voice →
+              </Link>
+            )}
           </div>
         </>
       )}

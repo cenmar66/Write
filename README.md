@@ -2,7 +2,7 @@
 
 Your personal AI writing studio: an AI document editor, social post templates, publishing, and voice dictation, all in one app for laptop, tablet, and phone.
 
-**Status:** Phase 1 (setup + login) ✅ · Phase 2 editor + AI ✅ · Phase 3 dictation ✅ · Phase 4 voice profile · Phase 5 social templates · Phase 6 publishing
+**Status:** Phase 1 (setup + login) ✅ · Phase 2 editor + AI ✅ · Phase 3 dictation ✅ · Phase 4 voice profile ✅ · Phase 5 social templates · Phase 6 publishing
 
 ---
 
@@ -32,7 +32,7 @@ You'll copy a few values between websites. Keep a notes file open to paste them 
    - **Project URL** (`https://xxxx.supabase.co`)
    - **Publishable key** (starts with `sb_publishable_`; older dashboards call it the **anon** key)
 3. Open **SQL Editor → New query**, paste everything from [`supabase/migrations/0001_lock_signups.sql`](supabase/migrations/0001_lock_signups.sql), and click **Run**. This is the "nobody but me" lock.
-4. Do the same with [`supabase/migrations/0002_documents.sql`](supabase/migrations/0002_documents.sql) (documents, folders, version history, chat) and then [`supabase/migrations/0003_user_settings.sql`](supabase/migrations/0003_user_settings.sql) (your app settings, like which AI model to use).
+4. Do the same with [`supabase/migrations/0002_documents.sql`](supabase/migrations/0002_documents.sql) (documents, folders, version history, chat), then [`0003_user_settings.sql`](supabase/migrations/0003_user_settings.sql) (app settings, like which AI model to use), then [`0004_voice.sql`](supabase/migrations/0004_voice.sql) (writing samples and your voice profile).
 
    > Whenever a new phase adds a file in `supabase/migrations/`, run it the same way, in number order.
 5. **Upgrade to Pro** (you chose this): **Organization → Billing → Upgrade**.
@@ -133,6 +133,17 @@ Inside the installed app, sign in with Google or with the 6-digit email code.
 - **Voice commands:** say only a command, like "rewrite that shorter", "fix the grammar", "make it more professional", "make that a heading", or "delete that". It acts on your highlighted text, or on what you just dictated.
 - **Phones:** works in Safari (iPhone/iPad) and Chrome (Android). The first time, allow microphone access when asked.
 
+## Your writing voice
+
+Open **Voice** in the menu.
+
+1. **Add samples** of your own writing: paste text, upload `.txt`, `.md`, or `.docx` files, or pick from your documents. Aim for 1,500+ words across 3 to 10 pieces. English, Spanish, or both. (For PDFs, copy and paste the text.)
+2. **Build my voice:** the AI studies your samples and writes a profile covering tone, sentence style, word choice, formatting, how you mix languages, favorite phrases, words to avoid, and do's and don'ts.
+3. **Edit anything** by hand and tap **Save changes**.
+4. **Test drive:** paste something bland and tap **Rewrite in my voice**.
+
+Your voice is applied to every AI action and to chat replies. It's skipped for grammar fixes (those only fix mistakes) and for dictation cleanup (your exact words stay). Switch it off on the Voice page, or from the model menu in the editor's bottom bar. Rebuild the profile whenever you add new samples.
+
 ## Choosing the AI model
 
 Pick the model in **Settings → AI model**, or tap the little model name in the editor's bottom bar. Your choice is saved to your account, so it follows you to every device.
@@ -187,7 +198,7 @@ src/
   components/editor/  # the writing screen: AI menu, chat, history, export
   components/dictation/ # the dictation panel
   lib/dictation/      # microphone capture + live Deepgram transcription
-  lib/ai/             # prompts, model list, and providers (Claude today, local AI later)
+  lib/ai/             # prompts, model list, voice profile, and providers (Claude today, local AI later)
   lib/supabase/       # database/login helpers
   proxy.ts            # checks every request: are you the owner?
 supabase/migrations/  # database setup scripts (run in order)

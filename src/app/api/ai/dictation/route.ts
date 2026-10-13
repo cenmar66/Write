@@ -1,7 +1,7 @@
 import { TONES, type Tone } from "@/lib/ai/actions";
 import { DICTATION_SCHEMA, DICTATION_SYSTEM, type DictationResult, VOICE_COMMANDS, type VoiceCommand } from "@/lib/ai/dictation";
 import { PROVIDERS } from "@/lib/ai/providers";
-import { requireOwner, selectedModel } from "@/lib/ai/server";
+import { loadAiSettings, requireOwner } from "@/lib/ai/server";
 
 export const maxDuration = 60;
 
@@ -16,7 +16,8 @@ export async function POST(request: Request) {
     return Response.json({ error: "Nothing was said." }, { status: 400 });
   }
 
-  const model = await selectedModel(auth.supabase);
+  // Dictation keeps your exact words, so the voice profile isn't applied here.
+  const { model } = await loadAiSettings(auth.supabase);
   const provider = PROVIDERS[model.provider];
   try {
     const raw = (await provider.generateJson(

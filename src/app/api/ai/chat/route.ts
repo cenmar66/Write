@@ -1,4 +1,4 @@
-import { requireOwner, selectedModel, streamText } from "@/lib/ai/server";
+import { loadAiSettings, requireOwner, streamText } from "@/lib/ai/server";
 import { chatSystem } from "@/lib/ai/prompts";
 
 export const maxDuration = 300;
@@ -17,9 +17,10 @@ export async function POST(request: Request) {
     return Response.json({ error: "Bad request" }, { status: 400 });
   }
 
+  const { model, voice } = await loadAiSettings(auth.supabase);
   return streamText({
-    model: await selectedModel(auth.supabase),
-    system: chatSystem({ title: body.title ?? "", document: body.document ?? "" }),
+    model,
+    system: chatSystem({ title: body.title ?? "", document: body.document ?? "", voice }),
     messages,
     effort: "medium",
     maxTokens: 16000,

@@ -1,10 +1,5 @@
 import type { EditAction, Tone } from "./actions";
 
-/** Phase 4 fills this in with the voice profile. */
-export function voiceInstructions(): string {
-  return "";
-}
-
 const BASE = `You are the writing assistant inside Write.ai, a personal writing app.
 Always answer in the same language as the text you're working on (usually English or Spanish).
 Write in Markdown. Keep any formatting the original uses (headings, lists, bold).`;
@@ -22,8 +17,10 @@ export function editPrompt(opts: {
   text: string;
   document: string;
   tone?: Tone;
+  /** The author's voice instructions, or "" when the voice is off. Grammar fixes ignore it. */
+  voice: string;
 }): { system: string; user: string } {
-  const voice = voiceInstructions();
+  const voice = opts.action === "grammar" ? "" : opts.voice;
   const system = [
     BASE,
     "Reply with only the finished text. No introduction, no quotation marks around it, no explanation.",
@@ -48,14 +45,15 @@ export function editPrompt(opts: {
   return { system, user: `${instruction}\n\n<passage>\n${opts.text}\n</passage>` };
 }
 
-export function chatSystem(opts: { title: string; document: string }): string {
+export function chatSystem(opts: { title: string; document: string; voice: string }): string {
   return [
     BASE,
     `You're chatting with the author about their document "${opts.title || "Untitled"}".
 Help them brainstorm, give feedback, answer questions, and draft new passages.
 Be warm and direct. Keep replies short unless they ask for a full draft.
 When you write text meant to go into the document, write it ready to paste, with no extra commentary inside it.`,
-    voiceInstructions(),
+    opts.voice &&
+      `When you draft text for the document, write it in the author's voice:\n${opts.voice}`,
     `<document>\n${opts.document || "(The document is empty so far.)"}\n</document>`,
   ]
     .filter(Boolean)

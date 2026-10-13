@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { isAllowed } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 import { DEFAULT_MODEL, findModel, type ModelOption } from "./models";
+import { formatVoice, normalizeProfile } from "./voice";
 import { PROVIDERS } from "./providers";
 import type { TextRequest } from "./providers/types";
 
@@ -18,10 +19,16 @@ export async function requireOwner(): Promise<{ supabase: SupabaseClient } | { d
   return { supabase };
 }
 
-/** The model picked in Settings, or the default. */
-export async function selectedModel(supabase: SupabaseClient): Promise<ModelOption> {
-  const { data } = await supabase.from("user_settings").select("ai_model").maybeSingle();
-  return findModel(data?.ai_model ?? process.env.AI_MODEL ?? DEFAULT_MODEL);
+/** The model picked in Settings, plus your voice instructions when the voice is switched on. */
+export async function loadAiSettings(supabase: SupabaseClient): Promise<{ model: ModelOption; voice: string }> {
+  const { data } = await supabase
+    .from("user_settings")
+    .select("ai_model,voice_enabled,voice_profile")
+    .maybeSingle();
+  const model = findModel(data?.ai_model ?? process.env.AI_MODEL ?? DEFAULT_MODEL);
+  const voiceOn = data?.voice_enabled ?? true;
+  const voice = voiceOn && data?.voice_profile ? formatVoice(normalizeProfile(data.voice_profile)) : "";
+  return { model, voice };
 }
 
 /** Streams the model's reply back to the browser as plain text. */
