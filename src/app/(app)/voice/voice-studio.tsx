@@ -402,7 +402,7 @@ function ProfileEditor({ profile, onSave }: { profile: VoiceProfile; onSave: (p:
         <span className="text-xs text-muted">Edit anything. It’s yours.</span>
       </div>
 
-      <div className="mt-4 grid gap-4">
+      <div className="mt-4 grid grid-cols-1 gap-4">
         {TEXT_FIELDS.map(({ key, label, hint }) => (
           <label key={key} className="block">
             <span className="text-sm font-medium">{label}</span>
@@ -411,7 +411,7 @@ function ProfileEditor({ profile, onSave }: { profile: VoiceProfile; onSave: (p:
               value={draft[key] as string}
               onChange={(e) => set(key, e.target.value as never)}
               rows={key === "summary" ? 3 : 2}
-              className="mt-1.5 w-full resize-y rounded-xl bg-bg px-3 py-2 leading-relaxed ring-1 ring-line outline-none [field-sizing:content] focus:ring-2 focus:ring-accent"
+              className="mt-1.5 w-full resize-y rounded-xl bg-bg px-3 py-2 leading-relaxed ring-1 ring-line outline-none [field-sizing:content] [overflow-wrap:anywhere] focus:ring-2 focus:ring-accent"
             />
           </label>
         ))}

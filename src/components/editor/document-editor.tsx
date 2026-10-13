@@ -15,11 +15,13 @@ import {
   FileType,
   History,
   Loader2,
+  Megaphone,
   MessageCircle,
   Mic,
   Sparkles,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { EDIT_ACTIONS, type EditAction, type Tone } from "@/lib/ai/actions";
 import type { DictationResult } from "@/lib/ai/dictation";
@@ -75,6 +77,7 @@ function LoadedEditor({ doc, supabase, autoDictate }: { doc: Doc; supabase: Supa
   const [exportOpen, setExportOpen] = useState(false);
   const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
   const [toast, setToast] = useState<{ message: string; undo?: boolean } | null>(null);
+  const router = useRouter();
   const aiRun = useRef<AiRun | null>(null);
   // Dictation: where to insert, and what was dictated last (for "rewrite that").
   const [dictating, setDictating] = useState<null | { startNow: boolean }>(autoDictate ? { startNow: false } : null);
@@ -383,6 +386,15 @@ function LoadedEditor({ doc, supabase, autoDictate }: { doc: Doc; supabase: Supa
         <div className="ml-auto flex items-center gap-1">
           <IconButton label="Chat" active={panel === "chat"} onClick={() => setPanel(panel === "chat" ? null : "chat")}>
             <MessageCircle size={19} />
+          </IconButton>
+          <IconButton
+            label="Turn into social posts"
+            onClick={async () => {
+              await saveRef.current();
+              router.push(`/posts/repurpose?doc=${doc.id}&auto=1`);
+            }}
+          >
+            <Megaphone size={19} />
           </IconButton>
           <IconButton label="History" active={panel === "history"} onClick={() => setPanel(panel === "history" ? null : "history")}>
             <History size={19} />

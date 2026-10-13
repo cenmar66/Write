@@ -2,7 +2,7 @@
 
 Your personal AI writing studio: an AI document editor, social post templates, publishing, and voice dictation, all in one app for laptop, tablet, and phone.
 
-**Status:** Phase 1 (setup + login) ✅ · Phase 2 editor + AI ✅ · Phase 3 dictation ✅ · Phase 4 voice profile ✅ · Phase 5 social templates · Phase 6 publishing
+**Status:** Phase 1 (setup + login) ✅ · Phase 2 editor + AI ✅ · Phase 3 dictation ✅ · Phase 4 voice profile ✅ · Phase 5 social templates ✅ · Phase 6 publishing
 
 ---
 
@@ -32,7 +32,7 @@ You'll copy a few values between websites. Keep a notes file open to paste them 
    - **Project URL** (`https://xxxx.supabase.co`)
    - **Publishable key** (starts with `sb_publishable_`; older dashboards call it the **anon** key)
 3. Open **SQL Editor → New query**, paste everything from [`supabase/migrations/0001_lock_signups.sql`](supabase/migrations/0001_lock_signups.sql), and click **Run**. This is the "nobody but me" lock.
-4. Do the same with [`supabase/migrations/0002_documents.sql`](supabase/migrations/0002_documents.sql) (documents, folders, version history, chat), then [`0003_user_settings.sql`](supabase/migrations/0003_user_settings.sql) (app settings, like which AI model to use), then [`0004_voice.sql`](supabase/migrations/0004_voice.sql) (writing samples and your voice profile).
+4. Do the same with [`supabase/migrations/0002_documents.sql`](supabase/migrations/0002_documents.sql) (documents, folders, version history, chat), then [`0003_user_settings.sql`](supabase/migrations/0003_user_settings.sql) (app settings, like which AI model to use), then [`0004_voice.sql`](supabase/migrations/0004_voice.sql) (writing samples and your voice profile), then [`0005_posts.sql`](supabase/migrations/0005_posts.sql) (social posts and custom templates).
 
    > Whenever a new phase adds a file in `supabase/migrations/`, run it the same way, in number order.
 5. **Upgrade to Pro** (you chose this): **Organization → Billing → Upgrade**.
@@ -144,6 +144,28 @@ Open **Voice** in the menu.
 
 Your voice is applied to every AI action and to chat replies. It's skipped for grammar fixes (those only fix mistakes) and for dictation cleanup (your exact words stay). Switch it off on the Voice page, or from the model menu in the editor's bottom bar. Rebuild the profile whenever you add new samples.
 
+## Social posts
+
+Open **Posts** in the menu.
+
+- **Templates:** 17 proven formats in six groups: hooks, lists, stories, how-tos, threads, and carousels. Pick one, type or dictate your idea (the mic is in the idea box), choose platforms, and tap **Draft my posts**. You get one post per platform, each written for that platform.
+- **Platform rules built in:**
+
+  | Platform | Limit | Notes |
+  |---|---|---|
+  | LinkedIn | 3,000 characters | Only about 210 show before "see more"; the card shows you exactly what does |
+  | X | 280 per post | Links count as 23; threads supported |
+  | Threads | 500 per post | Threads supported |
+  | Facebook | 63,206 | Best under ~500 |
+  | Instagram | 2,200-character caption | Carousels supported; up to 5 hashtag suggestions |
+
+- **Edit freely:** the counter turns red when a post is too long. **Shorten to fit** trims it for you. Add or remove hashtags, edit thread posts and carousel slides, then **Copy** or **Save draft**.
+- **Repurpose a document:** pick a document, the platforms, and how many posts per platform, and get a set of posts with different angles. In the editor, the megaphone button does this in one click.
+- **Your own templates:** tap **New template**. Paste a post you love and tap **Fill in the template for me**, or write the structure yourself.
+- **Drafts** live in the Drafts tab. Scheduling and publishing come in Phase 6.
+
+Instagram's hashtag limit is in flux (30 per post on some accounts, 5 on newer ones), so the app suggests at most 5.
+
 ## Choosing the AI model
 
 Pick the model in **Settings → AI model**, or tap the little model name in the editor's bottom bar. Your choice is saved to your account, so it follows you to every device.
@@ -197,6 +219,8 @@ src/
   components/         # shared UI pieces (nav, logo, theme toggle)
   components/editor/  # the writing screen: AI menu, chat, history, export
   components/dictation/ # the dictation panel
+  components/social/  # post cards, platform picker, results grid
+  lib/social/         # platform rules, templates, post prompts
   lib/dictation/      # microphone capture + live Deepgram transcription
   lib/ai/             # prompts, model list, voice profile, and providers (Claude today, local AI later)
   lib/supabase/       # database/login helpers
