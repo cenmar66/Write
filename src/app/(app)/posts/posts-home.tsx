@@ -11,15 +11,28 @@ import { CATEGORIES, TEMPLATES, type TemplateCategory } from "@/lib/social/templ
 import { createClient } from "@/lib/supabase/client";
 
 type CustomTemplate = { id: string; name: string; description: string; structure: string; example: string; format: PostFormat };
-type DraftRow = { id: string; platform: PlatformId; format: PostFormat; content: string; parts: string[]; idea: string; updated_at: string };
+type DraftRow = {
+  id: string;
+  platform: PlatformId;
+  format: PostFormat;
+  content: string;
+  parts: string[];
+  idea: string;
+  status: "draft" | "scheduled" | "publishing" | "published" | "failed";
+  updated_at: string;
+  scheduled_at: string | null;
+  published_at: string | null;
+};
+type Tab = "templates" | "drafts" | "scheduled" | "published";
 
 export function PostsHome() {
   const supabase = useMemo(() => createClient(), []);
-  const [tab, setTab] = useState<"templates" | "drafts">("templates");
+  const [tab, setTab] = useState<Tab>("templates");
   const [category, setCategory] = useState<TemplateCategory | "all">("all");
   const [custom, setCustom] = useState<CustomTemplate[]>([]);
   const [drafts, setDrafts] = useState<DraftRow[] | null>(null);
   const [creating, setCreating] = useState(false);
+  const [now] = useState(() => Date.now());
 
   const loadCustom = useCallback(async () => {
     const { data } = await supabase.from("post_templates").select("id,name,description,structure,example,format").order("created_at", { ascending: false });
@@ -30,13 +43,19 @@ export function PostsHome() {
     loadCustom().then(setCustom);
     supabase
       .from("posts")
-      .select("id,platform,format,content,parts,idea,updated_at")
-      .eq("status", "draft")
+      .select("id,platform,format,content,parts,idea,status,updated_at,scheduled_at,published_at")
       .order("updated_at", { ascending: false })
-      .limit(100)
+      .limit(300)
       .then(({ data }) => setDrafts((data as DraftRow[]) ?? []));
   }, [supabase, loadCustom]);
 
+  const lists = {
+    drafts: drafts?.filter((d) => d.status === "draft"),
+    scheduled: drafts
+      ?.filter((d) => d.status === "scheduled" || d.status === "publishing" || d.status === "failed")
+      .sort((a, b) => (a.scheduled_at ?? "").localeCompare(b.scheduled_at ?? "")),
+    published: drafts?.filter((d) => d.status === "published").sort((a, b) => (b.published_at ?? "").localeCompare(a.published_at ?? "")),
+  };
   const builtIns = category === "all" ? TEMPLATES : TEMPLATES.filter((t) => t.category === category);
   const showCustom = category === "all" || category === "mine";
 
@@ -72,16 +91,20 @@ export function PostsHome() {
         </Link>
       </div>
 
-      <div className="mt-8 flex items-center gap-1 border-b border-line">
-        {(["templates", "drafts"] as const).map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`-mb-px border-b-2 px-4 py-2.5 text-sm transition ${tab === t ? "border-accent font-medium text-ink" : "border-transparent text-muted hover:text-ink"}`}
-          >
-            {t === "templates" ? "Templates" : `Drafts${drafts?.length ? ` (${drafts.length})` : ""}`}
-          </button>
-        ))}
+      <div className="mt-8 flex items-center gap-1 overflow-x-auto border-b border-line">
+        {(["templates", "drafts", "scheduled", "published"] as const).map((t) => {
+          const n = t === "templates" ? 0 : (lists[t]?.length ?? 0);
+          return (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={`-mb-px shrink-0 border-b-2 px-3 py-2.5 text-sm capitalize transition sm:px-4 ${tab === t ? "border-accent font-medium text-ink" : "border-transparent text-muted hover:text-ink"}`}
+            >
+              {t}
+              {n ? ` (${n})` : ""}
+            </button>
+          );
+        })}
       </div>
 
       {tab === "templates" && (
@@ -128,15 +151,16 @@ export function PostsHome() {
         </>
       )}
 
-      {tab === "drafts" && (
+      {tab !== "templates" && (
         <ul className="mt-4 space-y-2">
           {drafts === null && <li className="py-8 text-center text-muted"><Loader2 className="mx-auto animate-spin" /></li>}
-          {drafts?.length === 0 && (
+          {lists[tab]?.length === 0 && (
             <li className="py-12 text-center text-muted">
-              <Sparkles className="mx-auto mb-2 text-accent" /> No drafts yet. Pick a template and write your first post.
+              <Sparkles className="mx-auto mb-2 text-accent" />
+              {tab === "drafts" ? "No drafts yet. Pick a template and write your first post." : tab === "scheduled" ? "Nothing scheduled. Open a draft and pick a time." : "Nothing published yet."}
             </li>
           )}
-          {drafts?.map((d) => (
+          {lists[tab]?.map((d) => (
             <li key={d.id}>
               <Link href={`/posts/${d.id}`} className="glass flex items-center gap-3 rounded-2xl p-4 transition hover:-translate-y-0.5">
                 <PlatformBadge platform={d.platform} />
@@ -144,9 +168,17 @@ export function PostsHome() {
                   <span className="block truncate">{(d.content || d.parts[0] || "Empty").split("\n")[0]}</span>
                   <span className="text-xs text-muted">
                     {d.format !== "single" ? `${d.format === "thread" ? "Thread" : "Carousel"} · ` : ""}
-                    {timeAgo(d.updated_at)}
+                    {d.status === "scheduled" && d.scheduled_at
+                      ? `${d.platform === "x" ? "Reminder" : "Scheduled"} ${new Date(d.scheduled_at).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}`
+                      : d.status === "published" && d.published_at
+                        ? `Published ${timeAgo(d.published_at)}`
+                        : timeAgo(d.updated_at)}
                   </span>
                 </span>
+                {d.status === "failed" && <span className="rounded-full bg-rose-500/10 px-2 py-0.5 text-xs text-rose-600">Failed</span>}
+                {d.status === "scheduled" && d.platform === "x" && d.scheduled_at && new Date(d.scheduled_at).getTime() <= now && (
+                  <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-xs text-amber-700 dark:text-amber-300">Ready to post</span>
+                )}
                 <ArrowUpRight size={16} className="text-muted" />
               </Link>
             </li>

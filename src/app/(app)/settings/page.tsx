@@ -1,6 +1,8 @@
 import { LogOut } from "lucide-react";
 import { Suspense } from "react";
 import { ModelList } from "@/components/model-picker";
+import { BrandKitEditor } from "@/components/settings/brand-kit";
+import { ConnectedAccounts } from "@/components/settings/connected-accounts";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { createClient } from "@/lib/supabase/server";
 
@@ -25,6 +27,10 @@ export default function SettingsPage() {
           <p className="mb-4 text-sm text-muted">Used for every AI action and chat. Switch anytime, on any device.</p>
           <ModelList />
         </section>
+        <Suspense fallback={<div className="glass h-40 animate-pulse rounded-3xl" />}>
+          <ConnectedAccounts />
+        </Suspense>
+        <BrandKitEditor />
         <Row
           title="Account"
           hint={

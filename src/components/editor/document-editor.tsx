@@ -17,6 +17,7 @@ import {
   Loader2,
   Megaphone,
   MessageCircle,
+  Newspaper,
   Mic,
   Sparkles,
 } from "lucide-react";
@@ -34,6 +35,7 @@ import { AiBubbleMenu } from "./ai-menu";
 import { ChatPanel } from "./chat-panel";
 import { exportDocx, exportMarkdown, exportPdf } from "./export";
 import { HistoryPanel } from "./history-panel";
+import { SubstackPanel } from "./substack-panel";
 import { type Suggestion, SuggestionCard } from "./suggestion-card";
 
 type SaveStatus = "saved" | "saving" | "unsaved" | "error";
@@ -73,7 +75,7 @@ function LoadedEditor({ doc, supabase, autoDictate }: { doc: Doc; supabase: Supa
   const [title, setTitle] = useState(doc.title);
   const titleRef = useRef(doc.title);
   const [status, setStatus] = useState<SaveStatus>("saved");
-  const [panel, setPanel] = useState<null | "chat" | "history">(null);
+  const [panel, setPanel] = useState<null | "chat" | "history" | "substack">(null);
   const [exportOpen, setExportOpen] = useState(false);
   const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
   const [toast, setToast] = useState<{ message: string; undo?: boolean } | null>(null);
@@ -396,6 +398,9 @@ function LoadedEditor({ doc, supabase, autoDictate }: { doc: Doc; supabase: Supa
           >
             <Megaphone size={19} />
           </IconButton>
+          <IconButton label="Send to Substack" active={panel === "substack"} onClick={() => setPanel(panel === "substack" ? null : "substack")}>
+            <Newspaper size={19} />
+          </IconButton>
           <IconButton label="History" active={panel === "history"} onClick={() => setPanel(panel === "history" ? null : "history")}>
             <History size={19} />
           </IconButton>
@@ -522,6 +527,9 @@ function LoadedEditor({ doc, supabase, autoDictate }: { doc: Doc; supabase: Supa
           onInsert={insertFromChat}
           onClose={() => setPanel(null)}
         />
+      )}
+      {panel === "substack" && editor && (
+        <SubstackPanel supabase={supabase} documentId={doc.id} editor={editor} save={() => saveRef.current()} onClose={() => setPanel(null)} />
       )}
       {panel === "history" && (
         <HistoryPanel

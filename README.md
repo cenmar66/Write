@@ -2,7 +2,7 @@
 
 Your personal AI writing studio: an AI document editor, social post templates, publishing, and voice dictation, all in one app for laptop, tablet, and phone.
 
-**Status:** Phase 1 (setup + login) ✅ · Phase 2 editor + AI ✅ · Phase 3 dictation ✅ · Phase 4 voice profile ✅ · Phase 5 social templates ✅ · Phase 6 publishing
+**Status:** Phase 1 (setup + login) ✅ · Phase 2 editor + AI ✅ · Phase 3 dictation ✅ · Phase 4 voice profile ✅ · Phase 5 social templates ✅ · Phase 6 publishing ✅
 
 ---
 
@@ -32,7 +32,7 @@ You'll copy a few values between websites. Keep a notes file open to paste them 
    - **Project URL** (`https://xxxx.supabase.co`)
    - **Publishable key** (starts with `sb_publishable_`; older dashboards call it the **anon** key)
 3. Open **SQL Editor → New query**, paste everything from [`supabase/migrations/0001_lock_signups.sql`](supabase/migrations/0001_lock_signups.sql), and click **Run**. This is the "nobody but me" lock.
-4. Do the same with [`supabase/migrations/0002_documents.sql`](supabase/migrations/0002_documents.sql) (documents, folders, version history, chat), then [`0003_user_settings.sql`](supabase/migrations/0003_user_settings.sql) (app settings, like which AI model to use), then [`0004_voice.sql`](supabase/migrations/0004_voice.sql) (writing samples and your voice profile), then [`0005_posts.sql`](supabase/migrations/0005_posts.sql) (social posts and custom templates).
+4. Do the same with [`supabase/migrations/0002_documents.sql`](supabase/migrations/0002_documents.sql) (documents, folders, version history, chat), then [`0003_user_settings.sql`](supabase/migrations/0003_user_settings.sql) (app settings, like which AI model to use), then [`0004_voice.sql`](supabase/migrations/0004_voice.sql) (writing samples and your voice profile), then [`0005_posts.sql`](supabase/migrations/0005_posts.sql) (social posts and custom templates), then [`0006_publishing.sql`](supabase/migrations/0006_publishing.sql) (connected accounts, media storage, brand kit).
 
    > Whenever a new phase adds a file in `supabase/migrations/`, run it the same way, in number order.
 5. **Upgrade to Pro** (you chose this): **Organization → Billing → Upgrade**.
@@ -162,9 +162,72 @@ Open **Posts** in the menu.
 - **Edit freely:** the counter turns red when a post is too long. **Shorten to fit** trims it for you. Add or remove hashtags, edit thread posts and carousel slides, then **Copy** or **Save draft**.
 - **Repurpose a document:** pick a document, the platforms, and how many posts per platform, and get a set of posts with different angles. In the editor, the megaphone button does this in one click.
 - **Your own templates:** tap **New template**. Paste a post you love and tap **Fill in the template for me**, or write the structure yourself.
-- **Drafts** live in the Drafts tab. Scheduling and publishing come in Phase 6.
+- **Drafts, Scheduled, Published** tabs keep everything organized.
 
 Instagram's hashtag limit is in flux (30 per post on some accounts, 5 on newer ones), so the app suggests at most 5.
+
+## Publishing and scheduling
+
+Open any saved post (Posts → Drafts) to publish it:
+
+- **Post now** sends it right away. **Schedule** picks a date and time; the app checks every 5 minutes and sends anything due.
+- **Media:** add photos or a video, tap **Make a quote card** (uses your brand kit), or **Turn slides into images** for carousels. Instagram needs at least one image or video: 1 image = photo post, 2 to 10 = carousel, 1 video = Reel.
+- **X** stays manual: **Copy & open X** copies your post and opens X ready to paste. "Scheduling" an X post sets a reminder; when it's due it shows **Ready to post**.
+- **Calendar:** week and month views of everything scheduled, published, or failed. Tap any post to open it.
+- **If something fails,** the post is marked **Failed** with the reason, and you can tap **Try again**. If an account's login expired, Settings shows **Reconnect**.
+
+**Substack:** in any document, tap the newspaper icon. The AI suggests a title, subtitle, preview text, and a teaser Note. Then either **Create Substack draft** (lands in your Substack drafts; you publish from Substack) or **Copy formatted + open Substack** (paste into a new post). Substack has no official API, so drafts use your login cookie (stored encrypted). Notes can't be drafted through any API, so the Note is copied and Substack Notes opens.
+
+| Platform | How it posts | Cost | Notes |
+|---|---|---|---|
+| LinkedIn | Automatic | Free | Personal profile works right away; company page after LinkedIn approves your app |
+| Facebook Page | Automatic | Free | One login connects Facebook and Instagram |
+| Instagram | Automatic | Free | Business or Creator account linked to a Facebook Page. About 50 to 100 API posts per day |
+| Threads | Automatic | Free | Up to 250 posts per day; login refreshes itself |
+| X | Copy + open | Free | X's posting API is paid, so it's done by hand |
+| Substack | Drafts only | Free | Unofficial; copy backup always works |
+
+### Setup for publishing (one time, about 45 minutes)
+
+**A. Three new settings in Vercel** (Settings → Environment Variables, type **Secret**, all environments, then redeploy):
+
+| Name | What to put |
+|---|---|
+| `ENCRYPTION_KEY` | A long random password (40+ characters) from your password manager. **Never change it** later, or saved connections stop working. |
+| `CRON_SECRET` | Another long random password. Vercel uses it when running the scheduler. |
+| `SUPABASE_SECRET_KEY` | Supabase → Project Settings → API Keys → **Secret keys** → create one (starts with `sb_secret_`). |
+
+The scheduler itself is already set up in `vercel.json` (every 5 minutes, included in Vercel Pro).
+
+**B. Instagram + Facebook** (one Meta app, one login):
+
+1. **Make Instagram a professional account:** Instagram app → your profile → ☰ menu → **Settings and activity** → **Account type and tools** → **Switch to professional account** → choose a category → **Business** (or Creator).
+2. **Have a Facebook Page:** if you don't have one, create it at facebook.com/pages/create.
+3. **Link them:** on Facebook, open your Page → **Settings** → **Linked accounts** → **Instagram** → **Connect** and sign in to Instagram.
+4. **Create the Meta app:** go to developers.facebook.com → **My Apps** → **Create app**. Name it `Write.ai`. When asked for use cases, pick the ones for **managing your Facebook Page** and **managing content on Instagram** (Meta renames these often; choose the closest match). If asked for an app type, choose **Business**.
+5. In the app: **App settings → Basic** → copy **App ID** and **App secret** into Vercel as `META_APP_ID` and `META_APP_SECRET`.
+6. Open **Facebook Login** (or "Facebook Login for Business") → **Settings** → under **Valid OAuth Redirect URIs** add `https://YOUR-APP.vercel.app/api/connect/meta/callback` → **Save**.
+7. Leave the app in **Development** mode. Because you're the app's admin, it works with your own Page and Instagram without Meta's App Review.
+8. Redeploy, then in Write.ai: **Settings → Connected accounts → Connect with Facebook**, approve everything, and choose your Page.
+
+**C. Threads** (same Meta app):
+
+1. In your Meta app, add the use case **Access the Threads API**.
+2. In its **Settings**, copy the **Threads app ID** and **Threads app secret** (they're different from the main app's) into Vercel as `THREADS_APP_ID` and `THREADS_APP_SECRET`.
+3. Under **Redirect callback URLs** add `https://YOUR-APP.vercel.app/api/connect/threads/callback`.
+4. **App roles → Roles → Add people → Threads Tester**: add your Threads username. Then accept the invite in the Threads app: profile → ☰ → **Account** → **Website permissions** → **Invites**.
+5. Redeploy, then **Settings → Connect** next to Threads.
+
+**D. LinkedIn:**
+
+1. Go to linkedin.com/developers/apps → **Create app**. It must be associated with your **LinkedIn Company Page**.
+2. **Products** tab: add **Sign In with LinkedIn using OpenID Connect** and **Share on LinkedIn** (both approved instantly).
+3. **Auth** tab: copy **Client ID** and **Primary Client Secret** into Vercel as `LINKEDIN_CLIENT_ID` and `LINKEDIN_CLIENT_SECRET`. Under **Authorized redirect URLs** add `https://YOUR-APP.vercel.app/api/connect/linkedin/callback`.
+4. Redeploy and **Connect** LinkedIn. You can post to your **personal profile** right away.
+5. **Company page posting:** in **Products**, request **Community Management API** and complete LinkedIn's form (business details and verification; approval can take a few weeks). LinkedIn sometimes requires this product to live on its own separate app; if so, create a second app and use its Client ID and Secret instead. Once approved, set `LINKEDIN_ORGANIZATION_POSTING` to `true` in Vercel, redeploy, reconnect LinkedIn, and choose your company under **Post as**.
+6. LinkedIn logins last about 60 days. When Settings says **Reconnect**, tap it.
+
+**E. Substack:** Settings → Connected accounts → Substack → **Connect**. The form explains how to copy your `substack.sid` cookie.
 
 ## Choosing the AI model
 
@@ -202,6 +265,7 @@ npm run dev                   # open http://localhost:3000
 | Claude API (normal personal use) | ~$5–20 (about 1–3¢ per AI edit, 2–5¢ per chat message) |
 | Deepgram (~10 hrs of talking) | ~$5, covered by the $200 free credit for a long time |
 | X / Twitter | $0 (we use a "copy + open X" button) |
+| LinkedIn, Facebook, Instagram, Threads, Substack | $0 |
 | **Total** | **~$50–70/mo** |
 
 ---
@@ -220,7 +284,9 @@ src/
   components/editor/  # the writing screen: AI menu, chat, history, export
   components/dictation/ # the dictation panel
   components/social/  # post cards, platform picker, results grid
-  lib/social/         # platform rules, templates, post prompts
+  lib/social/         # platform rules, templates, post prompts, quote cards
+  lib/publish/        # posting to LinkedIn, Facebook, Instagram, Threads, Substack (server-only)
+  app/api/cron/       # the scheduler Vercel runs every 5 minutes
   lib/dictation/      # microphone capture + live Deepgram transcription
   lib/ai/             # prompts, model list, voice profile, and providers (Claude today, local AI later)
   lib/supabase/       # database/login helpers

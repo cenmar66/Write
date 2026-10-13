@@ -1,13 +1,17 @@
-import { CalendarDays } from "lucide-react";
-import { ComingSoon } from "@/components/coming-soon";
+import { connection } from "next/server";
+import { Suspense } from "react";
+import { ContentCalendar } from "./content-calendar";
+
+// The calendar depends on today's date, so it renders at request time.
+async function Live() {
+  await connection();
+  return <ContentCalendar />;
+}
 
 export default function CalendarPage() {
   return (
-    <ComingSoon
-      Icon={CalendarDays}
-      title="Calendar"
-      phase={6}
-      blurb="See your whole week of content at a glance, then let it publish itself."
-    />
+    <Suspense fallback={<div className="glass h-96 animate-pulse rounded-3xl" />}>
+      <Live />
+    </Suspense>
   );
 }
