@@ -3,6 +3,7 @@
 import { ArrowRight, Loader2, Mail } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { explainAuthError } from "@/lib/auth-errors";
 import { createClient } from "@/lib/supabase/client";
 
 export function LoginForm({ initialError }: { initialError?: string }) {
@@ -13,7 +14,13 @@ export function LoginForm({ initialError }: { initialError?: string }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(initialError);
 
-  const supabase = createClient();
+  // A missing or malformed Supabase URL would otherwise crash the page.
+  let supabase: ReturnType<typeof createClient>;
+  try {
+    supabase = createClient();
+  } catch (e) {
+    return <p role="alert" className="rounded-xl bg-rose-500/10 px-4 py-3 text-center text-sm text-rose-600">{explainAuthError((e as Error).message)}</p>;
+  }
   const callback = () => `${window.location.origin}/auth/callback`;
 
   async function google() {
@@ -23,7 +30,7 @@ export function LoginForm({ initialError }: { initialError?: string }) {
       options: { redirectTo: callback() },
     });
     if (error) {
-      setError(error.message);
+      setError(explainAuthError(error.message));
       setBusy(false);
     }
   }
@@ -37,7 +44,7 @@ export function LoginForm({ initialError }: { initialError?: string }) {
       options: { emailRedirectTo: callback() },
     });
     setBusy(false);
-    if (error) setError("Couldn't send the email. Is that the right address?");
+    if (error) setError(explainAuthError(error.message));
     else setStep("code");
   }
 
@@ -53,7 +60,7 @@ export function LoginForm({ initialError }: { initialError?: string }) {
       type: "email",
     });
     if (error) {
-      setError("That code didn't work. Check the latest email.");
+      setError(explainAuthError(error.message));
       setBusy(false);
     } else {
       router.replace("/");
