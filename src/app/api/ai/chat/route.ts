@@ -9,7 +9,7 @@ export async function POST(request: Request) {
   const auth = await requireOwner();
   if ("denied" in auth) return auth.denied;
 
-  const body = (await request.json()) as { title?: string; document?: string; messages?: ChatTurn[] };
+  const body = (await request.json()) as { title?: string; document?: string; messages?: ChatTurn[]; documentId?: string };
   const messages = (body.messages ?? []).filter(
     (m) => (m.role === "user" || m.role === "assistant") && typeof m.content === "string" && m.content,
   );
@@ -17,7 +17,7 @@ export async function POST(request: Request) {
     return Response.json({ error: "Bad request" }, { status: 400 });
   }
 
-  const { model, voice } = await loadAiSettings(auth.supabase);
+  const { model, voice } = await loadAiSettings(auth.supabase, { documentId: body.documentId });
   return streamText({
     model,
     system: chatSystem({ title: body.title ?? "", document: body.document ?? "", voice }),

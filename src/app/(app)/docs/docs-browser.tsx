@@ -1,18 +1,28 @@
 "use client";
 
-import { FileText, FolderInput, FolderPlus, MoreHorizontal, Plus, Search, Trash2, X } from "lucide-react";
+import { FileDown, FileText, FolderInput, FolderPlus, Loader2, MoreHorizontal, Plus, RotateCcw, Search, Trash2, X } from "lucide-react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type DocSummary, type Folder, timeAgo } from "@/lib/docs";
+import { IMPORT_ACCEPT, importFiles } from "@/lib/import-docs";
 import { createClient } from "@/lib/supabase/client";
 
 export function DocsBrowser() {
   const supabase = useMemo(() => createClient(), []);
   const [docs, setDocs] = useState<DocSummary[] | null>(null);
   const [folders, setFolders] = useState<Folder[]>([]);
-  const [folder, setFolder] = useState<string | "all">("all");
+  const router = useRouter();
+  const params = useSearchParams();
+  const trashView = params.get("view") === "trash";
+  const folder: string | "all" = params.get("folder") ?? "all";
+  const setFolder = (f: string | "all") => router.replace(f === "all" ? "/docs" : `/docs?folder=${f}`);
   const [query, setQuery] = useState("");
   const [menuFor, setMenuFor] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  const importInput = useRef<HTMLInputElement>(null);
+  const foldersChanged = () => window.dispatchEvent(new Event("folders-changed"));
 
   const load = useCallback(async () => {
     let q = supabase
@@ -20,7 +30,8 @@ export function DocsBrowser() {
       .select("id,title,content_text,folder_id,word_count,updated_at")
       .order("updated_at", { ascending: false })
       .limit(200);
-    if (folder !== "all") q = q.eq("folder_id", folder);
+    q = trashView ? q.not("deleted_at", "is", null) : q.is("deleted_at", null);
+    if (folder !== "all" && !trashView) q = q.eq("folder_id", folder);
     const term = query.trim().replace(/[%,()]/g, " ");
     if (term) q = q.or(`title.ilike.%${term}%,content_text.ilike.%${term}%`);
     const [{ data: d }, { data: f }] = await Promise.all([
@@ -29,7 +40,7 @@ export function DocsBrowser() {
     ]);
     setDocs(d ?? []);
     setFolders(f ?? []);
-  }, [supabase, folder, query]);
+  }, [supabase, folder, query, trashView]);
 
   useEffect(() => {
     const t = setTimeout(load, query ? 250 : 0);
@@ -40,15 +51,15 @@ export function DocsBrowser() {
     const name = prompt("Folder name")?.trim();
     if (!name) return;
     const { data } = await supabase.from("folders").insert({ name }).select("id").single();
+    foldersChanged();
     if (data) setFolder(data.id);
-    load();
   }
 
   async function deleteFolder(id: string) {
     if (!confirm("Delete this folder? Documents inside are kept.")) return;
     await supabase.from("folders").delete().eq("id", id);
+    foldersChanged();
     setFolder("all");
-    load();
   }
 
   async function moveDoc(id: string, folderId: string | null) {
@@ -59,9 +70,45 @@ export function DocsBrowser() {
 
   async function deleteDoc(id: string) {
     setMenuFor(null);
-    if (!confirm("Delete this document? This can't be undone.")) return;
+    await supabase.from("documents").update({ deleted_at: new Date().toISOString() }).eq("id", id);
+    setNotice("Moved to Trash.");
+    load();
+  }
+
+  async function restoreDoc(id: string) {
+    await supabase.from("documents").update({ deleted_at: null }).eq("id", id);
+    load();
+  }
+
+  async function deleteForever(id: string) {
+    if (!confirm("Delete this document forever? This can't be undone.")) return;
     await supabase.from("documents").delete().eq("id", id);
     load();
+  }
+
+  async function emptyTrash() {
+    if (!confirm("Empty the trash? Everything in it is deleted forever.")) return;
+    await supabase.from("documents").delete().not("deleted_at", "is", null);
+    load();
+  }
+
+  async function onImport(files: FileList | null) {
+    if (!files?.length) return;
+    setImporting(true);
+    setNotice(null);
+    try {
+      const { ids, skipped } = await importFiles(supabase, Array.from(files), { folderId: folder === "all" ? null : folder });
+      setNotice(
+        [ids.length && `Imported ${ids.length === 1 ? "1 document" : `${ids.length} documents`}.`, skipped.length && `Skipped ${skipped.join(", ")} (use .txt, .md, .docx, or .html).`]
+          .filter(Boolean)
+          .join(" "),
+      );
+      load();
+    } catch (e) {
+      setNotice((e as Error).message);
+    }
+    setImporting(false);
+    if (importInput.current) importInput.current.value = "";
   }
 
   const folderName = (id: string | null) => folders.find((f) => f.id === id)?.name;
@@ -71,9 +118,23 @@ export function DocsBrowser() {
     <div className="animate-rise">
       <header className="flex items-end justify-between gap-4">
         <div>
-          <h1 className="font-display text-4xl tracking-tight sm:text-5xl">Documents</h1>
-          <p className="mt-1 text-muted">Everything you’ve written, in one place.</p>
+          <h1 className="font-display text-4xl tracking-tight sm:text-5xl">{trashView ? "Trash" : folder !== "all" ? (folderName(folder) ?? "Folder") : "Documents"}</h1>
+          <p className="mt-1 text-muted">{trashView ? "Deleted documents wait here until you empty the trash." : "Everything you’ve written, in one place."}</p>
         </div>
+        {trashView ? (
+          <button onClick={emptyTrash} disabled={!docs?.length} className="flex shrink-0 items-center gap-2 rounded-full px-4 py-2.5 text-sm text-rose-500 ring-1 ring-line transition hover:bg-surface-strong disabled:opacity-40">
+            <Trash2 size={16} /> Empty trash
+          </button>
+        ) : (
+        <div className="flex shrink-0 items-center gap-2">
+        <button
+          onClick={() => importInput.current?.click()}
+          disabled={importing}
+          className="flex items-center gap-2 rounded-full px-4 py-2.5 text-sm ring-1 ring-line transition hover:bg-surface-strong disabled:opacity-60"
+        >
+          {importing ? <Loader2 size={16} className="animate-spin" /> : <FileDown size={16} />} Import
+        </button>
+        <input ref={importInput} type="file" multiple accept={IMPORT_ACCEPT} className="hidden" onChange={(e) => onImport(e.target.files)} />
         <Link
           href={newHref}
           prefetch={false}
@@ -81,11 +142,16 @@ export function DocsBrowser() {
         >
           <Plus size={17} /> New
         </Link>
+        </div>
+        )}
       </header>
+
+      {notice && <p role="status" className="mt-4 rounded-2xl bg-surface-strong px-4 py-3 text-sm">{notice}</p>}
 
       <label className="glass mt-8 flex items-center gap-3 rounded-2xl px-4 py-3">
         <Search size={18} className="text-muted" />
         <input
+          autoFocus={params.get("search") === "1"}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search your writing"
@@ -98,7 +164,7 @@ export function DocsBrowser() {
         )}
       </label>
 
-      <div className="-mx-5 mt-4 flex gap-2 overflow-x-auto px-5 pb-1 md:mx-0 md:flex-wrap md:px-0">
+      {!trashView && <div className="-mx-5 mt-4 flex gap-2 overflow-x-auto px-5 pb-1 md:mx-0 md:flex-wrap md:px-0">
         <Chip active={folder === "all"} onClick={() => setFolder("all")}>
           All
         </Chip>
@@ -121,7 +187,7 @@ export function DocsBrowser() {
             <Trash2 size={14} /> Delete folder
           </button>
         )}
-      </div>
+      </div>}
 
       <section className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {docs === null &&
@@ -135,9 +201,9 @@ export function DocsBrowser() {
               <FileText className="text-accent" />
             </div>
             <p className="mt-4 font-display text-2xl">
-              {query ? "Nothing matches that." : "A blank page awaits."}
+              {query ? "Nothing matches that." : trashView ? "The trash is empty." : "A blank page awaits."}
             </p>
-            {!query && (
+            {!query && !trashView && (
               <Link href={newHref} prefetch={false} className="mt-2 text-accent hover:underline">
                 Start your first document
               </Link>
@@ -175,7 +241,10 @@ export function DocsBrowser() {
             >
               <MoreHorizontal size={18} />
             </button>
-            {menuFor === d.id && (
+            {menuFor === d.id && trashView && (
+              <TrashMenu onRestore={() => restoreDoc(d.id)} onDelete={() => deleteForever(d.id)} onClose={() => setMenuFor(null)} />
+            )}
+            {menuFor === d.id && !trashView && (
               <DocMenu
                 folders={folders}
                 current={d.folder_id}
@@ -241,7 +310,28 @@ function DocMenu({
         ))}
       <div className="my-1 h-px bg-line" />
       <MenuItem onClick={onDelete} danger>
-        <Trash2 size={14} /> Delete
+        <Trash2 size={14} /> Move to trash
+      </MenuItem>
+    </div>
+  );
+}
+
+function TrashMenu({ onRestore, onDelete, onClose }: { onRestore: () => void; onDelete: () => void; onClose: () => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const close = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) onClose();
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [onClose]);
+  return (
+    <div ref={ref} className="bar absolute top-12 right-3 z-30 w-52 rounded-2xl p-1.5 text-sm shadow-xl">
+      <MenuItem onClick={onRestore}>
+        <RotateCcw size={14} /> Restore
+      </MenuItem>
+      <MenuItem onClick={onDelete} danger>
+        <Trash2 size={14} /> Delete forever
       </MenuItem>
     </div>
   );

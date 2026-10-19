@@ -26,7 +26,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { EDIT_ACTIONS, type EditAction, type Tone } from "@/lib/ai/actions";
 import type { DictationResult } from "@/lib/ai/dictation";
-import type { Doc, Version } from "@/lib/docs";
+import { type Brief, briefKey, type Doc, type Version } from "@/lib/docs";
 import { streamFetch } from "@/lib/stream";
 import { createClient } from "@/lib/supabase/client";
 import { ModelChip } from "../model-picker";
@@ -51,7 +51,7 @@ export function DocumentEditor({ id, autoDictate = false }: { id: string; autoDi
   useEffect(() => {
     supabase
       .from("documents")
-      .select("id,title,content,content_text,folder_id,word_count,updated_at")
+      .select("*")
       .eq("id", id)
       .maybeSingle()
       .then(({ data }) => setDoc((data as Doc) ?? "missing"));
@@ -197,6 +197,50 @@ function LoadedEditor({ doc, supabase, autoDictate }: { doc: Doc; supabase: Supa
     return () => clearTimeout(t);
   }, [toast]);
 
+  // A brief from the home screen: write the first draft straight into the page.
+  const [drafting, setDrafting] = useState<AbortController | null>(null);
+  const briefRan = useRef(false);
+  useEffect(() => {
+    if (!editor || briefRan.current) return;
+    briefRan.current = true;
+    let brief: Brief | null = null;
+    try {
+      const raw = sessionStorage.getItem(briefKey(doc.id));
+      sessionStorage.removeItem(briefKey(doc.id));
+      brief = raw ? (JSON.parse(raw) as Brief) : null;
+    } catch {}
+    if (!brief) return;
+    const abort = new AbortController();
+    queueMicrotask(() => setDrafting(abort));
+    let last = 0;
+    const show = (markdown: string, final = false) => {
+      const now = Date.now();
+      if (!final && now - last < 120) return;
+      last = now;
+      const match = markdown.match(/^\s*#\s+(.+)\n?/);
+      const body = match ? markdown.slice(match[0].length) : markdown;
+      if (match) {
+        titleRef.current = match[1].trim();
+        setTitle(match[1].trim());
+      }
+      editor.commands.setContent(body, { contentType: "markdown", emitUpdate: false });
+    };
+    streamFetch(
+      "/api/ai/draft",
+      { brief: brief.brief, sources: brief.sources, documentId: doc.id, styleId: brief.styleId ?? undefined },
+      (soFar) => show(soFar),
+      abort.signal,
+    )
+      .then((final) => show(final, true))
+      .catch((e) => {
+        if (!abort.signal.aborted) setToast({ message: (e as Error).message });
+      })
+      .finally(() => {
+        setDrafting(null);
+        scheduleSave();
+      });
+  }, [editor, doc.id, scheduleSave]);
+
   const start = useCallback(
     async (action: EditAction, tone?: Tone, range?: { from: number; to: number }) => {
       if (!editor) return;
@@ -229,7 +273,7 @@ function LoadedEditor({ doc, supabase, autoDictate }: { doc: Doc; supabase: Supa
       try {
         const result = await streamFetch(
           "/api/ai/edit",
-          { action, tone, text, document: editor.getMarkdown() },
+          { action, tone, text, document: editor.getMarkdown(), documentId: doc.id },
           (soFar) => setSuggestion((s) => s && { ...s, text: soFar }),
           abort.signal,
         );
@@ -242,7 +286,7 @@ function LoadedEditor({ doc, supabase, autoDictate }: { doc: Doc; supabase: Supa
         }
       }
     },
-    [editor],
+    [editor, doc.id],
   );
 
   useEffect(() => {
@@ -381,7 +425,7 @@ function LoadedEditor({ doc, supabase, autoDictate }: { doc: Doc; supabase: Supa
     <div className="-mt-2">
       {/* Top bar */}
       <div className="sticky top-0 z-30 -mx-5 flex items-center gap-1 bg-[var(--bar)] px-3 py-2 backdrop-blur-xl print:hidden md:-mx-10 md:px-6">
-        <Link href="/docs" aria-label="Back to documents" className="rounded-full p-2 text-muted hover:bg-surface-strong hover:text-ink">
+        <Link href="/" aria-label="Back to home" className="rounded-full p-2 text-muted hover:bg-surface-strong hover:text-ink">
           <ArrowLeft size={20} />
         </Link>
         <SaveBadge status={status} />
@@ -449,8 +493,19 @@ function LoadedEditor({ doc, supabase, autoDictate }: { doc: Doc; supabase: Supa
 
       {editor && !suggestion && <AiBubbleMenu editor={editor} onAction={(a, t) => start(a, t)} />}
 
+      {drafting && (
+        <div className="fixed inset-x-0 bottom-0 z-30 flex justify-center px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] print:hidden md:left-64">
+          <div className="bar flex items-center gap-3 rounded-full py-1.5 pr-1.5 pl-4 text-sm shadow-lg">
+            <Loader2 size={16} className="animate-spin text-accent" /> Writing your draft…
+            <button onClick={() => drafting.abort()} className="rounded-full bg-surface-strong px-3 py-1.5 font-medium hover:text-rose-500">
+              Stop
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Bottom dock */}
-      {!suggestion && !dictating && (
+      {!suggestion && !dictating && !drafting && (
         <div className="fixed inset-x-0 bottom-0 z-30 flex justify-center px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] print:hidden md:left-64">
           <div className="bar flex items-center gap-1 rounded-full p-1.5 shadow-lg">
             <button
@@ -470,7 +525,7 @@ function LoadedEditor({ doc, supabase, autoDictate }: { doc: Doc; supabase: Supa
               <Sparkles size={16} /> <span className="max-[380px]:hidden">Continue writing</span>
               <kbd className="hidden rounded bg-white/20 px-1.5 text-[11px] md:inline">{shortcut}</kbd>
             </button>
-            <ModelChip />
+            <ModelChip documentId={doc.id} styleId={doc.style_id ?? null} />
             <span className="pr-3 text-xs text-muted tabular-nums">{words} words</span>
           </div>
         </div>

@@ -59,3 +59,18 @@ When you write text meant to go into the document, write it ready to paste, with
     .filter(Boolean)
     .join("\n\n");
 }
+
+/** A full first draft from a short brief (the home screen's prompt box). */
+export function draftSystem(opts: { voice: string; sources: string }): string {
+  return [
+    BASE,
+    `The author describes what they want to write. Write a complete, polished first draft of it.
+Start with a title on the first line as a Markdown heading ("# Title"), then the draft.
+Use short paragraphs and headings or lists only where they help. Match the length the piece needs: a post is short, an article is long.
+Reply with only the draft. No introduction, no notes after it.`,
+    opts.voice && `Write it in this style:\n${opts.voice}`,
+    opts.sources && `The author attached this material. Use it as source and reference:\n<sources>\n${opts.sources}\n</sources>`,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+}

@@ -59,7 +59,7 @@ export function ChatPanel({
     try {
       reply = await streamFetch(
         "/api/ai/chat",
-        { title, document: markdown, messages: history.map(({ role, content }) => ({ role, content })) },
+        { title, document: markdown, documentId, messages: history.map(({ role, content }) => ({ role, content })) },
         (soFar) => setMessages([...history, { role: "assistant", content: soFar }]),
       );
     } catch (e) {

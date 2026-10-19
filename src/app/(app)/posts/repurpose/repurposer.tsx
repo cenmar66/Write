@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { EditablePost } from "@/components/social/post-card";
 import { PlatformPicker } from "@/components/social/platform-picker";
 import { Results } from "@/components/social/results";
+import { StyleSelect } from "@/components/style-select";
 import { timeAgo } from "@/lib/docs";
 import type { GeneratedPost } from "@/lib/social/ai";
 import { PLATFORM_IDS, type PlatformId } from "@/lib/social/platforms";
@@ -22,6 +23,7 @@ export function Repurposer({ docId, auto }: { docId?: string; auto: boolean }) {
   const [posts, setPosts] = useState<EditablePost[]>([]);
   const [loading, setLoading] = useState<PlatformId[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [styleId, setStyleId] = useState<string | null>(null);
   const autoRan = useRef(false);
 
   useEffect(() => {
@@ -29,6 +31,7 @@ export function Repurposer({ docId, auto }: { docId?: string; auto: boolean }) {
       .from("documents")
       .select("id,title,word_count,updated_at")
       .gt("word_count", 0)
+      .is("deleted_at", null)
       .order("updated_at", { ascending: false })
       .limit(50)
       .then(({ data }) => setDocs((data as DocRow[]) ?? []));
@@ -43,7 +46,7 @@ export function Repurposer({ docId, auto }: { docId?: string; auto: boolean }) {
       const res = await fetch("/api/ai/posts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "repurpose", documentId: selected, platforms, perPlatform }),
+        body: JSON.stringify({ mode: "repurpose", documentId: selected, platforms, perPlatform, styleId: styleId ?? undefined }),
       });
       const body = (await res.json()) as { posts?: GeneratedPost[]; error?: string };
       if (!body.posts) throw new Error(body.error);
@@ -52,7 +55,7 @@ export function Repurposer({ docId, auto }: { docId?: string; auto: boolean }) {
       setError((e as Error).message || "Repurposing failed. Try again.");
     }
     setLoading(null);
-  }, [selected, platforms, perPlatform]);
+  }, [selected, platforms, perPlatform, styleId]);
 
   // From the editor's "Turn into social posts" button: start right away.
   useEffect(() => {
@@ -104,6 +107,11 @@ export function Repurposer({ docId, auto }: { docId?: string; auto: boolean }) {
             ))}
           </div>
           <span className="ml-3 text-sm text-muted">{platforms.length * perPlatform} posts total</span>
+        </div>
+        <div>
+          <span className="font-medium">Style</span>
+          <span className="ml-2 text-xs text-muted">Leave it to use the document’s style</span>
+          <div className="mt-2"><StyleSelect value={styleId} onChange={setStyleId} /></div>
         </div>
         {error && <p className="text-sm text-rose-500">{error}</p>}
         <button

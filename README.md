@@ -2,7 +2,7 @@
 
 Your personal AI writing studio: an AI document editor, social post templates, publishing, and voice dictation, all in one app for laptop, tablet, and phone.
 
-**Status:** Phase 1 (setup + login) ✅ · Phase 2 editor + AI ✅ · Phase 3 dictation ✅ · Phase 4 voice profile ✅ · Phase 5 social templates ✅ · Phase 6 publishing ✅
+**Status:** Phase 1 (setup + login) ✅ · Phase 2 editor + AI ✅ · Phase 3 dictation ✅ · Phase 4 voice profile ✅ · Phase 5 social templates ✅ · Phase 6 publishing ✅ · Home screen, styles, import ✅
 
 ---
 
@@ -32,7 +32,7 @@ You'll copy a few values between websites. Keep a notes file open to paste them 
    - **Project URL** (`https://xxxx.supabase.co`)
    - **Publishable key** (starts with `sb_publishable_`; older dashboards call it the **anon** key)
 3. Open **SQL Editor → New query**, paste everything from [`supabase/migrations/0001_lock_signups.sql`](supabase/migrations/0001_lock_signups.sql), and click **Run**. This is the "nobody but me" lock.
-4. Do the same with [`supabase/migrations/0002_documents.sql`](supabase/migrations/0002_documents.sql) (documents, folders, version history, chat), then [`0003_user_settings.sql`](supabase/migrations/0003_user_settings.sql) (app settings, like which AI model to use), then [`0004_voice.sql`](supabase/migrations/0004_voice.sql) (writing samples and your voice profile), then [`0005_posts.sql`](supabase/migrations/0005_posts.sql) (social posts and custom templates), then [`0006_publishing.sql`](supabase/migrations/0006_publishing.sql) (connected accounts, media storage, brand kit).
+4. Do the same with [`supabase/migrations/0002_documents.sql`](supabase/migrations/0002_documents.sql) (documents, folders, version history, chat), then [`0003_user_settings.sql`](supabase/migrations/0003_user_settings.sql) (app settings, like which AI model to use), then [`0004_voice.sql`](supabase/migrations/0004_voice.sql) (writing samples and your voice profile), then [`0005_posts.sql`](supabase/migrations/0005_posts.sql) (social posts and custom templates), then [`0006_publishing.sql`](supabase/migrations/0006_publishing.sql) (connected accounts, media storage, brand kit), then [`0007_styles.sql`](supabase/migrations/0007_styles.sql) (multiple writing styles and the Trash; your existing voice profile moves into a style called "My voice").
 
    > Whenever a new phase adds a file in `supabase/migrations/`, run it the same way, in number order.
 5. **Upgrade to Pro** (you chose this): **Organization → Billing → Upgrade**.
@@ -115,6 +115,15 @@ Inside the installed app, sign in with Google or with the 6-digit email code.
 
 ---
 
+## The home screen
+
+- **Describe what you want to write** in the box ("A LinkedIn post about the cost of a bad first hire") and press **Enter** or the arrow. A new document opens and the AI writes the first draft straight into it, title included.
+- **+** attaches notes or sources (`.txt`, `.md`, `.docx`, `.html`) for the AI to draw from. The **mic** lets you say your idea instead of typing.
+- **Style pill:** pick which writing style the draft uses (see *Writing styles* below).
+- **Import draft** turns files into documents, keeping headings, lists, bold, and links. **New draft** opens a blank page.
+- **Drafts** lists your documents by Today, Last 7 Days, Last 30 Days, and Older. The magnifier searches them; hover a row for the trash icon.
+- **Sidebar:** Search, Posts, Calendar, Settings, Styles, your **Folders** (the **+** adds one), **Drafts** (all documents), and **Trash** (restore or delete forever).
+
 ## Using the editor
 
 - **Autosave:** every change saves within a second. The badge at the top says *Saved*.
@@ -126,23 +135,24 @@ Inside the installed app, sign in with Google or with the 6-digit email code.
 
 ## Voice dictation
 
-- **Start:** tap the black mic in the editor's bottom bar, or press **⌘ + Shift + Space** (Mac) / **Ctrl + Shift + Space** (Windows). Press the shortcut again to finish. On the home screen, **Just talk** opens a new doc ready to dictate.
+- **Start:** tap the black mic in the editor's bottom bar, or press **⌘ + Shift + Space** (Mac) / **Ctrl + Shift + Space** (Windows). Press the shortcut again to finish. On the home screen, the mic in the prompt box dictates your idea.
 - **Talk naturally** in English, Spanish, or both. Your words appear live as you speak.
 - **When you stop,** the AI removes "um" and "uh", fixes punctuation, and keeps only your corrections ("Monday, no wait, Tuesday" becomes "Tuesday"). Pick **Cleaned up** or **Exactly as said**, then **Insert**. Tick **Skip this step next time** to insert the cleaned text straight away.
 - **Spoken formatting:** "new paragraph", "new line", "comma", "period", "make that a bullet list", "numbered list".
 - **Voice commands:** say only a command, like "rewrite that shorter", "fix the grammar", "make it more professional", "make that a heading", or "delete that". It acts on your highlighted text, or on what you just dictated.
 - **Phones:** works in Safari (iPhone/iPad) and Chrome (Android). The first time, allow microphone access when asked.
 
-## Your writing voice
+## Writing styles
 
-Open **Voice** in the menu.
+Open **Styles** in the menu. A style is a way of writing the AI learns from examples: "My voice", "Client emails", "Newsletter", or even an author you admire.
 
-1. **Add samples** of your own writing: paste text, upload `.txt`, `.md`, or `.docx` files, or pick from your documents. Aim for 1,500+ words across 3 to 10 pieces. English, Spanish, or both. (For PDFs, copy and paste the text.)
-2. **Build my voice:** the AI studies your samples and writes a profile covering tone, sentence style, word choice, formatting, how you mix languages, favorite phrases, words to avoid, and do's and don'ts.
-3. **Edit anything** by hand and tap **Save changes**.
-4. **Test drive:** paste something bland and tap **Rewrite in my voice**.
+1. **New style**, then give it a name and a short description.
+2. **Add samples:** paste text, upload `.txt`, `.md`, or `.docx` files, or pick from your documents. Aim for 1,500+ words across 3 to 10 pieces. English, Spanish, or both. (For PDFs, copy and paste the text.)
+3. **Build this style:** the AI writes a profile covering tone, sentence style, word choice, formatting, how languages are mixed, favorite phrases, words to avoid, and do's and don'ts.
+4. **Edit anything** by hand and tap **Save changes**. **Test drive** rewrites bland text in the style.
+5. **Make default** picks the style used when you don't choose one.
 
-Your voice is applied to every AI action and to chat replies. It's skipped for grammar fixes (those only fix mistakes) and for dictation cleanup (your exact words stay). Switch it off on the Voice page, or from the model menu in the editor's bottom bar. Rebuild the profile whenever you add new samples.
+**Where styles apply:** each document can have its own style (model menu in the editor's bottom bar), the home prompt box and post composer have a style pill, and the repurposer uses the document's style unless you pick another. Styles apply to every AI action and to chat replies, but not to grammar fixes or dictation cleanup (your exact words stay). The switch at the top of the Styles page turns them off everywhere unless you pick one yourself.
 
 ## Social posts
 

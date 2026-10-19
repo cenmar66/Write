@@ -7,6 +7,7 @@ import { DictationPanel } from "@/components/dictation/dictation-panel";
 import type { EditablePost } from "@/components/social/post-card";
 import { PlatformPicker } from "@/components/social/platform-picker";
 import { Results } from "@/components/social/results";
+import { StyleSelect } from "@/components/style-select";
 import type { GeneratedPost } from "@/lib/social/ai";
 import type { PlatformId, PostFormat } from "@/lib/social/platforms";
 import { FREE_WRITE, findTemplate, type PostTemplate } from "@/lib/social/templates";
@@ -22,6 +23,7 @@ export function Composer({ templateKey, customId }: { templateKey: string; custo
   const [loading, setLoading] = useState<PlatformId[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [dictating, setDictating] = useState(false);
+  const [styleId, setStyleId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!customId) return;
@@ -58,6 +60,7 @@ export function Composer({ templateKey, customId }: { templateKey: string; custo
           mode: "draft",
           idea,
           platforms,
+          styleId,
           ...(template.category === "mine"
             ? { customTemplate: { name: template.name, structure: template.structure, example: template.example, format: template.format } }
             : { templateKey: template.key }),
@@ -106,6 +109,12 @@ export function Composer({ templateKey, customId }: { templateKey: string; custo
           <span className="font-medium">Where will it go?</span>
           <div className="mt-2">
             <PlatformPicker value={platforms} onChange={setPlatforms} />
+          </div>
+        </div>
+        <div>
+          <span className="font-medium">In which style?</span>
+          <div className="mt-2">
+            <StyleSelect value={styleId} onChange={setStyleId} />
           </div>
         </div>
         {error && <p className="text-sm text-rose-500">{error}</p>}

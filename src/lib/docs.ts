@@ -11,7 +11,11 @@ export type DocSummary = {
   updated_at: string;
 };
 
-export type Doc = DocSummary & { content: JSONContent };
+export type Doc = DocSummary & { content: JSONContent; style_id?: string | null };
+
+/** Where the home screen leaves a brief for the editor to draft from. */
+export const briefKey = (id: string) => `write.brief.${id}`;
+export type Brief = { brief: string; styleId: string | null; sources: string };
 
 export type Version = {
   id: string;

@@ -13,6 +13,8 @@ export async function POST(request: Request) {
     text?: string;
     document?: string;
     tone?: string;
+    documentId?: string;
+    styleId?: string;
   };
   const action = body.action as EditAction;
   if (!(action in EDIT_ACTIONS) || typeof body.text !== "string") {
@@ -20,7 +22,7 @@ export async function POST(request: Request) {
   }
   const tone = TONES.includes(body.tone as Tone) ? (body.tone as Tone) : undefined;
 
-  const { model, voice } = await loadAiSettings(auth.supabase);
+  const { model, voice } = await loadAiSettings(auth.supabase, { documentId: body.documentId, styleId: body.styleId });
   const { system, user } = editPrompt({
     action,
     text: body.text,

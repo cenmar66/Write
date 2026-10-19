@@ -23,7 +23,7 @@ export async function POST(request: Request) {
   const { data: doc } = await auth.supabase.from("documents").select("title,content_text").eq("id", documentId ?? "").maybeSingle();
   if (!doc?.content_text?.trim()) return Response.json({ error: "The document is empty." }, { status: 400 });
 
-  const { model, voice } = await loadAiSettings(auth.supabase);
+  const { model, voice } = await loadAiSettings(auth.supabase, { documentId });
   const provider = PROVIDERS[model.provider];
   try {
     const result = await provider.generateJson(

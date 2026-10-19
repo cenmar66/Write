@@ -26,6 +26,7 @@ type Body = {
   platform?: string;
   text?: string;
   example?: string;
+  styleId?: string;
 };
 
 const bad = (error: string) => Response.json({ error }, { status: 400 });
@@ -35,7 +36,7 @@ export async function POST(request: Request) {
   if ("denied" in auth) return auth.denied;
   const { supabase } = auth;
   const body = (await request.json()) as Body;
-  const { model, voice } = await loadAiSettings(supabase);
+  const { model, voice } = await loadAiSettings(supabase, { styleId: body.styleId, documentId: body.documentId });
   const provider = PROVIDERS[model.provider];
   const platforms = (body.platforms ?? []).filter((p): p is PlatformId => PLATFORM_IDS.includes(p as PlatformId));
 

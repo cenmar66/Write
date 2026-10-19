@@ -5,22 +5,23 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { DEFAULT_MODEL, findModel, MODELS } from "@/lib/ai/models";
 import { createClient } from "@/lib/supabase/client";
+import { useStyles } from "./style-select";
 import { Switch } from "./switch";
 
 /** Reads and saves the chosen AI model (stored in Supabase, so it syncs across devices). */
 function useAiModel() {
   const supabase = useMemo(() => createClient(), []);
   const [modelId, setModelId] = useState<string | null>(null);
-  const [voice, setVoice] = useState<{ enabled: boolean; hasProfile: boolean }>({ enabled: true, hasProfile: false });
+  const [voice, setVoice] = useState<{ enabled: boolean }>({ enabled: true });
 
   useEffect(() => {
     supabase
       .from("user_settings")
-      .select("ai_model,voice_enabled,voice_profile")
+      .select("ai_model,voice_enabled")
       .maybeSingle()
       .then(({ data }) => {
         setModelId(findModel(data?.ai_model ?? DEFAULT_MODEL).id);
-        setVoice({ enabled: data?.voice_enabled ?? true, hasProfile: !!data?.voice_profile });
+        setVoice({ enabled: data?.voice_enabled ?? true });
       });
   }, [supabase]);
 
@@ -39,8 +40,8 @@ function useAiModel() {
   }
 
   async function setVoiceEnabled(enabled: boolean) {
-    setVoice((v) => ({ ...v, enabled }));
-    if (!(await save({ voice_enabled: enabled }))) setVoice((v) => ({ ...v, enabled: !enabled }));
+    setVoice({ enabled });
+    if (!(await save({ voice_enabled: enabled }))) setVoice({ enabled: !enabled });
   }
 
   return { model: modelId ? findModel(modelId) : null, choose, voice, setVoiceEnabled };
@@ -98,28 +99,41 @@ export function ModelList() {
   );
 }
 
-/** Small switcher for the editor's bottom dock. */
-export function ModelChip() {
+/** Small switcher for the editor's bottom dock: AI model, plus this document's writing style. */
+export function ModelChip({ documentId, styleId: initialStyle = null }: { documentId?: string; styleId?: string | null }) {
   const { model, choose, voice, setVoiceEnabled } = useAiModel();
+  const styles = useStyles();
+  const supabase = useMemo(() => createClient(), []);
+  const [styleId, setStyleId] = useState<string | null>(initialStyle);
   const [open, setOpen] = useState(false);
+  const current = styles?.find((s) => s.id === styleId) ?? styles?.find((s) => s.is_default);
+  const styleOn = voice.enabled && !!current?.profile;
+
+  async function pickStyle(id: string | null) {
+    if (!documentId) return;
+    const previous = styleId;
+    setStyleId(id);
+    const { error } = await supabase.from("documents").update({ style_id: id }).eq("id", documentId);
+    if (error) setStyleId(previous);
+  }
 
   return (
     <div className="relative">
       <button
         onMouseDown={(e) => e.preventDefault()}
         onClick={() => setOpen(!open)}
-        aria-label="Choose AI model"
+        aria-label="Choose AI model and style"
         className="flex items-center gap-1 rounded-full px-3 py-2 text-xs text-muted transition hover:bg-surface-strong hover:text-ink"
       >
         <Cpu size={13} />
         {model?.short ?? "…"}
-        {voice.hasProfile && voice.enabled && <Feather size={12} className="text-accent" aria-label="Your voice is on" />}
+        {styleOn && <Feather size={12} className="text-accent" aria-label={`Style: ${current?.name}`} />}
         <ChevronUp size={13} />
       </button>
       {open && (
         <>
           <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
-          <div className="absolute bottom-12 left-1/2 z-40 w-64 -translate-x-1/2 rounded-2xl border border-line bg-bg p-1.5 shadow-xl">
+          <div className="absolute bottom-12 left-1/2 z-40 max-h-[70dvh] w-64 -translate-x-1/2 overflow-y-auto rounded-2xl border border-line bg-bg p-1.5 shadow-xl">
             <p className="px-3 pt-1.5 pb-1 text-xs text-muted">AI model</p>
             {MODELS.map((m) => (
               <button
@@ -139,17 +153,34 @@ export function ModelChip() {
               </button>
             ))}
             <div className="my-1 h-px bg-line" />
-            {voice.hasProfile ? (
-              <label className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm">
-                <Feather size={15} className="text-accent" />
-                <span className="flex-1">Write in my voice</span>
-                <Switch label="Write in my voice" checked={voice.enabled} onChange={setVoiceEnabled} />
-              </label>
-            ) : (
-              <Link href="/voice" className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-muted hover:bg-surface-strong hover:text-ink">
-                <Feather size={15} /> Teach it your voice →
-              </Link>
+            <label className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm">
+              <Feather size={15} className="text-accent" />
+              <span className="flex-1">Use writing style</span>
+              <Switch label="Use writing style" checked={voice.enabled} onChange={setVoiceEnabled} />
+            </label>
+            {voice.enabled && documentId && styles && styles.length > 0 && (
+              <>
+                <p className="px-3 pt-1 pb-1 text-xs text-muted">Style for this document</p>
+                {styles.map((s) => {
+                  const selected = s.id === styleId || (!styleId && s.is_default);
+                  return (
+                    <button
+                      key={s.id}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => pickStyle(s.is_default ? null : s.id)}
+                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm transition hover:bg-surface-strong"
+                    >
+                      <span className="min-w-0 flex-1 truncate">{s.name}</span>
+                      {!s.profile && <span className="text-[11px] text-muted">not built</span>}
+                      {selected && <Check size={15} className="text-accent" />}
+                    </button>
+                  );
+                })}
+              </>
             )}
+            <Link href="/styles" className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-muted hover:bg-surface-strong hover:text-ink">
+              <Feather size={15} /> {styles?.length ? "Manage styles →" : "Teach it a style →"}
+            </Link>
           </div>
         </>
       )}

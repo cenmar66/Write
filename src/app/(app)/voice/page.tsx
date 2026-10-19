@@ -1,5 +1,6 @@
-import { VoiceStudio } from "./voice-studio";
+import { redirect } from "next/navigation";
 
+// "Your voice" grew into Styles.
 export default function VoicePage() {
-  return <VoiceStudio />;
+  redirect("/styles");
 }

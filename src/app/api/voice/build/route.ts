@@ -6,14 +6,17 @@ export const maxDuration = 300;
 
 const MIN_WORDS = 150;
 
-export async function POST() {
+export async function POST(request: Request) {
   const auth = await requireOwner();
   if ("denied" in auth) return auth.denied;
   const { supabase } = auth;
+  const { styleId } = (await request.json().catch(() => ({}))) as { styleId?: string };
+  if (!styleId) return Response.json({ error: "Pick a style first." }, { status: 400 });
 
   const { data: samples } = await supabase
     .from("voice_samples")
     .select("title,content,word_count")
+    .eq("style_id", styleId)
     .order("created_at", { ascending: false });
   if (!samples?.length) return Response.json({ error: "Add a writing sample first." }, { status: 400 });
 
@@ -30,7 +33,7 @@ export async function POST() {
     return Response.json({ error: `Add a bit more writing first (at least ${MIN_WORDS} words; you have ${words}).` }, { status: 400 });
   }
 
-  const { model } = await loadAiSettings(supabase);
+  const { model } = await loadAiSettings(supabase, { styleId: "none" });
   const provider = PROVIDERS[model.provider];
   const body = used
     .map((s, i) => `<sample index="${i + 1}" title="${s.title.replace(/"/g, "'")}">\n${s.content}\n</sample>`)
@@ -48,13 +51,11 @@ export async function POST() {
       VOICE_SCHEMA,
     );
     const profile = normalizeProfile(raw);
-    const { data: session } = await supabase.auth.getClaims();
-    const { error } = await supabase.from("user_settings").upsert({
-      user_id: session?.claims?.sub,
-      voice_profile: profile,
-      voice_profile_updated_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    });
+    const now = new Date().toISOString();
+    const { error } = await supabase
+      .from("writing_styles")
+      .update({ profile, profile_updated_at: now, updated_at: now })
+      .eq("id", styleId);
     if (error) throw new Error(error.message);
     return Response.json({ profile, usedSamples: used.length, totalSamples: samples.length, usedWords: words });
   } catch (error) {

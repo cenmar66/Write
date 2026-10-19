@@ -1,24 +1,26 @@
 "use client";
 
-import { ClipboardPaste, FileText, FileUp, Loader2, Plus, Sparkles, Trash2, Wand2, X } from "lucide-react";
+import { ArrowLeft, ClipboardPaste, FileText, FileUp, Loader2, Plus, Sparkles, Star, Trash2, Wand2, X } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Switch } from "@/components/switch";
 import { EMPTY_PROFILE, normalizeProfile, type VoiceProfile } from "@/lib/ai/voice";
 import { timeAgo } from "@/lib/docs";
 import { streamFetch } from "@/lib/stream";
+import { STYLE_FIELDS, type WritingStyle } from "@/lib/styles";
 import { createClient } from "@/lib/supabase/client";
 
 type Sample = { id: string; title: string; content: string; source: string; word_count: number; created_at: string };
 type DocPick = { id: string; title: string; content_text: string; word_count: number };
-type Settings = { voice_enabled: boolean; voice_profile: VoiceProfile | null; voice_profile_updated_at: string | null };
 
 const GOAL_WORDS = 1500;
 const countWords = (s: string) => (s.trim() ? s.trim().split(/\s+/).length : 0);
 
-export function VoiceStudio() {
+export function StyleStudio({ styleId }: { styleId: string }) {
   const supabase = useMemo(() => createClient(), []);
+  const router = useRouter();
   const [samples, setSamples] = useState<Sample[] | null>(null);
-  const [settings, setSettings] = useState<Settings>({ voice_enabled: true, voice_profile: null, voice_profile_updated_at: null });
+  const [style, setStyle] = useState<WritingStyle | null | "missing">(null);
   const [adding, setAdding] = useState<null | "paste" | "docs">(null);
   const [building, setBuilding] = useState(false);
   const [notice, setNotice] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
@@ -28,35 +30,48 @@ export function VoiceStudio() {
     const { data } = await supabase
       .from("voice_samples")
       .select("id,title,content,source,word_count,created_at")
+      .eq("style_id", styleId)
       .order("created_at", { ascending: false });
     return (data as Sample[]) ?? [];
-  }, [supabase]);
+  }, [supabase, styleId]);
 
   useEffect(() => {
     loadSamples().then(setSamples);
     supabase
-      .from("user_settings")
-      .select("voice_enabled,voice_profile,voice_profile_updated_at")
+      .from("writing_styles")
+      .select(STYLE_FIELDS)
+      .eq("id", styleId)
       .maybeSingle()
-      .then(({ data }) => {
-        if (data)
-          setSettings({
-            voice_enabled: data.voice_enabled ?? true,
-            voice_profile: data.voice_profile ? normalizeProfile(data.voice_profile) : null,
-            voice_profile_updated_at: data.voice_profile_updated_at,
-          });
-      });
-  }, [supabase, loadSamples]);
+      .then(({ data }) =>
+        setStyle(data ? { ...(data as WritingStyle), profile: data.profile ? normalizeProfile(data.profile) : null } : "missing"),
+      );
+  }, [supabase, styleId, loadSamples]);
 
-  async function saveSettings(patch: Partial<Settings>) {
-    const next = { ...settings, ...patch };
-    setSettings(next);
-    const { data: session } = await supabase.auth.getSession();
+  async function saveStyle(patch: Partial<Pick<WritingStyle, "name" | "description" | "profile">>) {
+    setStyle((s) => (s && s !== "missing" ? { ...s, ...patch } : s));
     const { error } = await supabase
-      .from("user_settings")
-      .upsert({ user_id: session.session?.user.id, ...patch, updated_at: new Date().toISOString() });
+      .from("writing_styles")
+      .update({ ...patch, updated_at: new Date().toISOString() })
+      .eq("id", styleId);
     if (error) setNotice({ tone: "error", text: "Couldn't save. Check your connection and try again." });
     return !error;
+  }
+
+  async function makeDefault() {
+    // Only one default at a time: clear the old one first.
+    await supabase.from("writing_styles").update({ is_default: false }).eq("is_default", true);
+    const { error } = await supabase.from("writing_styles").update({ is_default: true }).eq("id", styleId);
+    if (error) setNotice({ tone: "error", text: "Couldn't make this the default." });
+    else {
+      setStyle((s) => (s && s !== "missing" ? { ...s, is_default: true } : s));
+      setNotice({ tone: "ok", text: "This is now your default style." });
+    }
+  }
+
+  async function remove() {
+    if (!confirm("Delete this style and its samples? Documents using it go back to your default style.")) return;
+    await supabase.from("writing_styles").delete().eq("id", styleId);
+    router.push("/styles");
   }
 
   async function addSamples(rows: { title: string; content: string; source: "paste" | "upload" | "document" }[]) {
@@ -64,7 +79,7 @@ export function VoiceStudio() {
       .map((r) => ({ ...r, content: r.content.trim(), word_count: countWords(r.content) }))
       .filter((r) => r.word_count > 0);
     if (!clean.length) return;
-    const { error } = await supabase.from("voice_samples").insert(clean);
+    const { error } = await supabase.from("voice_samples").insert(clean.map((r) => ({ ...r, style_id: styleId })));
     if (error) setNotice({ tone: "error", text: "Couldn't save that sample." });
     else setNotice({ tone: "ok", text: `Added ${clean.length === 1 ? "1 sample" : `${clean.length} samples`}.` });
     setSamples(await loadSamples());
@@ -100,17 +115,21 @@ export function VoiceStudio() {
     setBuilding(true);
     setNotice(null);
     try {
-      const res = await fetch("/api/voice/build", { method: "POST" });
+      const res = await fetch("/api/voice/build", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ styleId }),
+      });
       const body = (await res.json()) as
         | { profile: VoiceProfile; usedSamples: number; totalSamples: number; usedWords: number }
         | { error: string };
       if ("error" in body) throw new Error(body.error);
-      setSettings((s) => ({ ...s, voice_profile: body.profile, voice_profile_updated_at: new Date().toISOString() }));
+      setStyle((s) => (s && s !== "missing" ? { ...s, profile: body.profile, profile_updated_at: new Date().toISOString() } : s));
       const partial =
         body.usedSamples < body.totalSamples
           ? ` It used your ${body.usedSamples} newest samples (${body.usedWords.toLocaleString()} words); older ones didn't fit.`
           : "";
-      setNotice({ tone: "ok", text: `Your voice profile is ready. Review it below and tweak anything.${partial}` });
+      setNotice({ tone: "ok", text: `The style profile is ready. Review it below and tweak anything.${partial}` });
     } catch (e) {
       setNotice({ tone: "error", text: (e as Error).message || "Building the profile failed." });
     }
@@ -120,27 +139,51 @@ export function VoiceStudio() {
   const totalWords = samples?.reduce((n, s) => n + s.word_count, 0) ?? 0;
   const progress = Math.min(totalWords / GOAL_WORDS, 1);
 
+  if (style === null) return <div className="grid min-h-[50dvh] place-items-center"><Loader2 className="animate-spin text-muted" /></div>;
+  if (style === "missing") {
+    return (
+      <div className="flex min-h-[50dvh] flex-col items-center justify-center text-center">
+        <p className="font-display text-3xl">This style doesn’t exist.</p>
+        <Link href="/styles" className="mt-3 text-accent hover:underline">Back to styles</Link>
+      </div>
+    );
+  }
+
   return (
     <div className="animate-rise space-y-6 pb-8">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="font-display text-4xl tracking-tight sm:text-5xl">Your voice</h1>
-          <p className="mt-1 max-w-lg text-muted">
-            Show the AI how you write. It learns your tone, rhythm, and favorite phrases, then sounds like you everywhere.
-          </p>
-        </div>
-        <label className="glass flex items-center gap-3 self-start rounded-2xl px-4 py-3 sm:self-auto">
-          <span className="text-sm">
-            <span className="block font-medium">Use my voice</span>
-            <span className="text-xs text-muted">{settings.voice_profile ? "In every AI action" : "Build a profile first"}</span>
-          </span>
-          <Switch
-            label="Use my voice in every AI action"
-            checked={settings.voice_enabled && !!settings.voice_profile}
-            disabled={!settings.voice_profile}
-            onChange={(on) => saveSettings({ voice_enabled: on })}
+      <Link href="/styles" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
+        <ArrowLeft size={15} /> Styles
+      </Link>
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 flex-1">
+          <input
+            key={`n-${style.id}`}
+            defaultValue={style.name}
+            onBlur={(e) => e.target.value.trim() && e.target.value.trim() !== style.name && saveStyle({ name: e.target.value.trim() })}
+            aria-label="Style name"
+            className="w-full bg-transparent font-display text-4xl tracking-tight outline-none sm:text-5xl"
           />
-        </label>
+          <input
+            key={`d-${style.id}`}
+            defaultValue={style.description}
+            onBlur={(e) => e.target.value !== style.description && saveStyle({ description: e.target.value })}
+            placeholder="What is this style for? e.g. LinkedIn posts, client emails"
+            aria-label="Style description"
+            className="mt-1 w-full bg-transparent text-muted outline-none placeholder:text-muted/60"
+          />
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          {style.is_default ? (
+            <span className="flex items-center gap-1.5 rounded-full bg-surface-strong px-3 py-1.5 text-sm"><Star size={14} className="text-accent" /> Default</span>
+          ) : (
+            <button onClick={makeDefault} className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm ring-1 ring-line hover:bg-surface-strong">
+              <Star size={14} /> Make default
+            </button>
+          )}
+          <button onClick={remove} aria-label="Delete style" className="rounded-full p-2 text-muted hover:bg-surface-strong hover:text-rose-500">
+            <Trash2 size={17} />
+          </button>
+        </div>
       </header>
 
       {notice && (
@@ -164,7 +207,7 @@ export function VoiceStudio() {
           <div className="bg-gradient-brand h-full rounded-full transition-all" style={{ width: `${progress * 100}%` }} />
         </div>
         <p className="mt-2 text-sm text-muted">
-          Best results: 3 to 10 pieces you wrote yourself, like emails, posts, or articles. English, Spanish, or both.
+          Best results: 3 to 10 pieces in this style, like emails, posts, or articles. Yours or someone you admire. English, Spanish, or both.
         </p>
 
         <div className="mt-4 flex flex-wrap gap-2">
@@ -228,10 +271,10 @@ export function VoiceStudio() {
       {/* Step 2: build */}
       <section className="glass flex flex-col items-start gap-3 rounded-3xl p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
         <div>
-          <h2 className="font-display text-2xl tracking-tight">2. Build your profile</h2>
+          <h2 className="font-display text-2xl tracking-tight">2. Build the profile</h2>
           <p className="text-sm text-muted">
-            {settings.voice_profile_updated_at
-              ? `Last built ${timeAgo(settings.voice_profile_updated_at)}. Rebuild after adding new samples.`
+            {style.profile_updated_at
+              ? `Last built ${timeAgo(style.profile_updated_at)}. Rebuild after adding new samples.`
               : "Takes about 30 seconds. You can edit everything afterwards."}
           </p>
         </div>
@@ -241,23 +284,23 @@ export function VoiceStudio() {
           className="bg-gradient-brand flex shrink-0 items-center gap-2 rounded-full px-5 py-2.5 font-medium text-white shadow-md shadow-accent/20 transition hover:-translate-y-0.5 disabled:opacity-50"
         >
           {building ? <Loader2 size={17} className="animate-spin" /> : <Sparkles size={17} />}
-          {building ? "Studying your writing…" : settings.voice_profile ? "Rebuild profile" : "Build my voice"}
+          {building ? "Studying the writing…" : style.profile ? "Rebuild profile" : "Build this style"}
         </button>
       </section>
 
       {/* Step 3: profile */}
-      {settings.voice_profile && (
+      {style.profile && (
         <ProfileEditor
-          key={settings.voice_profile_updated_at ?? "profile"}
-          profile={settings.voice_profile}
+          key={style.profile_updated_at ?? "profile"}
+          profile={style.profile}
           onSave={async (p) => {
-            const ok = await saveSettings({ voice_profile: p });
-            if (ok) setNotice({ tone: "ok", text: "Voice profile saved." });
+            const ok = await saveStyle({ profile: p });
+            if (ok) setNotice({ tone: "ok", text: "Style saved." });
           }}
         />
       )}
 
-      {settings.voice_profile && <TestDrive voiceOn={settings.voice_enabled} />}
+      {style.profile && <TestDrive styleId={styleId} />}
     </div>
   );
 }
@@ -330,6 +373,7 @@ function DocPicker({
       .from("documents")
       .select("id,title,content_text,word_count")
       .gt("word_count", 0)
+      .is("deleted_at", null)
       .order("updated_at", { ascending: false })
       .limit(50)
       .then(({ data }) => setDocs((data as DocPick[]) ?? []));
@@ -375,7 +419,7 @@ function DocPicker({
 }
 
 const TEXT_FIELDS: { key: keyof VoiceProfile; label: string; hint: string }[] = [
-  { key: "summary", label: "Your voice in a nutshell", hint: "The single most important instruction." },
+  { key: "summary", label: "The style in a nutshell", hint: "The single most important instruction." },
   { key: "sentences", label: "Sentences", hint: "Length and rhythm." },
   { key: "vocabulary", label: "Word choice", hint: "Plain or fancy, slang, contractions." },
   { key: "formatting", label: "Formatting", hint: "Paragraphs, lists, emojis." },
@@ -398,7 +442,7 @@ function ProfileEditor({ profile, onSave }: { profile: VoiceProfile; onSave: (p:
   return (
     <section className="glass rounded-3xl p-5 sm:p-6">
       <div className="flex items-baseline justify-between gap-2">
-        <h2 className="font-display text-2xl tracking-tight">3. Your voice profile</h2>
+        <h2 className="font-display text-2xl tracking-tight">3. The style profile</h2>
         <span className="text-xs text-muted">Edit anything. It’s yours.</span>
       </div>
 
@@ -482,14 +526,14 @@ function TagInput({ values, onChange, placeholder, danger }: { values: string[];
   );
 }
 
-function TestDrive({ voiceOn }: { voiceOn: boolean }) {
+function TestDrive({ styleId }: { styleId: string }) {
   const [text, setText] = useState("We are pleased to announce that our new service is now available. It offers many benefits to customers.");
   const [result, setResult] = useState("");
   const [busy, setBusy] = useState(false);
   return (
     <section className="glass rounded-3xl p-5 sm:p-6">
       <h2 className="font-display text-2xl tracking-tight">Test drive</h2>
-      <p className="text-sm text-muted">Paste something bland and hear it in your voice.</p>
+      <p className="text-sm text-muted">Paste something bland and hear it in this style.</p>
       <textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
@@ -497,12 +541,12 @@ function TestDrive({ voiceOn }: { voiceOn: boolean }) {
         className="mt-3 w-full resize-y rounded-xl bg-bg px-3 py-2 leading-relaxed ring-1 ring-line outline-none focus:ring-2 focus:ring-accent"
       />
       <button
-        disabled={busy || !text.trim() || !voiceOn}
+        disabled={busy || !text.trim()}
         onClick={async () => {
           setBusy(true);
           setResult("");
           try {
-            await streamFetch("/api/ai/edit", { action: "rewrite", text, document: "" }, setResult);
+            await streamFetch("/api/ai/edit", { action: "rewrite", text, document: "", styleId }, setResult);
           } catch (e) {
             setResult((e as Error).message);
           }
@@ -510,9 +554,8 @@ function TestDrive({ voiceOn }: { voiceOn: boolean }) {
         }}
         className="bg-gradient-brand mt-2 flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
       >
-        {busy ? <Loader2 size={15} className="animate-spin" /> : <Wand2 size={15} />} Rewrite in my voice
+        {busy ? <Loader2 size={15} className="animate-spin" /> : <Wand2 size={15} />} Rewrite in this style
       </button>
-      {!voiceOn && <p className="mt-2 text-xs text-muted">Turn on “Use my voice” at the top to try it.</p>}
       {result && <div className="mt-4 rounded-2xl bg-surface-strong p-4 leading-relaxed whitespace-pre-wrap">{result}</div>}
     </section>
   );
