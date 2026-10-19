@@ -47,7 +47,13 @@
   --color-accent-2: var(--accent-2);
   --color-accent-3: var(--accent-3);
   --font-sans: var(--font-inter);
-  --font-display: var(--font-fraunces);
+  --font-display: var(--font-inter);
+}
+
+/* Headings: clean bold sans (the old serif drew some characters, like "?", oddly). */
+.font-display {
+  font-weight: 650;
+  letter-spacing: -0.025em;
 }
 
 html {
@@ -173,8 +179,8 @@ body {
 }
 .tiptap-doc > * + * { margin-top: 0.9em; }
 .tiptap-doc h1, .tiptap-doc h2, .tiptap-doc h3 {
-  font-family: var(--font-fraunces), serif;
-  letter-spacing: -0.015em;
+  font-weight: 650;
+  letter-spacing: -0.02em;
   line-height: 1.2;
   margin-top: 1.6em;
 }
