@@ -1,4 +1,4 @@
--- Write.ai: the whole database in one go (updates 0001 to 0007).
+-- Write.ai: the whole database in one go (updates 0001 to 0008).
 -- Safe to run any number of times: it only adds what's missing and never deletes your data.
 -- Paste all of it into Supabase > SQL Editor > New query, then click Run.
 
@@ -181,12 +181,29 @@ update public.voice_samples s set style_id = w.id
 from public.writing_styles w
 where w.user_id = s.user_id and w.is_default and s.style_id is null;
 
+-- 0008: access codes for your AI assistant ---------------------------------------
+create table if not exists public.access_tokens (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users on delete cascade,
+  name text not null,
+  token_hash text not null unique,
+  token_prefix text not null,
+  scope text not null default 'read' check (scope in ('read', 'write')),
+  expires_at timestamptz,
+  last_used_at timestamptz,
+  revoked_at timestamptz,
+  created_at timestamptz not null default now()
+);
+create index if not exists access_tokens_user on public.access_tokens (user_id, created_at desc);
+
+
 -- Privacy: every table is "owner only" ------------------------------------------
 do $$
 declare t text;
 begin
   foreach t in array array['folders', 'documents', 'document_versions', 'chat_messages', 'user_settings',
-                           'voice_samples', 'post_templates', 'posts', 'connected_accounts', 'writing_styles'] loop
+                           'voice_samples', 'post_templates', 'posts', 'connected_accounts', 'writing_styles',
+                           'access_tokens'] loop
     execute format('alter table public.%I enable row level security', t);
     execute format('drop policy if exists "owner only" on public.%I', t);
     execute format(

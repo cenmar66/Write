@@ -32,7 +32,7 @@ You'll copy a few values between websites. Keep a notes file open to paste them 
    - **Project URL** (`https://xxxx.supabase.co`)
    - **Publishable key** (starts with `sb_publishable_`; older dashboards call it the **anon** key)
 3. Open **SQL Editor → New query**, paste everything from [`supabase/migrations/0001_lock_signups.sql`](supabase/migrations/0001_lock_signups.sql), and click **Run**. This is the "nobody but me" lock.
-4. **Easiest:** paste all of [`supabase/setup-all.sql`](supabase/setup-all.sql) and click **Run**. It contains every database update (0001 to 0007), skips anything already done, and never deletes data, so it's safe to run again whenever the app gets a new update. (Or run them one by one:) Do the same with [`supabase/migrations/0002_documents.sql`](supabase/migrations/0002_documents.sql) (documents, folders, version history, chat), then [`0003_user_settings.sql`](supabase/migrations/0003_user_settings.sql) (app settings, like which AI model to use), then [`0004_voice.sql`](supabase/migrations/0004_voice.sql) (writing samples and your voice profile), then [`0005_posts.sql`](supabase/migrations/0005_posts.sql) (social posts and custom templates), then [`0006_publishing.sql`](supabase/migrations/0006_publishing.sql) (connected accounts, media storage, brand kit), then [`0007_styles.sql`](supabase/migrations/0007_styles.sql) (multiple writing styles and the Trash; your existing voice profile moves into a style called "My voice").
+4. **Easiest:** paste all of [`supabase/setup-all.sql`](supabase/setup-all.sql) and click **Run**. It contains every database update (0001 to 0008), skips anything already done, and never deletes data, so it's safe to run again whenever the app gets a new update. (Or run them one by one:) Do the same with [`supabase/migrations/0002_documents.sql`](supabase/migrations/0002_documents.sql) (documents, folders, version history, chat), then [`0003_user_settings.sql`](supabase/migrations/0003_user_settings.sql) (app settings, like which AI model to use), then [`0004_voice.sql`](supabase/migrations/0004_voice.sql) (writing samples and your voice profile), then [`0005_posts.sql`](supabase/migrations/0005_posts.sql) (social posts and custom templates), then [`0006_publishing.sql`](supabase/migrations/0006_publishing.sql) (connected accounts, media storage, brand kit), then [`0007_styles.sql`](supabase/migrations/0007_styles.sql) (multiple writing styles and the Trash; your existing voice profile moves into a style called "My voice"), then [`0008_access_tokens.sql`](supabase/migrations/0008_access_tokens.sql) (access codes for your AI assistant).
 
    > Whenever a new phase adds a file in `supabase/migrations/`, run it the same way, in number order.
 5. **Upgrade to Pro** (you chose this): **Organization → Billing → Upgrade**.
@@ -278,6 +278,26 @@ npm run dev                   # open http://localhost:3000
 ```
 
 ---
+
+## Letting your AI assistant in
+
+Your assistant gets its own **access code** instead of your login. Codes only work with the assistant API below. They can't open the app's pages or change settings.
+
+1. **Settings → Access codes for assistants → New code.** Name it, choose **Read only** or **Read and write**, and pick an expiry.
+2. Copy the code (it starts with `wai_`). It's shown once; only a fingerprint is stored.
+3. Give your assistant the code and the address `https://YOUR-SITE/api/v1`. It sends the code as a header: `Authorization: Bearer wai_…`.
+
+| Request | What it does |
+|---|---|
+| `GET /api/v1` | Checks the code works and lists everything below |
+| `GET /api/v1/documents?q=word` | Lists or searches documents (newest first) |
+| `GET /api/v1/documents/{id}` | Reads one document as Markdown |
+| `POST /api/v1/documents` | Creates a document: `{ "title": "…", "markdown": "…" }` (write codes) |
+| `PATCH /api/v1/documents/{id}` | Replaces text (`markdown`), adds to the end (`append`), or renames (`title`). The old version is saved in History first (write codes) |
+| `DELETE /api/v1/documents/{id}` | Moves a document to the Trash (write codes) |
+| `GET /api/v1/styles` | Lists your writing styles, so the assistant can write like you |
+
+**Needs:** the `0008` database update (included in `supabase/setup-all.sql`) and `SUPABASE_SECRET_KEY` set in Vercel. Revoke a code in Settings and it stops working immediately.
 
 ## Privacy
 

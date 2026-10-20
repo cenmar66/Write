@@ -2,8 +2,8 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { isAllowed, SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from "@/lib/env";
 
-// /api/cron checks its own secret (Vercel calls it with no one signed in).
-const PUBLIC_PATHS = ["/login", "/auth", "/manifest.webmanifest", "/api/cron/"];
+// /api/cron checks its own secret, and /api/v1 checks access codes (no one is signed in for either).
+const PUBLIC_PATHS = ["/login", "/auth", "/manifest.webmanifest", "/api/cron/", "/api/v1"];
 
 /** Refreshes the session cookie and keeps everyone but the owner out. */
 export async function updateSession(request: NextRequest) {

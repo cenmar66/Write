@@ -1,6 +1,7 @@
 import { LogOut } from "lucide-react";
 import { Suspense } from "react";
 import { ModelList } from "@/components/model-picker";
+import { AccessCodes } from "@/components/settings/access-codes";
 import { BrandKitEditor } from "@/components/settings/brand-kit";
 import { ConnectedAccounts } from "@/components/settings/connected-accounts";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -31,6 +32,7 @@ export default function SettingsPage() {
           <ConnectedAccounts />
         </Suspense>
         <BrandKitEditor />
+        <AccessCodes />
         <Row
           title="Account"
           hint={
