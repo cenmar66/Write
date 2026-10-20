@@ -279,6 +279,14 @@ npm run dev                   # open http://localhost:3000
 
 ---
 
+## Privacy
+
+- **Your documents** live in your own Supabase database, locked so only your account can read them.
+- **Claude (the AI):** the app uses Anthropic's paid API. Under Anthropic's commercial terms, what you send through the API isn't used to train their models. Requests may be kept for a short time for safety checks, then deleted.
+- **Deepgram (dictation):** the app asks Deepgram not to keep your audio for improving its models (the `mip_opt_out` setting). Note: Deepgram gives a small discount to customers who don't opt out; we opt out.
+- **Social posts** become public on the platform once you publish them, of course.
+- No analytics or tracking scripts are included.
+
 ## Expected monthly cost
 
 | Service | Cost |

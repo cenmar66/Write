@@ -104,6 +104,8 @@ export function useDictation() {
       encoding: "linear16",
       sample_rate: String(audio.sampleRate),
       channels: "1",
+      // Privacy: don't let Deepgram keep your audio to improve its models.
+      mip_opt_out: "true",
     });
     const socket = new WebSocket(`wss://api.deepgram.com/v1/listen?${params}`, ["bearer", token.body.token]);
     socket.binaryType = "arraybuffer";
