@@ -180,7 +180,7 @@ Instagram's hashtag limit is in flux (30 per post on some accounts, 5 on newer o
 
 Open any saved post (Posts → Drafts) to publish it:
 
-- **Post now** sends it right away. **Schedule** picks a date and time; the app checks every 5 minutes and sends anything due.
+- **Post now** sends it right away. **Schedule** picks a date and time; the app checks for due posts and sends them (once a day on Vercel's free Hobby plan; every 5 minutes with the Supabase timer below or on Vercel Pro).
 - **Media:** add photos or a video, tap **Make a quote card** (uses your brand kit), or **Turn slides into images** for carousels. Instagram needs at least one image or video: 1 image = photo post, 2 to 10 = carousel, 1 video = Reel.
 - **X** stays manual: **Copy & open X** copies your post and opens X ready to paste. "Scheduling" an X post sets a reminder; when it's due it shows **Ready to post**.
 - **Calendar:** week and month views of everything scheduled, published, or failed. Tap any post to open it.
@@ -207,7 +207,20 @@ Open any saved post (Posts → Drafts) to publish it:
 | `CRON_SECRET` | Another long random password. Vercel uses it when running the scheduler. |
 | `SUPABASE_SECRET_KEY` | Supabase → Project Settings → API Keys → **Secret keys** → create one (starts with `sb_secret_`). |
 
-The scheduler itself is already set up in `vercel.json` (every 5 minutes, included in Vercel Pro).
+The scheduler is set up in `vercel.json` to run **once a day** (8 AM Pacific), because Vercel's free Hobby plan allows nothing more often. A more frequent schedule makes Vercel refuse to deploy the app at all.
+
+**Want posts to go out on time (every 5 minutes) for free?** Let Supabase run the timer instead. In Supabase, go to **Database → Extensions** and turn on `pg_cron` and `pg_net`. Then run this in the SQL Editor, replacing the two values:
+
+```sql
+select cron.schedule('publish-due-posts', '*/5 * * * *', $$
+  select net.http_get(
+    url := 'https://YOUR-SITE.vercel.app/api/cron/publish',
+    headers := jsonb_build_object('Authorization', 'Bearer YOUR_CRON_SECRET')
+  );
+$$);
+```
+
+(On Vercel Pro you can instead change the schedule in `vercel.json` to `*/5 * * * *`.)
 
 **B. Instagram + Facebook** (one Meta app, one login):
 
@@ -296,7 +309,7 @@ src/
   components/social/  # post cards, platform picker, results grid
   lib/social/         # platform rules, templates, post prompts, quote cards
   lib/publish/        # posting to LinkedIn, Facebook, Instagram, Threads, Substack (server-only)
-  app/api/cron/       # the scheduler Vercel runs every 5 minutes
+  app/api/cron/       # the scheduler (Vercel daily, or Supabase every 5 minutes)
   lib/dictation/      # microphone capture + live Deepgram transcription
   lib/ai/             # prompts, model list, voice profile, and providers (Claude today, local AI later)
   lib/supabase/       # database/login helpers

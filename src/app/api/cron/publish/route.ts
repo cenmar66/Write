@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 export const maxDuration = 300;
 
-// Vercel Cron calls this every 5 minutes (see vercel.json) and sends the CRON_SECRET.
+// Called by Vercel Cron (daily, see vercel.json) or a Supabase pg_cron timer, with the CRON_SECRET.
 export async function GET(request: Request) {
   const secret = process.env.CRON_SECRET;
   if (!secret || request.headers.get("authorization") !== `Bearer ${secret}`) {
