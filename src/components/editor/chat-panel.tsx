@@ -5,7 +5,7 @@ import { ArrowUp, Copy, CornerDownLeft, Sparkles, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { ChatMessage } from "@/lib/docs";
 import { streamFetch } from "@/lib/stream";
-import { Drawer } from "./drawer";
+import { BottomPanel } from "./drawer";
 
 const STARTERS = [
   "What's the weakest part of this?",
@@ -30,7 +30,7 @@ export function ChatPanel({
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
-  const bottom = useRef<HTMLDivElement>(null);
+  const scroller = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     supabase
@@ -42,7 +42,9 @@ export function ChatPanel({
   }, [supabase, documentId]);
 
   useEffect(() => {
-    bottom.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    // Scroll only the chat, never the page, so your text stays where it is.
+    const el = scroller.current;
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
   }, [messages]);
 
   async function send(text: string) {
@@ -77,7 +79,7 @@ export function ChatPanel({
   }
 
   return (
-    <Drawer
+    <BottomPanel
       title="Chat"
       onClose={onClose}
       actions={
@@ -88,16 +90,17 @@ export function ChatPanel({
         )
       }
     >
-      <div className="flex min-h-full flex-col">
-        <div className="flex-1 space-y-4 p-5">
+      <div className="flex h-full flex-col">
+        <div ref={scroller} className="min-h-0 flex-1 overflow-y-auto">
+        <div className="mx-auto max-w-3xl space-y-4 px-5 pb-4">
           {messages.length === 0 && (
-            <div className="pt-6 text-center">
-              <div className="bg-gradient-brand mx-auto grid size-12 place-items-center rounded-2xl text-white">
-                <Sparkles size={20} />
+            <div className="pt-2 text-center">
+              <div className="bg-gradient-brand mx-auto grid size-10 place-items-center rounded-2xl text-white">
+                <Sparkles size={18} />
               </div>
-              <p className="mt-3 font-display text-xl">Talk about this doc</p>
+              <p className="mt-2 font-display text-lg">Talk about this doc</p>
               <p className="mt-1 text-sm text-muted">I can see everything you’ve written.</p>
-              <div className="mt-5 flex flex-wrap justify-center gap-2">
+              <div className="mt-3 flex flex-wrap justify-center gap-2">
                 {STARTERS.map((s) => (
                   <button key={s} onClick={() => send(s)} className="rounded-full bg-surface-strong px-3 py-1.5 text-sm transition hover:text-accent">
                     {s}
@@ -109,7 +112,7 @@ export function ChatPanel({
 
           {messages.map((m, i) =>
             m.role === "user" ? (
-              <div key={m.id ?? i} className="ml-10 rounded-2xl rounded-br-md bg-ink px-4 py-2.5 text-sm text-bg whitespace-pre-wrap">
+              <div key={m.id ?? i} className="ml-auto w-fit max-w-[85%] rounded-2xl rounded-br-md bg-ink px-4 py-2.5 text-sm text-bg whitespace-pre-wrap">
                 {m.content}
               </div>
             ) : (
@@ -133,7 +136,7 @@ export function ChatPanel({
               </div>
             ),
           )}
-          <div ref={bottom} />
+        </div>
         </div>
 
         <form
@@ -141,9 +144,9 @@ export function ChatPanel({
             e.preventDefault();
             send(input);
           }}
-          className="sticky bottom-0 bg-bg p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+          className="shrink-0 border-t border-line bg-bg p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
         >
-          <div className="flex items-end gap-2 rounded-2xl bg-surface-strong p-2 ring-1 ring-line focus-within:ring-2 focus-within:ring-accent">
+          <div className="mx-auto flex max-w-3xl items-end gap-2 rounded-2xl bg-surface-strong p-2 ring-1 ring-line focus-within:ring-2 focus-within:ring-accent">
             <textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -168,6 +171,6 @@ export function ChatPanel({
           </div>
         </form>
       </div>
-    </Drawer>
+    </BottomPanel>
   );
 }

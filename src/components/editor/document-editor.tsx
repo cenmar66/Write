@@ -473,7 +473,7 @@ function LoadedEditor({ doc, supabase, autoDictate }: { doc: Doc; supabase: Supa
       </div>
 
       {/* Writing surface */}
-      <article className="mx-auto max-w-2xl pt-8 pb-48 md:pt-14">
+      <article className="mx-auto max-w-2xl pt-8 pb-48 md:pt-14" style={{ paddingBottom: "calc(var(--bottom-panel, 0px) + 12rem)" }}>
         <textarea
           value={title}
           onChange={(e) => onTitle(e.target.value)}
@@ -505,7 +505,7 @@ function LoadedEditor({ doc, supabase, autoDictate }: { doc: Doc; supabase: Supa
       )}
 
       {/* Bottom dock */}
-      {!suggestion && !dictating && !drafting && (
+      {!suggestion && !dictating && !drafting && panel !== "chat" && (
         <div className="fixed inset-x-0 bottom-0 z-30 flex justify-center px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] print:hidden md:left-64">
           <div className="bar flex items-center gap-1 rounded-full p-1.5 shadow-lg">
             <button
@@ -555,7 +555,7 @@ function LoadedEditor({ doc, supabase, autoDictate }: { doc: Doc; supabase: Supa
         />
       )}
 
-      {toast && !suggestion && !dictating && (
+      {toast && !suggestion && !dictating && panel !== "chat" && (
         <div className="fixed inset-x-0 bottom-20 z-40 flex justify-center px-4 print:hidden md:left-64">
           <div className="flex items-center gap-3 rounded-full bg-ink py-2 pr-2 pl-4 text-sm text-bg shadow-xl animate-rise">
             {toast.message}
