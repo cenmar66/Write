@@ -71,6 +71,8 @@ export function ConnectedAccounts() {
         </p>
       )}
 
+      <SetupChecklist />
+
       {rows === null ? (
         <div className="py-6 text-center text-muted"><Loader2 className="mx-auto animate-spin" /></div>
       ) : (
@@ -279,6 +281,91 @@ function SubstackRow({ row, busy, onDisconnect, onSaved }: { row?: Row; busy: bo
               Open Substack <ExternalLink size={12} />
             </a>
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+type Status = {
+  shared: Record<string, boolean>;
+  platforms: Record<string, { keys: Record<string, boolean>; redirect: string }>;
+};
+
+const PLATFORM_NAMES: Record<string, string> = { meta: "Facebook + Instagram", linkedin: "LinkedIn", threads: "Threads" };
+const SHARED_HINTS: Record<string, string> = {
+  ENCRYPTION_KEY: "any long random password, 40+ characters (needed for every account, including Substack)",
+  SUPABASE_SECRET_KEY: "Supabase → Project Settings → API Keys → Secret keys",
+  CRON_SECRET: "another long random password (for scheduled posts)",
+};
+
+/** Shows which publishing keys Vercel has (yes/no only) and the exact addresses to paste into each developer app. */
+function SetupChecklist() {
+  const [status, setStatus] = useState<Status | null>(null);
+  const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
+  useEffect(() => {
+    fetch("/api/connect/status")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((s: Status | null) => {
+        setStatus(s);
+        if (s) {
+          const missing = Object.values(s.shared).includes(false) || Object.values(s.platforms).some((p) => Object.values(p.keys).includes(false));
+          setOpen(missing);
+        }
+      });
+  }, []);
+  if (!status) return null;
+
+  const allKeys = [...Object.values(status.shared), ...Object.values(status.platforms).flatMap((p) => Object.values(p.keys))];
+  const done = allKeys.filter(Boolean).length;
+  const copy = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopied(text);
+    setTimeout(() => setCopied(null), 1500);
+  };
+  const Row = ({ name, ok, hint }: { name: string; ok: boolean; hint?: string }) => (
+    <li className="flex items-start gap-2">
+      <span className={`mt-0.5 grid size-4 shrink-0 place-items-center rounded-full text-[10px] text-white ${ok ? "bg-emerald-500" : "bg-rose-400"}`}>{ok ? "✓" : "!"}</span>
+      <span className="min-w-0">
+        <code className="text-xs">{name}</code>
+        {!ok && hint && <span className="block text-xs text-muted">{hint}</span>}
+      </span>
+    </li>
+  );
+
+  return (
+    <div className="mb-4 rounded-2xl bg-surface-strong p-4 text-sm">
+      <button onClick={() => setOpen(!open)} className="flex w-full items-center justify-between gap-2 text-left">
+        <span className="font-medium">Setup checklist</span>
+        <span className="text-xs text-muted">
+          {done} of {allKeys.length} keys set in Vercel · {open ? "hide" : "show"}
+        </span>
+      </button>
+      {open && (
+        <div className="mt-3 space-y-4">
+          <div>
+            <p className="text-xs font-medium text-muted">Needed for everything</p>
+            <ul className="mt-1.5 space-y-1.5">
+              {Object.entries(status.shared).map(([k, ok]) => <Row key={k} name={k} ok={ok} hint={SHARED_HINTS[k]} />)}
+            </ul>
+          </div>
+          {Object.entries(status.platforms).map(([p, info]) => (
+            <div key={p}>
+              <p className="text-xs font-medium text-muted">{PLATFORM_NAMES[p] ?? p}</p>
+              <ul className="mt-1.5 space-y-1.5">
+                {Object.entries(info.keys).map(([k, ok]) => <Row key={k} name={k} ok={ok} />)}
+              </ul>
+              <p className="mt-2 text-xs text-muted">Paste this as the redirect address in the developer app:</p>
+              <button onClick={() => copy(info.redirect)} className="mt-1 flex w-full items-center gap-2 rounded-xl bg-bg px-3 py-2 text-left text-xs ring-1 ring-line hover:ring-accent">
+                <code className="min-w-0 flex-1 truncate">{info.redirect}</code>
+                <span className="shrink-0 text-muted">{copied === info.redirect ? "Copied" : "Copy"}</span>
+              </button>
+            </div>
+          ))}
+          <p className="text-xs text-muted">
+            Add keys in Vercel → Settings → Environment Variables, then redeploy. Step-by-step instructions are in the README under “Setup for publishing”.
+          </p>
         </div>
       )}
     </div>
