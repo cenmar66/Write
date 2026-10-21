@@ -99,7 +99,7 @@ export function DocsBrowser() {
     try {
       const { ids, skipped } = await importFiles(supabase, Array.from(files), { folderId: folder === "all" ? null : folder });
       setNotice(
-        [ids.length && `Imported ${ids.length === 1 ? "1 document" : `${ids.length} documents`}.`, skipped.length && `Skipped ${skipped.join(", ")} (use .txt, .md, .docx, or .html).`]
+        [ids.length && `Imported ${ids.length === 1 ? "1 document" : `${ids.length} documents`}.`, skipped.length && `Skipped ${skipped.join(", ")} (not text files; for PDFs, copy and paste the text).`]
           .filter(Boolean)
           .join(" "),
       );

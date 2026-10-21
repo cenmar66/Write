@@ -5,20 +5,41 @@ import { Editor, type JSONContent } from "@tiptap/react";
 import { Markdown } from "@tiptap/markdown";
 import StarterKit from "@tiptap/starter-kit";
 
-export const IMPORT_ACCEPT =
-  ".txt,.md,.markdown,.docx,.html,.htm,text/plain,text/markdown,text/html,application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+// No file-type filter on purpose: phones and Macs often grey out .md and other text
+// files they don't recognize. Each file is checked after you pick it instead.
+export const IMPORT_ACCEPT: string | undefined = undefined;
 
-/** Reads a file's text for use as reference material (the home screen's + button). */
+/** Reads any text-based file as plain text: .txt, .md, .rtf, .html, .csv, .json, .docx, and more. */
 export async function readFileText(file: File): Promise<string> {
-  if (/\.docx$/i.test(file.name)) {
+  const name = file.name.toLowerCase();
+  if (name.endsWith(".docx")) {
     const mammoth = await import("mammoth");
     return (await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() })).value;
   }
-  if (/\.html?$/i.test(file.name)) {
-    return new DOMParser().parseFromString(await file.text(), "text/html").body.textContent ?? "";
+  if (name.endsWith(".pdf")) throw new Error(`${file.name}: PDFs can't be read yet. Copy and paste the text instead.`);
+  if (/\.(doc|pages|odt|zip|png|jpe?g|gif|webp|heic|mp3|mp4|mov|m4a)$/.test(name)) {
+    throw new Error(`${file.name} isn't a text file.`);
   }
-  if (/\.(txt|md|markdown)$/i.test(file.name)) return file.text();
-  throw new Error(`Can't read ${file.name}. Use .txt, .md, .docx, or .html.`);
+  const raw = await file.text();
+  // Binary files decode with null bytes or lots of "unknown character" marks.
+  const bad = (raw.slice(0, 4000).match(/\u0000|\uFFFD/g) ?? []).length;
+  if (bad > 5) throw new Error(`${file.name} isn't a text file.`);
+  if (/\.html?$/.test(name)) return new DOMParser().parseFromString(raw, "text/html").body.textContent ?? "";
+  if (name.endsWith(".rtf")) return rtfToText(raw);
+  return raw;
+}
+
+/** Rough RTF to plain text: drops formatting codes, keeps the words. */
+function rtfToText(rtf: string): string {
+  return rtf
+    .replace(/\\par[d]?/g, "\n")
+    .replace(/\{\\(fonttbl|colortbl|stylesheet|info)([^{}]|\{[^{}]*\})*\}/g, "")
+    .replace(/\{\\\*[^{}]*\}/g, "")
+    .replace(/\\'([0-9a-f]{2})/gi, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+    .replace(/\\[a-z]+-?\d* ?/gi, "")
+    .replace(/[{}]/g, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 /** Converts a file into the editor's format, keeping headings, lists, bold, and links. */
@@ -33,14 +54,13 @@ async function convert(file: File) {
       editor.commands.setContent(await file.text());
     } else if (/\.(md|markdown)$/i.test(file.name)) {
       editor.commands.setContent(await file.text(), { contentType: "markdown" });
-    } else if (/\.txt$/i.test(file.name)) {
-      const paragraphs = (await file.text()).replace(/\r\n/g, "\n").split(/\n{2,}/).filter((p) => p.trim());
+    } else {
+      // Any other text file (.txt, .rtf, .csv…): one paragraph per blank-line-separated block.
+      const paragraphs = (await readFileText(file)).replace(/\r\n/g, "\n").split(/\n{2,}/).filter((p) => p.trim());
       editor.commands.setContent({
         type: "doc",
         content: paragraphs.map((p) => ({ type: "paragraph", content: [{ type: "text", text: p.trim() }] })),
       });
-    } else {
-      return null;
     }
     // Use the first heading as the title when there is one.
     const json = editor.getJSON();

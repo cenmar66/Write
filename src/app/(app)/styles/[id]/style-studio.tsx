@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { EMPTY_PROFILE, normalizeProfile, type VoiceProfile } from "@/lib/ai/voice";
 import { timeAgo } from "@/lib/docs";
 import { streamFetch } from "@/lib/stream";
+import { readFileText } from "@/lib/import-docs";
 import { STYLE_FIELDS, type WritingStyle } from "@/lib/styles";
 import { createClient } from "@/lib/supabase/client";
 
@@ -95,19 +96,14 @@ export function StyleStudio({ styleId }: { styleId: string }) {
     const rows: { title: string; content: string; source: "upload" }[] = [];
     const skipped: string[] = [];
     for (const file of Array.from(files)) {
-      const name = file.name.replace(/\.[^.]+$/, "");
-      if (/\.(txt|md|markdown)$/i.test(file.name)) {
-        rows.push({ title: name, content: await file.text(), source: "upload" });
-      } else if (/\.docx$/i.test(file.name)) {
-        const mammoth = await import("mammoth");
-        const { value } = await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() });
-        rows.push({ title: name, content: value, source: "upload" });
-      } else {
-        skipped.push(file.name);
+      try {
+        rows.push({ title: file.name.replace(/\.[^.]+$/, ""), content: await readFileText(file), source: "upload" });
+      } catch (e) {
+        skipped.push((e as Error).message);
       }
     }
     await addSamples(rows);
-    if (skipped.length) setNotice({ tone: "error", text: `Skipped ${skipped.join(", ")}. Use .txt, .md, or .docx (for PDFs, copy and paste the text).` });
+    if (skipped.length) setNotice({ tone: "error", text: skipped.join(" ") });
     if (fileInput.current) fileInput.current.value = "";
   }
 
@@ -224,7 +220,6 @@ export function StyleStudio({ styleId }: { styleId: string }) {
             ref={fileInput}
             type="file"
             multiple
-            accept=".txt,.md,.markdown,.docx,text/plain,text/markdown,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             className="hidden"
             onChange={(e) => onFiles(e.target.files)}
           />

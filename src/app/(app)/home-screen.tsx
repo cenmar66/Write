@@ -114,7 +114,7 @@ export function HomeScreen() {
     setError(null);
     try {
       const { ids, skipped } = await importFiles(supabase, Array.from(files));
-      if (skipped.length) setError(`Skipped ${skipped.join(", ")}. Use .txt, .md, .docx, or .html.`);
+      if (skipped.length) setError(`Skipped ${skipped.join(", ")}: not a text file (PDFs: copy and paste the text).`);
       if (ids.length === 1 && !skipped.length) return router.push(`/docs/${ids[0]}`);
       setDrafts(await load());
     } catch (e) {
@@ -184,7 +184,7 @@ export function HomeScreen() {
           <button
             onClick={() => attachInput.current?.click()}
             aria-label="Attach reference files"
-            title="Attach notes or sources (.txt, .md, .docx, .html)"
+            title="Attach notes or sources (any text file or Word doc)"
             className="grid size-9 place-items-center rounded-full text-muted transition hover:bg-surface-strong hover:text-ink"
           >
             <Plus size={19} />
