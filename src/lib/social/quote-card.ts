@@ -6,11 +6,23 @@ export type BrandKit = {
   background: string;
   text: string;
   accent: string;
-  font: "serif" | "sans";
+  font: FontKey;
   style: "solid" | "gradient";
   handle: string;
   logo_url: string | null;
 };
+
+/** Fonts you can pick for cards. Each is loaded only when used. */
+export const CARD_FONTS = {
+  serif: { label: "Elegant serif", cssVar: "--font-fraunces", fallback: "Georgia, serif", weight: 600 },
+  sans: { label: "Clean sans", cssVar: "--font-inter", fallback: "system-ui, sans-serif", weight: 600 },
+  playfair: { label: "Classic", cssVar: "--font-playfair", fallback: "Georgia, serif", weight: 600 },
+  dmserif: { label: "Editorial", cssVar: "--font-dmserif", fallback: "Georgia, serif", weight: 400 },
+  montserrat: { label: "Bold modern", cssVar: "--font-montserrat", fallback: "system-ui, sans-serif", weight: 700 },
+  grotesk: { label: "Techy", cssVar: "--font-grotesk", fallback: "system-ui, sans-serif", weight: 600 },
+  caveat: { label: "Handwritten", cssVar: "--font-caveat", fallback: "cursive", weight: 600 },
+} as const;
+export type FontKey = keyof typeof CARD_FONTS;
 
 export const DEFAULT_BRAND: BrandKit = {
   background: "#14121f",
@@ -27,9 +39,18 @@ export const CARD_SIZES = {
   square: { width: 1080, height: 1080, label: "Square 1:1" },
 } as const;
 
-function fontFamily(kind: BrandKit["font"]): string {
-  const css = getComputedStyle(document.documentElement).getPropertyValue(kind === "serif" ? "--font-fraunces" : "--font-inter").trim();
-  return css || (kind === "serif" ? "Georgia, serif" : "system-ui, sans-serif");
+/** The CSS font stack for a card font (falls back gracefully if a saved font no longer exists). */
+export function fontFamily(kind: string): string {
+  const f = CARD_FONTS[kind as FontKey] ?? CARD_FONTS.serif;
+  const css = getComputedStyle(document.documentElement).getPropertyValue(f.cssVar).trim();
+  return css ? `${css}, ${f.fallback}` : f.fallback;
+}
+
+export const fontWeight = (kind: string) => (CARD_FONTS[kind as FontKey] ?? CARD_FONTS.serif).weight;
+
+/** Makes sure a font has downloaded before drawing with it (canvas won't wait on its own). */
+export async function ensureFont(kind: string) {
+  await document.fonts.load(`${fontWeight(kind)} 64px ${fontFamily(kind)}`).catch(() => {});
 }
 
 function wrap(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
@@ -85,7 +106,8 @@ export async function renderCard(opts: {
 
   const pad = 96;
   const family = fontFamily(b.font);
-  await document.fonts.load(`600 64px ${family}`).catch(() => {});
+  const weight = fontWeight(b.font);
+  await Promise.all([ensureFont(b.font), ensureFont("sans")]);
 
   // Top: logo, or a small accent bar.
   if (b.logo_url) {
@@ -106,7 +128,7 @@ export async function renderCard(opts: {
   let size = 92;
   let lines: string[] = [];
   for (; size >= 36; size -= 4) {
-    ctx.font = `600 ${size}px ${family}`;
+    ctx.font = `${weight} ${size}px ${family}`;
     lines = wrap(ctx, opts.text.trim(), maxWidth);
     if (lines.length * size * 1.25 <= boxBottom - boxTop) break;
   }

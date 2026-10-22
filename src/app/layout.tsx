@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Fraunces, Inter } from "next/font/google";
+import { Caveat, DM_Serif_Display, Fraunces, Inter, Montserrat, Playfair_Display, Space_Grotesk } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
 import "./globals.css";
 
@@ -9,6 +9,13 @@ const fraunces = Fraunces({
   subsets: ["latin"],
   axes: ["SOFT", "opsz"],
 });
+// Extra fonts for brand-kit cards. preload: false means they only download when a card uses them.
+const playfair = Playfair_Display({ variable: "--font-playfair", subsets: ["latin"], weight: ["600"], preload: false });
+const dmSerif = DM_Serif_Display({ variable: "--font-dmserif", subsets: ["latin"], weight: ["400"], preload: false });
+const montserrat = Montserrat({ variable: "--font-montserrat", subsets: ["latin"], weight: ["700"], preload: false });
+const grotesk = Space_Grotesk({ variable: "--font-grotesk", subsets: ["latin"], weight: ["600"], preload: false });
+const caveat = Caveat({ variable: "--font-caveat", subsets: ["latin"], weight: ["600"], preload: false });
+const fontVars = [inter, fraunces, playfair, dmSerif, montserrat, grotesk, caveat].map((f) => f.variable).join(" ");
 
 export const metadata: Metadata = {
   title: "Write.ai",
@@ -29,7 +36,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning className={`${inter.variable} ${fraunces.variable}`}>
+    <html lang="en" suppressHydrationWarning className={fontVars}>
       <body>
         <ThemeProvider>
           <div className="aurora" aria-hidden><span /></div>
