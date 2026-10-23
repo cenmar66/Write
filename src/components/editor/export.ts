@@ -122,3 +122,41 @@ export async function exportDocx(title: string, content: JSONContent) {
   });
   download(await Packer.toBlob(doc), `${safeFilename(title)}.docx`);
 }
+
+/**
+ * Copies the document as formatted text that pastes cleanly into LinkedIn's article editor.
+ * LinkedIn keeps headings (two levels), bold, italic, lists, quotes, and links.
+ * Returns false if the browser only allowed plain text.
+ */
+export async function copyForLinkedInArticle(html: string, plain: string): Promise<boolean> {
+  const doc = new DOMParser().parseFromString(`<div>${html}</div>`, "text/html");
+  const root = doc.body.firstElementChild as HTMLElement;
+  // LinkedIn articles have a separate title field and two heading sizes.
+  const retag = (el: Element, tag: string) => {
+    const next = doc.createElement(tag);
+    next.innerHTML = el.innerHTML;
+    el.replaceWith(next);
+  };
+  root.querySelectorAll("h1").forEach((h) => retag(h, "h2"));
+  root.querySelectorAll("h4, h5, h6").forEach((h) => retag(h, "h3"));
+  root.querySelectorAll("p").forEach((p) => {
+    if (!p.textContent?.trim() && !p.querySelector("img")) p.remove();
+  });
+  const clean = root.innerHTML;
+
+  if (typeof ClipboardItem !== "undefined" && navigator.clipboard?.write) {
+    try {
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          "text/html": new Blob([clean], { type: "text/html" }),
+          "text/plain": new Blob([plain], { type: "text/plain" }),
+        }),
+      ]);
+      return true;
+    } catch {
+      // Fall through to plain text.
+    }
+  }
+  await navigator.clipboard.writeText(plain);
+  return false;
+}

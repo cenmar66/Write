@@ -8,6 +8,7 @@ import StarterKit from "@tiptap/starter-kit";
 import {
   ArrowLeft,
   Check,
+  ClipboardCopy,
   CloudOff,
   Download,
   FileDown,
@@ -33,7 +34,7 @@ import { ModelChip } from "../model-picker";
 import { DictationPanel, type DictationPanelHandle } from "../dictation/dictation-panel";
 import { AiBubbleMenu } from "./ai-menu";
 import { ChatPanel } from "./chat-panel";
-import { exportDocx, exportMarkdown, exportPdf } from "./export";
+import { copyForLinkedInArticle, exportDocx, exportMarkdown, exportPdf } from "./export";
 import { HistoryPanel } from "./history-panel";
 import { SubstackPanel } from "./substack-panel";
 import { type Suggestion, SuggestionCard } from "./suggestion-card";
@@ -410,9 +411,18 @@ function LoadedEditor({ doc, supabase, autoDictate }: { doc: Doc; supabase: Supa
     scheduleSave();
   }
 
-  async function runExport(kind: "md" | "docx" | "pdf") {
+  async function runExport(kind: "md" | "docx" | "pdf" | "linkedin") {
     setExportOpen(false);
     if (!editor) return;
+    if (kind === "linkedin") {
+      const rich = await copyForLinkedInArticle(editor.getHTML(), plainText());
+      setToast({
+        message: rich
+          ? "Copied with formatting. In LinkedIn, type the title, then paste into the article body."
+          : "Copied as plain text (this browser blocked formatting).",
+      });
+      return;
+    }
     if (kind === "md") exportMarkdown(titleRef.current, editor.getMarkdown());
     if (kind === "docx") await exportDocx(titleRef.current, editor.getJSON());
     if (kind === "pdf") exportPdf();
@@ -449,13 +459,17 @@ function LoadedEditor({ doc, supabase, autoDictate }: { doc: Doc; supabase: Supa
             <History size={19} />
           </IconButton>
           <div className="relative">
-            <IconButton label="Export" active={exportOpen} onClick={() => setExportOpen(!exportOpen)}>
+            <IconButton label="Export or copy" active={exportOpen} onClick={() => setExportOpen(!exportOpen)}>
               <Download size={19} />
             </IconButton>
             {exportOpen && (
               <>
                 <div className="fixed inset-0 z-30" onClick={() => setExportOpen(false)} />
-                <div className="bar absolute top-11 right-0 z-40 w-52 rounded-2xl p-1.5 text-sm shadow-xl">
+                <div className="bar absolute top-11 right-0 z-40 w-64 rounded-2xl p-1.5 text-sm shadow-xl">
+                  <ExportItem icon={<ClipboardCopy size={16} />} onClick={() => runExport("linkedin")}>
+                    Copy for LinkedIn article
+                  </ExportItem>
+                  <div className="my-1 h-px bg-line" />
                   <ExportItem icon={<FileType size={16} />} onClick={() => runExport("docx")}>
                     Word (.docx)
                   </ExportItem>
