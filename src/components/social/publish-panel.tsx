@@ -160,10 +160,15 @@ export function PublishPanel({
   }
 
   async function copyAndOpenX() {
-    await navigator.clipboard.writeText(text);
-    const first = post.format === "thread" ? post.parts[0] ?? "" : text;
+    const thread = post.format === "thread" && post.parts.length > 1;
+    // Threads: post 1 is pre-filled in X, and post 2 is already on your clipboard, ready to paste as the next one.
+    await navigator.clipboard.writeText(thread ? post.parts[1] : text);
+    const first = thread ? post.parts[0] : text;
     window.open(`https://x.com/intent/post?text=${encodeURIComponent(first)}`, "_blank", "noopener");
+    if (thread) setXHint(true);
   }
+
+  const [xHint, setXHint] = useState(false);
 
   async function markPosted() {
     const patch = { status: "published" as const, published_at: new Date().toISOString() };
@@ -272,7 +277,11 @@ export function PublishPanel({
                 <Check size={14} /> Mark as posted
               </button>
               <p className="w-full text-xs text-muted">
-                {post.format === "thread" ? "The whole thread is copied; X opens with the first post. Add the rest as replies." : "Your post is copied and X opens with it filled in."}
+                {post.format === "thread"
+                  ? xHint
+                    ? "Post 1 is filled in and post 2 is on your clipboard. In X, tap + to add each next post to the thread before posting, using the copy icons above (a tick shows what you've copied)."
+                    : "X opens with post 1 filled in, and post 2 is copied. Use the small copy icon on each post above for the rest."
+                  : "Your post is copied and X opens with it filled in."}
               </p>
             </div>
           ) : account === null ? (

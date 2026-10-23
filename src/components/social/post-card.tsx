@@ -60,6 +60,18 @@ export function PostCard({
     }
   }
 
+  // Thread posts: copy one at a time (hashtags go on the last post). Ticks show what you've copied.
+  const [copiedParts, setCopiedParts] = useState<Set<number>>(new Set());
+  const [justCopied, setJustCopied] = useState<number | null>(null);
+  const partText = (i: number) =>
+    post.parts[i] + (i === post.parts.length - 1 && post.hashtags.length ? `\n\n${post.hashtags.map((h) => `#${h}`).join(" ")}` : "");
+  async function copyPart(i: number) {
+    await navigator.clipboard.writeText(partText(i));
+    setCopiedParts((s) => new Set(s).add(i));
+    setJustCopied(i);
+    setTimeout(() => setJustCopied((j) => (j === i ? null : j)), 1500);
+  }
+
   async function copy() {
     const tags = post.hashtags.length ? `\n\n${post.hashtags.map((h) => `#${h}`).join(" ")}` : "";
     const text = isSingle
@@ -129,6 +141,17 @@ export function PostCard({
                   {partOver && !isCarousel && (
                     <button onClick={() => fit(i)} disabled={fitting !== null} className="text-accent hover:underline">
                       {fitting === i ? "Shortening…" : "Shorten"}
+                    </button>
+                  )}
+                  {post.format === "thread" && (
+                    <button
+                      onClick={() => copyPart(i)}
+                      aria-label={`Copy post ${i + 1}`}
+                      title={copiedParts.has(i) ? "Copied. Click to copy again" : `Copy post ${i + 1}`}
+                      className={`flex items-center gap-1 rounded px-1 py-0.5 transition hover:text-ink ${copiedParts.has(i) ? "text-emerald-600 dark:text-emerald-400" : ""}`}
+                    >
+                      {copiedParts.has(i) ? <Check size={12} /> : <Copy size={12} />}
+                      {justCopied === i && <span>Copied</span>}
                     </button>
                   )}
                   <button
