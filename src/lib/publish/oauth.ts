@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { cookies } from "next/headers";
+import { instagramAuthUrl } from "./instagram";
 import { linkedinAuthUrl } from "./linkedin";
 import { metaAuthUrl } from "./meta";
 import { threadsAuthUrl } from "./threads";
@@ -8,6 +9,7 @@ export const OAUTH_PLATFORMS = {
   linkedin: { env: ["LINKEDIN_CLIENT_ID", "LINKEDIN_CLIENT_SECRET"], authUrl: linkedinAuthUrl },
   meta: { env: ["META_APP_ID", "META_APP_SECRET"], authUrl: metaAuthUrl },
   threads: { env: ["THREADS_APP_ID", "THREADS_APP_SECRET"], authUrl: threadsAuthUrl },
+  instagram: { env: ["INSTAGRAM_APP_ID", "INSTAGRAM_APP_SECRET"], authUrl: instagramAuthUrl },
 } as const;
 export type OAuthPlatform = keyof typeof OAUTH_PLATFORMS;
 

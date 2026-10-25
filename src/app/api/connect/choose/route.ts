@@ -29,8 +29,11 @@ export async function POST(request: Request) {
     const page = pages.find((p) => p.id === value);
     if (!acc || !page) return Response.json({ error: "Not found." }, { status: 404 });
     const token = decrypt(page.token_enc);
+    const directIg = (await getAccount(supabase, "instagram").catch(() => null))?.meta.login === "instagram";
     await saveAccount(supabase, "facebook", { userId: acc.userId, accountId: page.id, accountName: page.name, avatarUrl: page.picture, token, meta: acc.meta });
-    if (page.instagram) {
+    if (directIg) {
+      // An Instagram connected directly stays as it is.
+    } else if (page.instagram) {
       await saveAccount(supabase, "instagram", {
         userId: acc.userId,
         accountId: page.instagram.id,

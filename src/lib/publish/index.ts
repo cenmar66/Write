@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { countChars, fullText, PLATFORMS } from "@/lib/social/platforms";
 import { type Account, type AccountPlatform, getAccount, markAccount, ReconnectError, updateToken } from "./accounts";
 import { linkedinRefresh, publishLinkedIn } from "./linkedin";
+import { instagramRefresh } from "./instagram";
 import { publishFacebook, publishInstagram } from "./meta";
 import { publishThreads, threadsRefresh } from "./threads";
 import { AUTO_PLATFORMS, type PostRow, type PublishResult } from "./types";
@@ -18,6 +19,11 @@ async function freshAccount(supabase: SupabaseClient, account: Account): Promise
   }
   if (account.platform === "threads") {
     const r = await threadsRefresh(account.token!);
+    await updateToken(supabase, account, r.access_token, r.expires_in);
+    return { ...account, token: r.access_token };
+  }
+  if (account.platform === "instagram" && account.meta.login === "instagram") {
+    const r = await instagramRefresh(account.token!);
     await updateToken(supabase, account, r.access_token, r.expires_in);
     return { ...account, token: r.access_token };
   }

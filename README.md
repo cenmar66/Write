@@ -233,6 +233,18 @@ $$);
 7. Leave the app in **Development** mode. Because you're the app's admin, it works with your own Page and Instagram without Meta's App Review.
 8. Redeploy, then in Write.ai: **Settings → Connected accounts → Connect with Facebook**, approve everything, and choose your Page.
 
+**B2. Instagram without Facebook** (optional, instead of B for Instagram):
+
+Use this if your Instagram isn't linked to a Facebook Page. Your Instagram must be a **Business** or **Creator** account (Instagram app → Settings → Account type and tools).
+
+1. In your Meta app (developers.facebook.com → My Apps), add the use case **Manage messaging & content on Instagram** and choose **API setup with Instagram login** (Meta's wording changes; pick the "Instagram login" option, not "Facebook login").
+2. On that setup page, copy the **Instagram app ID** and **Instagram app secret** (different from the main App ID) into Vercel as `INSTAGRAM_APP_ID` and `INSTAGRAM_APP_SECRET`.
+3. Under **Set up Instagram business login → Business login settings**, add the redirect URL `https://YOUR-APP.vercel.app/api/connect/instagram/callback` (Settings shows the exact address with a Copy button).
+4. **App roles → Roles → Add people → Instagram Tester**: add your Instagram username, then accept it in Instagram: Settings → **Apps and websites** → **Tester invites**.
+5. Redeploy, then **Settings → Instagram (without Facebook) → Connect Instagram**. The login lasts 60 days and renews itself whenever a post goes out.
+
+If both are connected, the direct Instagram connection is the one used for Instagram posts.
+
 **C. Threads** (same Meta app):
 
 1. In your Meta app, add the use case **Access the Threads API**.

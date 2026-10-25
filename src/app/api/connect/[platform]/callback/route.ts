@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { encrypt } from "@/lib/crypto";
 import { requireOwner } from "@/lib/ai/server";
 import { saveAccount } from "@/lib/publish/accounts";
+import { getAccount } from "@/lib/publish/accounts";
+import { instagramExchange } from "@/lib/publish/instagram";
 import { linkedinAuthors, linkedinExchange } from "@/lib/publish/linkedin";
 import { metaExchange, metaPages } from "@/lib/publish/meta";
 import { checkState, OAUTH_PLATFORMS, type OAuthPlatform, redirectUri } from "@/lib/publish/oauth";
@@ -69,6 +71,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ plat
         token: page.access_token,
         meta: { pages: pageList },
       });
+      // Keep an Instagram account you connected directly; don't replace it with the Page's.
+      const existingIg = await getAccount(supabase, "instagram", userId).catch(() => null);
+      if (existingIg?.meta.login === "instagram") return back("connected=facebook");
       if (page.instagram_business_account) {
         const ig = page.instagram_business_account;
         await saveAccount(supabase, "instagram", {
@@ -82,6 +87,20 @@ export async function GET(request: Request, { params }: { params: Promise<{ plat
         return back("connected=meta");
       }
       return back("connected=facebook&connect_error=" + encodeURIComponent(`Facebook connected, but the Page "${page.name}" has no Instagram Business account linked.`));
+    }
+
+    if (p === "instagram") {
+      const t = await instagramExchange(code, ru);
+      await saveAccount(supabase, "instagram", {
+        userId,
+        accountId: t.id,
+        accountName: `@${t.me.username}`,
+        avatarUrl: t.me.profile_picture_url,
+        token: t.token,
+        expiresInSeconds: t.expiresIn,
+        meta: { login: "instagram", account_type: t.me.account_type ?? null },
+      });
+      return back("connected=instagram");
     }
 
     if (p === "threads") {

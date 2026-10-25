@@ -1,5 +1,6 @@
 import { fullText } from "@/lib/social/platforms";
 import { type Account, readJson } from "./accounts";
+import { IG_GRAPH } from "./instagram";
 import type { PostRow, PublishResult } from "./types";
 
 // Facebook Pages and Instagram (Business/Creator linked to a Page), via one Facebook login.
@@ -76,11 +77,11 @@ export async function publishFacebook(account: Account, row: PostRow): Promise<P
   return { url: `https://www.facebook.com/${body.post_id ?? body.id}` };
 }
 
-async function waitForContainer(id: string, token: string, maxSeconds: number) {
+async function waitForContainer(id: string, token: string, maxSeconds: number, graph = GRAPH) {
   const until = Date.now() + maxSeconds * 1000;
   for (;;) {
     const s = await readJson<{ status_code?: string; status?: string }>(
-      await fetch(`${GRAPH}/${id}?${new URLSearchParams({ fields: "status_code,status", access_token: token })}`),
+      await fetch(`${graph}/${id}?${new URLSearchParams({ fields: "status_code,status", access_token: token })}`),
       "Instagram",
     );
     if (s.status_code === "FINISHED" || s.status_code === "PUBLISHED") return;
@@ -93,6 +94,10 @@ async function waitForContainer(id: string, token: string, maxSeconds: number) {
 export async function publishInstagram(account: Account, row: PostRow): Promise<PublishResult> {
   const token = account.token!;
   const ig = account.accountId;
+  // Connected with Instagram Login (no Facebook Page) → graph.instagram.com; otherwise via the Page.
+  const graph = account.meta.login === "instagram" ? IG_GRAPH : GRAPH;
+  const post = (path: string, params: Record<string, string>) => fetch(`${graph}/${path}`, { method: "POST", body: new URLSearchParams(params) });
+  const wait = (id: string, seconds: number) => waitForContainer(id, token, seconds, graph);
   const caption = fullText("instagram", row.content || "", row.hashtags);
   const video = row.media.find((m) => m.type === "video");
   const images = row.media.filter((m) => m.type === "image").slice(0, 10);
@@ -104,11 +109,11 @@ export async function publishInstagram(account: Account, row: PostRow): Promise<
       await post(`${ig}/media`, { media_type: "REELS", video_url: video.url, caption, share_to_feed: "true", access_token: token }),
       "Instagram",
     );
-    await waitForContainer(c.id, token, 240);
+    await wait(c.id, 240);
     creationId = c.id;
   } else if (images.length === 1) {
     const c = await readJson<{ id: string }>(await post(`${ig}/media`, { image_url: images[0].url, caption, access_token: token }), "Instagram");
-    await waitForContainer(c.id, token, 60);
+    await wait(c.id, 60);
     creationId = c.id;
   } else {
     const children: string[] = [];
@@ -119,18 +124,18 @@ export async function publishInstagram(account: Account, row: PostRow): Promise<
       );
       children.push(c.id);
     }
-    for (const id of children) await waitForContainer(id, token, 60);
+    for (const id of children) await wait(id, 60);
     const c = await readJson<{ id: string }>(
       await post(`${ig}/media`, { media_type: "CAROUSEL", children: children.join(","), caption, access_token: token }),
       "Instagram",
     );
-    await waitForContainer(c.id, token, 60);
+    await wait(c.id, 60);
     creationId = c.id;
   }
 
   const published = await readJson<{ id: string }>(await post(`${ig}/media_publish`, { creation_id: creationId, access_token: token }), "Instagram");
   const link = await readJson<{ permalink?: string }>(
-    await fetch(`${GRAPH}/${published.id}?${new URLSearchParams({ fields: "permalink", access_token: token })}`),
+    await fetch(`${graph}/${published.id}?${new URLSearchParams({ fields: "permalink", access_token: token })}`),
     "Instagram",
   ).catch(() => ({ permalink: undefined }));
   return { url: link.permalink ?? null };

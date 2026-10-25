@@ -15,6 +15,7 @@ type Row = {
   meta: {
     authors?: { urn: string; name: string }[];
     author_urn?: string;
+    login?: string;
     pages?: { id: string; name: string; instagram: { username?: string } | null }[];
   };
 };
@@ -54,6 +55,8 @@ export function ConnectedAccounts() {
   const connected = params.get("connected");
   const fb = get("facebook");
   const li = get("linkedin");
+  const ig = get("instagram");
+  const igDirect = ig?.meta.login === "instagram" ? ig : undefined;
 
   return (
     <section id="accounts" className="glass scroll-mt-6 rounded-3xl p-5 sm:p-6">
@@ -96,7 +99,8 @@ export function ConnectedAccounts() {
             badges={["facebook", "instagram"]}
             title="Facebook + Instagram"
             row={fb}
-            secondary={get("instagram")}
+            secondary={igDirect ? undefined : ig}
+            secondaryNote={igDirect ? "connected separately below" : undefined}
             connectHref="/api/connect/meta/start"
             connectLabel="Connect with Facebook"
             busy={busy === "facebook"}
@@ -111,6 +115,16 @@ export function ConnectedAccounts() {
                 />
               ) : null
             }
+          />
+          <AccountRow
+            badges={["instagram"]}
+            title="Instagram (without Facebook)"
+            row={igDirect}
+            connectHref="/api/connect/instagram/start"
+            connectLabel="Connect Instagram"
+            busy={busy === "instagram"}
+            onDisconnect={() => disconnect("instagram")}
+            extra={!igDirect ? <p className="text-xs text-muted">For a Business or Creator account. No Facebook Page needed.</p> : null}
           />
           <AccountRow
             badges={["threads"]}
@@ -154,6 +168,7 @@ function AccountRow({
   title,
   row,
   secondary,
+  secondaryNote,
   connectHref,
   connectLabel,
   busy,
@@ -164,6 +179,7 @@ function AccountRow({
   title: string;
   row?: Row;
   secondary?: Row;
+  secondaryNote?: string;
   connectHref: string;
   connectLabel?: string;
   busy: boolean;
@@ -177,9 +193,16 @@ function AccountRow({
       <div className="min-w-0 flex-1 text-sm">
         <p className="font-medium">{title}</p>
         <StatusLine row={row} />
-        {badges.includes("instagram") && row && (
+        {badges.includes("instagram") && badges.includes("facebook") && row && (
           <span className="mt-0.5 block text-xs">
-            Instagram: {secondary ? <StatusLine row={secondary} /> : <span className="text-muted">no Business account linked to this Page</span>}
+            Instagram:{" "}
+            {secondaryNote ? (
+              <span className="text-muted">{secondaryNote}</span>
+            ) : secondary ? (
+              <StatusLine row={secondary} />
+            ) : (
+              <span className="text-muted">no Business account linked to this Page</span>
+            )}
           </span>
         )}
         {extra && <div className="mt-2">{extra}</div>}
@@ -292,7 +315,12 @@ type Status = {
   platforms: Record<string, { keys: Record<string, boolean>; redirect: string }>;
 };
 
-const PLATFORM_NAMES: Record<string, string> = { meta: "Facebook + Instagram", linkedin: "LinkedIn", threads: "Threads" };
+const PLATFORM_NAMES: Record<string, string> = {
+  meta: "Facebook + Instagram",
+  instagram: "Instagram without Facebook (optional)",
+  linkedin: "LinkedIn",
+  threads: "Threads",
+};
 const SHARED_HINTS: Record<string, string> = {
   ENCRYPTION_KEY: "any long random password, 40+ characters (needed for every account, including Substack)",
   SUPABASE_SECRET_KEY: "Supabase → Project Settings → API Keys → Secret keys",
@@ -310,7 +338,10 @@ function SetupChecklist() {
       .then((s: Status | null) => {
         setStatus(s);
         if (s) {
-          const missing = Object.values(s.shared).includes(false) || Object.values(s.platforms).some((p) => Object.values(p.keys).includes(false));
+          // The direct-Instagram keys are optional, so they don't pop the checklist open.
+          const missing =
+            Object.values(s.shared).includes(false) ||
+            Object.entries(s.platforms).some(([name, p]) => name !== "instagram" && Object.values(p.keys).includes(false));
           setOpen(missing);
         }
       });
