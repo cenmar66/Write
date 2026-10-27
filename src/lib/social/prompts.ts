@@ -1,5 +1,8 @@
 import type { PlatformId } from "./platforms";
-import { LIBRARY } from "./prompt-library";
+import { LIBRARY as BASE_LIBRARY } from "./prompt-library";
+import { LIBRARY_MORE } from "./prompt-library-more";
+
+const LIBRARY = [...BASE_LIBRARY, ...LIBRARY_MORE];
 
 // A library of writing prompts (idea starters), in the spirit of Typeshare's,
 // written for Write.ai. Each prompt picks a format, which sets the template and platforms.
