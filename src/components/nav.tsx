@@ -141,7 +141,7 @@ function Section({ title, action, children }: { title: string; action?: React.Re
   return (
     <div className="mt-6">
       <div className="flex items-center justify-between px-3 pb-1">
-        <h2 className="text-xs font-semibold text-muted">{title}</h2>
+        <h2 className="text-[11px] font-semibold tracking-[0.14em] text-muted uppercase">{title}</h2>
         {action}
       </div>
       <div className="space-y-0.5">{children}</div>

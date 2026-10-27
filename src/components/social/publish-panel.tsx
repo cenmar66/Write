@@ -183,7 +183,7 @@ export function PublishPanel({
     <section className="glass mt-4 space-y-5 rounded-3xl p-5 sm:p-6">
       {/* Status */}
       {post.status === "published" && (
-        <p className="flex flex-wrap items-center gap-2 rounded-2xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-300">
+        <p className="flex flex-wrap items-center gap-2 rounded-2xl bg-neutral-500/10 px-4 py-3 text-sm text-neutral-800 dark:text-neutral-300">
           <CheckCircle2 size={16} /> Published {post.published_at ? when(post.published_at) : ""}.
           {post.external_url && (
             <a href={post.external_url} target="_blank" rel="noreferrer" className="ml-auto flex items-center gap-1 font-medium underline">
@@ -193,7 +193,7 @@ export function PublishPanel({
         </p>
       )}
       {post.status === "scheduled" && post.scheduled_at && (
-        <p className={`flex items-center gap-2 rounded-2xl px-4 py-3 text-sm ${due && !auto ? "bg-amber-500/15 text-amber-800 dark:text-amber-300" : "bg-accent/10 text-accent"}`}>
+        <p className={`flex items-center gap-2 rounded-2xl px-4 py-3 text-sm ${due && !auto ? "bg-neutral-500/15 text-neutral-800 dark:text-neutral-300" : "bg-accent/10 text-accent"}`}>
           <CalendarClock size={16} />
           {due && !auto ? `Ready to post (was due ${when(post.scheduled_at)}).` : `Scheduled for ${when(post.scheduled_at)}${auto ? "" : " (reminder)"}.`}
         </p>
@@ -204,7 +204,7 @@ export function PublishPanel({
         </p>
       )}
       {post.status === "failed" && (
-        <p role="alert" className="flex items-start gap-2 rounded-2xl bg-rose-500/10 px-4 py-3 text-sm text-rose-600 dark:text-rose-300">
+        <p role="alert" className="flex items-start gap-2 rounded-2xl bg-rose-500/10 px-4 py-3 text-sm text-red-700 dark:text-rose-300">
           <AlertTriangle size={16} className="mt-0.5 shrink-0" /> <span>Didn’t publish: {post.error}</span>
         </p>
       )}
@@ -289,7 +289,7 @@ export function PublishPanel({
               Connect {platform.label} in <Link href="/settings#accounts" className="text-accent underline">Settings</Link> to post automatically.
             </p>
           ) : account && !connected ? (
-            <p className="text-sm text-rose-600 dark:text-rose-300">
+            <p className="text-sm text-red-700 dark:text-rose-300">
               {platform.label} needs reconnecting. <Link href="/settings#accounts" className="underline">Open Settings</Link>
             </p>
           ) : (
@@ -326,10 +326,10 @@ export function PublishPanel({
             )}
           </div>
           {auto && account === null && <p className="text-xs text-muted">Scheduled posts go out once the account is connected.</p>}
-          {blocked && <p className="text-xs text-rose-500">{blocked}</p>}
+          {blocked && <p className="text-xs text-red-700 dark:text-red-400">{blocked}</p>}
         </div>
       )}
-      {problem && <p className="text-sm text-rose-500">{problem}</p>}
+      {problem && <p className="text-sm text-red-700 dark:text-red-400">{problem}</p>}
     </section>
   );
 }

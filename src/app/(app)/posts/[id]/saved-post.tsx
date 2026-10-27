@@ -87,7 +87,7 @@ export function SavedPost({ id }: { id: string }) {
             await supabase.from("posts").delete().eq("id", id);
             router.push("/posts");
           }}
-          className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm text-muted hover:text-rose-500"
+          className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm text-muted hover:text-red-700 dark:hover:text-red-400"
         >
           <Trash2 size={14} /> Delete
         </button>

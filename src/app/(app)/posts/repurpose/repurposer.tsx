@@ -113,7 +113,7 @@ export function Repurposer({ docId, auto }: { docId?: string; auto: boolean }) {
           <span className="ml-2 text-xs text-muted">Leave it to use the document’s style</span>
           <div className="mt-2"><StyleSelect value={styleId} onChange={setStyleId} /></div>
         </div>
-        {error && <p className="text-sm text-rose-500">{error}</p>}
+        {error && <p className="text-sm text-red-700 dark:text-red-400">{error}</p>}
         <button
           onClick={generate}
           disabled={!selected || !!loading}

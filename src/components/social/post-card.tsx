@@ -101,7 +101,7 @@ export function PostCard({
           {post.angle && <p className="truncate text-xs text-muted">{post.angle}</p>}
         </div>
         {onRemove && (
-          <button onClick={onRemove} aria-label="Remove post" className="rounded-full p-1.5 text-muted hover:bg-surface-strong hover:text-rose-500">
+          <button onClick={onRemove} aria-label="Remove post" className="rounded-full p-1.5 text-muted hover:bg-surface-strong hover:text-red-700 dark:hover:text-red-400">
             <X size={16} />
           </button>
         )}
@@ -135,7 +135,7 @@ export function PostCard({
               <li key={i} className="rounded-2xl bg-bg p-2.5 ring-1 ring-line focus-within:ring-2 focus-within:ring-accent">
                 <div className="mb-1 flex items-center gap-2 text-xs text-muted">
                   <span className="font-medium">{post.format === "thread" ? `Post ${i + 1}` : `Slide ${i + 1}`}</span>
-                  <span className={`ml-auto tabular-nums ${partOver ? "font-medium text-rose-500" : ""}`}>
+                  <span className={`ml-auto tabular-nums ${partOver ? "font-medium text-red-700 dark:text-red-400" : ""}`}>
                     {isCarousel ? `${n} words` : `${n}/${platform.limit}`}
                   </span>
                   {partOver && !isCarousel && (
@@ -148,7 +148,7 @@ export function PostCard({
                       onClick={() => copyPart(i)}
                       aria-label={`Copy post ${i + 1}`}
                       title={copiedParts.has(i) ? "Copied. Click to copy again" : `Copy post ${i + 1}`}
-                      className={`flex items-center gap-1 rounded px-1 py-0.5 transition hover:text-ink ${copiedParts.has(i) ? "text-emerald-600 dark:text-emerald-400" : ""}`}
+                      className={`flex items-center gap-1 rounded px-1 py-0.5 transition hover:text-ink ${copiedParts.has(i) ? "text-neutral-700 dark:text-neutral-400" : ""}`}
                     >
                       {copiedParts.has(i) ? <Check size={12} /> : <Copy size={12} />}
                       {justCopied === i && <span>Copied</span>}
@@ -157,7 +157,7 @@ export function PostCard({
                   <button
                     onClick={() => update({ parts: post.parts.filter((_, j) => j !== i) })}
                     aria-label={`Remove part ${i + 1}`}
-                    className="rounded p-0.5 hover:text-rose-500"
+                    className="rounded p-0.5 hover:text-red-700 dark:hover:text-red-400"
                   >
                     <Trash2 size={12} />
                   </button>
@@ -214,11 +214,11 @@ export function PostCard({
 
       <footer className="mt-4 flex flex-wrap items-center gap-2 border-t border-line pt-3">
         {hasMain ? (
-          <span className={`text-xs tabular-nums ${over ? "font-medium text-rose-500" : "text-muted"}`}>
+          <span className={`text-xs tabular-nums ${over ? "font-medium text-red-700 dark:text-red-400" : "text-muted"}`}>
             {used.toLocaleString()} / {platform.limit.toLocaleString()}
           </span>
         ) : (
-          <span className={`text-xs ${partsOver ? "font-medium text-rose-500" : "text-muted"}`}>
+          <span className={`text-xs ${partsOver ? "font-medium text-red-700 dark:text-red-400" : "text-muted"}`}>
             {post.parts.length} {post.format === "thread" ? "posts" : "slides"}
             {partsOver ? " · some too long" : ""}
           </span>

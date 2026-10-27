@@ -176,7 +176,7 @@ export function StyleStudio({ styleId }: { styleId: string }) {
               <Star size={14} /> Make default
             </button>
           )}
-          <button onClick={remove} aria-label="Delete style" className="rounded-full p-2 text-muted hover:bg-surface-strong hover:text-rose-500">
+          <button onClick={remove} aria-label="Delete style" className="rounded-full p-2 text-muted hover:bg-surface-strong hover:text-red-700 dark:hover:text-red-400">
             <Trash2 size={17} />
           </button>
         </div>
@@ -185,7 +185,7 @@ export function StyleStudio({ styleId }: { styleId: string }) {
       {notice && (
         <p
           role="status"
-          className={`rounded-2xl px-4 py-3 text-sm ${notice.tone === "ok" ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" : "bg-rose-500/10 text-rose-600 dark:text-rose-300"}`}
+          className={`rounded-2xl px-4 py-3 text-sm ${notice.tone === "ok" ? "bg-neutral-500/10 text-neutral-800 dark:text-neutral-300" : "bg-rose-500/10 text-red-700 dark:text-rose-300"}`}
         >
           {notice.text}
         </p>
@@ -255,7 +255,7 @@ export function StyleStudio({ styleId }: { styleId: string }) {
                 <p className="truncate text-sm text-muted">{s.content.slice(0, 140)}</p>
               </div>
               <span className="shrink-0 text-xs text-muted">{s.word_count.toLocaleString()} words</span>
-              <button onClick={() => removeSample(s.id)} aria-label={`Remove ${s.title || "sample"}`} className="rounded-full p-2 text-muted hover:bg-surface-strong hover:text-rose-500">
+              <button onClick={() => removeSample(s.id)} aria-label={`Remove ${s.title || "sample"}`} className="rounded-full p-2 text-muted hover:bg-surface-strong hover:text-red-700 dark:hover:text-red-400">
                 <Trash2 size={16} />
               </button>
             </li>

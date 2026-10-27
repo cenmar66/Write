@@ -122,7 +122,7 @@ export function SubstackPanel({
               <p className="text-muted">Connect Substack in <Link href="/settings#accounts" className="text-accent underline">Settings</Link> to create drafts directly, or use the copy button below.</p>
             )}
             {account && !connected && (
-              <p className="flex items-start gap-2 rounded-xl bg-rose-500/10 px-3 py-2 text-rose-600 dark:text-rose-300">
+              <p className="flex items-start gap-2 rounded-xl bg-rose-500/10 px-3 py-2 text-red-700 dark:text-rose-300">
                 <AlertTriangle size={15} className="mt-0.5 shrink-0" /> The Substack connection stopped working. <Link href="/settings#accounts" className="underline">Reconnect</Link> or use the copy button.
               </p>
             )}
@@ -139,11 +139,11 @@ export function SubstackPanel({
             </div>
             {copied === "post" && <p className="text-xs text-muted">Copied. In Substack, click into the post body and paste. Formatting comes along.</p>}
             {result?.editUrl && (
-              <a href={result.editUrl} target="_blank" rel="noreferrer" className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-3 py-2 text-emerald-700 dark:text-emerald-300">
+              <a href={result.editUrl} target="_blank" rel="noreferrer" className="flex items-center gap-2 rounded-xl bg-neutral-500/10 px-3 py-2 text-neutral-800 dark:text-neutral-300">
                 <Check size={15} /> Draft created. Open it in Substack <ExternalLink size={13} />
               </a>
             )}
-            {result?.error && <p className="text-rose-500">{result.error}</p>}
+            {result?.error && <p className="text-red-700 dark:text-red-400">{result.error}</p>}
 
             <div className="border-t border-line pt-4">
               <p className="font-medium">Substack Note</p>

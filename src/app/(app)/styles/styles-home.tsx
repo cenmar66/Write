@@ -77,7 +77,7 @@ export function StylesHome() {
       </header>
 
       {setupNeeded && (
-        <p className="rounded-2xl bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
+        <p className="rounded-2xl bg-neutral-500/10 px-4 py-3 text-sm text-neutral-800 dark:text-neutral-200">
           One more database step: run <code>supabase/migrations/0007_styles.sql</code> in the Supabase SQL editor, then reload.
         </p>
       )}

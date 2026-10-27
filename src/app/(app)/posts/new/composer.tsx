@@ -117,7 +117,7 @@ export function Composer({ templateKey, customId }: { templateKey: string; custo
             <StyleSelect value={styleId} onChange={setStyleId} />
           </div>
         </div>
-        {error && <p className="text-sm text-rose-500">{error}</p>}
+        {error && <p className="text-sm text-red-700 dark:text-red-400">{error}</p>}
         <button
           onClick={draft}
           disabled={!idea.trim() || !template || !!loading}

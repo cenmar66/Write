@@ -37,7 +37,7 @@ async function SetupCheck({ searchParams }: { searchParams: SearchParams }) {
       <ul className="mt-3 space-y-2">
         {checks.map((c) => (
           <li key={c.label}>
-            <span className={c.ok ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}>{c.ok ? "✓" : "✗"}</span> {c.label}
+            <span className={c.ok ? "text-neutral-700 dark:text-neutral-400" : "text-red-700 dark:text-rose-400"}>{c.ok ? "✓" : "✗"}</span> {c.label}
             {!c.ok && c.fix && <p className="mt-0.5 pl-4 text-muted [overflow-wrap:anywhere]">{c.fix}</p>}
           </li>
         ))}

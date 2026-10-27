@@ -64,12 +64,12 @@ export function ConnectedAccounts() {
       <p className="mb-4 text-sm text-muted">Where your posts can go out automatically.</p>
 
       {connected && !error && (
-        <p className="mb-3 flex items-center gap-2 rounded-2xl bg-emerald-500/10 px-4 py-2.5 text-sm text-emerald-700 dark:text-emerald-300">
+        <p className="mb-3 flex items-center gap-2 rounded-2xl bg-neutral-500/10 px-4 py-2.5 text-sm text-neutral-800 dark:text-neutral-300">
           <Check size={15} /> Connected.
         </p>
       )}
       {error && (
-        <p role="alert" className="mb-3 flex items-start gap-2 rounded-2xl bg-rose-500/10 px-4 py-2.5 text-sm text-rose-600 dark:text-rose-300">
+        <p role="alert" className="mb-3 flex items-start gap-2 rounded-2xl bg-rose-500/10 px-4 py-2.5 text-sm text-red-700 dark:text-rose-300">
           <AlertTriangle size={15} className="mt-0.5 shrink-0" /> {error === "unknown" ? "Something went wrong. Try again." : error}
         </p>
       )}
@@ -152,12 +152,12 @@ function StatusLine({ row }: { row?: Row }) {
   if (!row) return <span className="text-muted">Not connected</span>;
   if (row.status !== "connected")
     return (
-      <span className="text-rose-600 dark:text-rose-300">
+      <span className="text-red-700 dark:text-rose-300">
         Needs reconnecting{row.last_error ? `: ${row.last_error}` : ""}
       </span>
     );
   return (
-    <span className="flex items-center gap-1 text-emerald-700 dark:text-emerald-300">
+    <span className="flex items-center gap-1 text-neutral-800 dark:text-neutral-300">
       <Check size={13} /> {row.account_name}
     </span>
   );
@@ -214,7 +214,7 @@ function AccountRow({
           </a>
         )}
         {row && (
-          <button onClick={onDisconnect} disabled={busy} className="flex items-center gap-1.5 rounded-full px-3 py-2 text-sm text-muted ring-1 ring-line hover:text-rose-500">
+          <button onClick={onDisconnect} disabled={busy} className="flex items-center gap-1.5 rounded-full px-3 py-2 text-sm text-muted ring-1 ring-line hover:text-red-700 dark:hover:text-red-400">
             {busy ? <Loader2 size={14} className="animate-spin" /> : <Unplug size={14} />} Disconnect
           </button>
         )}
@@ -273,7 +273,7 @@ function SubstackRow({ row, busy, onDisconnect, onSaved }: { row?: Row; busy: bo
             </button>
           )}
           {row && (
-            <button onClick={onDisconnect} disabled={busy} className="flex items-center gap-1.5 rounded-full px-3 py-2 text-sm text-muted ring-1 ring-line hover:text-rose-500">
+            <button onClick={onDisconnect} disabled={busy} className="flex items-center gap-1.5 rounded-full px-3 py-2 text-sm text-muted ring-1 ring-line hover:text-red-700 dark:hover:text-red-400">
               <Unplug size={14} /> Disconnect
             </button>
           )}
@@ -295,7 +295,7 @@ function SubstackRow({ row, busy, onDisconnect, onSaved }: { row?: Row; busy: bo
           </details>
           <input value={subdomain} onChange={(e) => setSubdomain(e.target.value)} placeholder="Publication subdomain (optional), e.g. yourname" className="w-full rounded-xl bg-bg px-3 py-2 ring-1 ring-line outline-none focus:ring-2 focus:ring-accent" />
           <input value={cookie} onChange={(e) => setCookie(e.target.value)} placeholder="substack.sid value" type="password" autoComplete="off" className="w-full rounded-xl bg-bg px-3 py-2 ring-1 ring-line outline-none focus:ring-2 focus:ring-accent" />
-          {error && <p className="text-rose-500">{error}</p>}
+          {error && <p className="text-red-700 dark:text-red-400">{error}</p>}
           <div className="flex items-center gap-2">
             <button onClick={save} disabled={saving || !cookie.trim()} className="bg-gradient-brand rounded-full px-4 py-2 font-medium text-white disabled:opacity-50">
               {saving ? "Checking…" : "Save and test"}
@@ -357,7 +357,7 @@ function SetupChecklist() {
   };
   const Row = ({ name, ok, hint }: { name: string; ok: boolean; hint?: string }) => (
     <li className="flex items-start gap-2">
-      <span className={`mt-0.5 grid size-4 shrink-0 place-items-center rounded-full text-[10px] text-white ${ok ? "bg-emerald-500" : "bg-rose-400"}`}>{ok ? "✓" : "!"}</span>
+      <span className={`mt-0.5 grid size-4 shrink-0 place-items-center rounded-full text-[10px] text-white ${ok ? "bg-neutral-500" : "bg-rose-400"}`}>{ok ? "✓" : "!"}</span>
       <span className="min-w-0">
         <code className="text-xs">{name}</code>
         {!ok && hint && <span className="block text-xs text-muted">{hint}</span>}

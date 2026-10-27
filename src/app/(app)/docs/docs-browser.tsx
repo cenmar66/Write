@@ -122,7 +122,7 @@ export function DocsBrowser() {
           <p className="mt-1 text-muted">{trashView ? "Deleted documents wait here until you empty the trash." : "Everything you’ve written, in one place."}</p>
         </div>
         {trashView ? (
-          <button onClick={emptyTrash} disabled={!docs?.length} className="flex shrink-0 items-center gap-2 rounded-full px-4 py-2.5 text-sm text-rose-500 ring-1 ring-line transition hover:bg-surface-strong disabled:opacity-40">
+          <button onClick={emptyTrash} disabled={!docs?.length} className="flex shrink-0 items-center gap-2 rounded-full px-4 py-2.5 text-sm text-red-700 dark:text-red-400 ring-1 ring-line transition hover:bg-surface-strong disabled:opacity-40">
             <Trash2 size={16} /> Empty trash
           </button>
         ) : (
@@ -182,7 +182,7 @@ export function DocsBrowser() {
         {folder !== "all" && (
           <button
             onClick={() => deleteFolder(folder)}
-            className="ml-auto flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-sm text-muted hover:text-rose-500"
+            className="ml-auto flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-sm text-muted hover:text-red-700 dark:hover:text-red-400"
           >
             <Trash2 size={14} /> Delete folder
           </button>
@@ -350,7 +350,7 @@ export function MenuItem({
     <button
       onClick={onClick}
       className={`flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left transition hover:bg-surface-strong ${
-        danger ? "text-rose-500" : ""
+        danger ? "text-red-700 dark:text-red-400" : ""
       }`}
     >
       {children}

@@ -511,7 +511,7 @@ function LoadedEditor({ doc, supabase, autoDictate }: { doc: Doc; supabase: Supa
         <div className="fixed inset-x-0 bottom-0 z-30 flex justify-center px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] print:hidden md:left-64">
           <div className="bar flex items-center gap-3 rounded-full py-1.5 pr-1.5 pl-4 text-sm shadow-lg">
             <Loader2 size={16} className="animate-spin text-accent" /> Writing your draft…
-            <button onClick={() => drafting.abort()} className="rounded-full bg-surface-strong px-3 py-1.5 font-medium hover:text-rose-500">
+            <button onClick={() => drafting.abort()} className="rounded-full bg-surface-strong px-3 py-1.5 font-medium hover:text-red-700 dark:hover:text-red-400">
               Stop
             </button>
           </div>
@@ -621,7 +621,7 @@ function SaveBadge({ status }: { status: SaveStatus }) {
     error: { icon: <CloudOff size={14} />, text: "Offline, retrying…" },
   }[status];
   return (
-    <span className={`flex items-center gap-1.5 px-2 text-xs ${status === "error" ? "text-rose-500" : "text-muted"}`}>
+    <span className={`flex items-center gap-1.5 px-2 text-xs ${status === "error" ? "text-red-700 dark:text-red-400" : "text-muted"}`}>
       {map.icon}
       {map.text}
     </span>

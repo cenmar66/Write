@@ -19,7 +19,7 @@ export function LoginForm({ initialError }: { initialError?: string }) {
   try {
     supabase = createClient();
   } catch (e) {
-    return <p role="alert" className="rounded-xl bg-rose-500/10 px-4 py-3 text-center text-sm text-rose-600">{explainAuthError((e as Error).message)}</p>;
+    return <p role="alert" className="rounded-xl bg-rose-500/10 px-4 py-3 text-center text-sm text-red-700">{explainAuthError((e as Error).message)}</p>;
   }
   const callback = () => `${window.location.origin}/auth/callback`;
 
@@ -131,7 +131,7 @@ export function LoginForm({ initialError }: { initialError?: string }) {
       )}
 
       {error && (
-        <p role="alert" className="rounded-xl bg-rose-500/10 px-4 py-3 text-center text-sm text-rose-600 dark:text-rose-300">
+        <p role="alert" className="rounded-xl bg-rose-500/10 px-4 py-3 text-center text-sm text-red-700 dark:text-rose-300">
           {error}
         </p>
       )}

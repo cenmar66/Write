@@ -153,14 +153,14 @@ export function BrandKitEditor() {
               <img src={brand.logo_url} alt="Your logo" className="h-8 max-w-24 rounded object-contain ring-1 ring-line" />
             )}
             {brand.logo_url && (
-              <button onClick={() => set("logo_url", null)} className="flex items-center gap-1 text-muted hover:text-rose-500">
+              <button onClick={() => set("logo_url", null)} className="flex items-center gap-1 text-muted hover:text-red-700 dark:hover:text-red-400">
                 <X size={13} /> Remove
               </button>
             )}
             <input ref={logoInput} type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && uploadLogo(e.target.files[0])} />
           </div>
           {notice && (
-            <p role="status" className={`rounded-xl px-3 py-2 ${notice.tone === "ok" ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" : "bg-rose-500/10 text-rose-600 dark:text-rose-300"}`}>
+            <p role="status" className={`rounded-xl px-3 py-2 ${notice.tone === "ok" ? "bg-neutral-500/10 text-neutral-800 dark:text-neutral-300" : "bg-rose-500/10 text-red-700 dark:text-rose-300"}`}>
               {notice.text}
             </p>
           )}

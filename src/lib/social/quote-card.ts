@@ -25,9 +25,9 @@ export const CARD_FONTS = {
 export type FontKey = keyof typeof CARD_FONTS;
 
 export const DEFAULT_BRAND: BrandKit = {
-  background: "#14121f",
+  background: "#1a1a1a",
   text: "#ffffff",
-  accent: "#8b7bff",
+  accent: "#8f8e8a",
   font: "serif",
   style: "gradient",
   handle: "",

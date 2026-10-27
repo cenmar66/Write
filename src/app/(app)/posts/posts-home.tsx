@@ -132,7 +132,7 @@ export function PostsHome() {
                   <button
                     onClick={() => deleteCustom(t.id)}
                     aria-label={`Delete ${t.name}`}
-                    className="absolute top-4 right-4 rounded-full p-1.5 text-muted hover:bg-surface-strong hover:text-rose-500"
+                    className="absolute top-4 right-4 rounded-full p-1.5 text-muted hover:bg-surface-strong hover:text-red-700 dark:hover:text-red-400"
                   >
                     <Trash2 size={14} />
                   </button>
@@ -175,9 +175,9 @@ export function PostsHome() {
                         : timeAgo(d.updated_at)}
                   </span>
                 </span>
-                {d.status === "failed" && <span className="rounded-full bg-rose-500/10 px-2 py-0.5 text-xs text-rose-600">Failed</span>}
+                {d.status === "failed" && <span className="rounded-full bg-rose-500/10 px-2 py-0.5 text-xs text-red-700">Failed</span>}
                 {d.status === "scheduled" && d.platform === "x" && d.scheduled_at && new Date(d.scheduled_at).getTime() <= now && (
-                  <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-xs text-amber-700 dark:text-amber-300">Ready to post</span>
+                  <span className="rounded-full bg-neutral-500/15 px-2 py-0.5 text-xs text-neutral-700 dark:text-neutral-300">Ready to post</span>
                 )}
                 <ArrowUpRight size={16} className="text-muted" />
               </Link>
@@ -293,7 +293,7 @@ function TemplateForm({ supabase, onClose, onSaved }: { supabase: ReturnType<typ
             <option value="carousel">Carousel</option>
           </select>
         </label>
-        {error && <p className="text-sm text-rose-500">{error}</p>}
+        {error && <p className="text-sm text-red-700 dark:text-red-400">{error}</p>}
         <button onClick={save} disabled={!form.name.trim() || !form.structure.trim()} className="bg-gradient-brand w-full rounded-full px-4 py-2.5 font-medium text-white disabled:opacity-50">
           Save template
         </button>

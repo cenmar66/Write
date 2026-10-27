@@ -210,7 +210,7 @@ export function HomeScreen() {
         </div>
       </section>
 
-      {error && <p className="mt-3 text-center text-sm text-rose-500">{error}</p>}
+      {error && <p className="mt-3 text-center text-sm text-red-700 dark:text-red-400">{error}</p>}
 
       <div style={{ animationDelay: "140ms" }} className="animate-rise mt-8 flex justify-center gap-3">
         <button onClick={() => importInput.current?.click()} disabled={!!busy} className="flex items-center gap-2 rounded-full px-4 py-2 text-sm ring-1 ring-line transition hover:bg-surface-strong disabled:opacity-60">
@@ -286,7 +286,7 @@ export function HomeScreen() {
                     onClick={() => trash(d.id)}
                     aria-label={`Move ${d.title || "draft"} to trash`}
                     title="Move to trash"
-                    className="absolute top-1/2 right-3 -translate-y-1/2 rounded-full p-2 text-muted opacity-0 transition group-hover:opacity-100 hover:bg-bg hover:text-rose-500 focus:opacity-100"
+                    className="absolute top-1/2 right-3 -translate-y-1/2 rounded-full p-2 text-muted opacity-0 transition group-hover:opacity-100 hover:bg-bg hover:text-red-700 dark:hover:text-red-400 focus:opacity-100"
                   >
                     <Trash2 size={16} />
                   </button>

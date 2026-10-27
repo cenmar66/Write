@@ -32,7 +32,7 @@ const timeLabel = (d: Date) => d.toLocaleTimeString(undefined, { hour: "numeric"
 const STATUS_STYLE: Record<Item["status"], string> = {
   scheduled: "bg-accent/10 ring-accent/30",
   publishing: "bg-accent/10 ring-accent/30",
-  published: "bg-emerald-500/10 ring-emerald-500/30",
+  published: "bg-neutral-500/10 ring-neutral-500/30",
   failed: "bg-rose-500/10 ring-rose-500/40",
 };
 
@@ -95,7 +95,7 @@ export function ContentCalendar() {
 
       <div className="mt-4 flex flex-wrap gap-3 text-xs text-muted">
         <Legend className="bg-accent/30" label="Scheduled" />
-        <Legend className="bg-emerald-500/40" label="Published" />
+        <Legend className="bg-neutral-500/40" label="Published" />
         <Legend className="bg-rose-500/40" label="Failed" />
       </div>
 

@@ -167,7 +167,7 @@ export function DictationPanel({
             <Mic size={32} />
           </button>
           {message ? (
-            <p role="alert" className="mt-4 max-w-sm text-sm text-rose-600 dark:text-rose-300">{message}</p>
+            <p role="alert" className="mt-4 max-w-sm text-sm text-red-700 dark:text-rose-300">{message}</p>
           ) : (
             <>
               <p className="mt-4 font-display text-xl">Tap and start talking</p>
@@ -232,7 +232,7 @@ export function DictationPanel({
                 </button>
               ))}
             </div>
-            {problem && <p className="mt-2 text-sm text-rose-600 dark:text-rose-300">{problem}</p>}
+            {problem && <p className="mt-2 text-sm text-red-700 dark:text-rose-300">{problem}</p>}
           </div>
           <div className="min-h-16 overflow-y-auto px-5 py-3 leading-relaxed whitespace-pre-wrap">
             {view === "cleaned" ? <LightMarkdown text={cleaned} /> : raw}

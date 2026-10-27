@@ -140,7 +140,7 @@ export function AccessCodes() {
               ))}
             </div>
           </div>
-          {error && <p className="text-sm text-rose-500">{error}</p>}
+          {error && <p className="text-sm text-red-700 dark:text-red-400">{error}</p>}
           <div className="flex gap-2">
             <button
               onClick={create}
@@ -157,8 +157,8 @@ export function AccessCodes() {
       )}
 
       {fresh && (
-        <div role="status" className="mt-4 space-y-2 rounded-2xl bg-emerald-500/10 p-4 text-sm">
-          <p className="font-medium text-emerald-800 dark:text-emerald-200">Copy this code now. You won’t see it again.</p>
+        <div role="status" className="mt-4 space-y-2 rounded-2xl bg-neutral-500/10 p-4 text-sm">
+          <p className="font-medium text-neutral-900 dark:text-neutral-200">Copy this code now. You won’t see it again.</p>
           <div className="flex items-center gap-2 rounded-xl bg-bg px-3 py-2 ring-1 ring-line">
             <code className="min-w-0 flex-1 truncate">{fresh}</code>
             <button onClick={() => copy(fresh, "code")} aria-label="Copy code" className="rounded-lg p-1.5 text-muted hover:text-ink">
@@ -185,10 +185,10 @@ export function AccessCodes() {
                 </p>
                 <p className="truncate text-xs text-muted">
                   <code>{c.token_prefix}…</code> · {c.last_used_at ? `last used ${fmt(c.last_used_at)}` : "never used"} ·{" "}
-                  {expired ? <span className="text-rose-500">expired</span> : c.expires_at ? `expires ${fmt(c.expires_at)}` : "never expires"}
+                  {expired ? <span className="text-red-700 dark:text-red-400">expired</span> : c.expires_at ? `expires ${fmt(c.expires_at)}` : "never expires"}
                 </p>
               </div>
-              <button onClick={() => revoke(c.id)} aria-label={`Revoke ${c.name}`} className="flex items-center gap-1 rounded-full px-3 py-1.5 text-xs text-rose-500 ring-1 ring-line hover:bg-surface-strong">
+              <button onClick={() => revoke(c.id)} aria-label={`Revoke ${c.name}`} className="flex items-center gap-1 rounded-full px-3 py-1.5 text-xs text-red-700 dark:text-red-400 ring-1 ring-line hover:bg-surface-strong">
                 <X size={13} /> Revoke
               </button>
             </li>

@@ -3,12 +3,9 @@ import sharp from "sharp";
 
 const svg = (pad) => `
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
-  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-    <stop offset="0" stop-color="#7c6cff"/><stop offset=".6" stop-color="#f472b6"/><stop offset="1" stop-color="#fbbf77"/>
-  </linearGradient></defs>
-  <rect width="512" height="512" fill="url(#g)"/>
+  <rect width="512" height="512" fill="#1c1c1c"/>
   <g transform="translate(${pad} ${pad}) scale(${(512 - 2 * pad) / 64})">
-    <path d="M17 22l6.5 21L32 26l8.5 17L47 22" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M17 22l6.5 21L32 26l8.5 17L47 22" fill="none" stroke="#f3f2ef" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
   </g>
 </svg>`;
 
@@ -27,11 +24,8 @@ console.log("Icons written.");
 // Browser-tab favicon: the rounded W from the logo, on a transparent background.
 const rounded = `
 <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
-  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-    <stop offset="0" stop-color="#7c6cff"/><stop offset=".6" stop-color="#f472b6"/><stop offset="1" stop-color="#fbbf77"/>
-  </linearGradient></defs>
-  <rect width="64" height="64" rx="18" fill="url(#g)"/>
-  <path d="M17 22l6.5 21L32 26l8.5 17L47 22" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect width="64" height="64" rx="14" fill="#1c1c1c"/>
+  <path d="M17 22l6.5 21L32 26l8.5 17L47 22" fill="none" stroke="#f3f2ef" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>`;
 const fs = await import("node:fs/promises");
 await fs.writeFile("src/app/icon.svg", rounded.trim() + "\n");
