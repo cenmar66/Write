@@ -14,6 +14,16 @@ export const PROMPT_FORMATS: Record<PromptFormat, { label: string; template: str
 
 export type TopicPrompt = { key: string; emoji: string; title: string; prompt: string; theme: string; format: PromptFormat };
 
+/** A pack you made (stored in Supabase). */
+export type UserPack = {
+  id: string;
+  name: string;
+  emoji: string;
+  description: string;
+  prompts: { emoji: string; title: string; prompt: string; format: PromptFormat }[];
+  created_at: string;
+};
+
 type Row = [emoji: string, title: string, prompt: string, format: PromptFormat];
 
 const THEMES: Record<string, Row[]> = {

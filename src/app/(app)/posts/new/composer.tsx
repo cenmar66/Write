@@ -10,13 +10,14 @@ import { Results } from "@/components/social/results";
 import { StyleSelect } from "@/components/style-select";
 import type { GeneratedPost } from "@/lib/social/ai";
 import type { PlatformId, PostFormat } from "@/lib/social/platforms";
-import { findPrompt, PROMPT_FORMATS } from "@/lib/social/prompts";
+import { findPrompt, PROMPT_FORMATS, type TopicPrompt, type UserPack } from "@/lib/social/prompts";
 import { FREE_WRITE, findTemplate, type PostTemplate } from "@/lib/social/templates";
 import { createClient } from "@/lib/supabase/client";
 
 export function Composer({ templateKey, customId, promptKey }: { templateKey: string; customId?: string; promptKey?: string }) {
   const supabase = useMemo(() => createClient(), []);
-  const topic = findPrompt(promptKey);
+  // Built-in prompts are known right away; your own packs ("my:<packId>:<index>") load from the database.
+  const [topic, setTopic] = useState<TopicPrompt | undefined>(() => findPrompt(promptKey));
   const builtIn = customId ? undefined : (findTemplate(topic ? PROMPT_FORMATS[topic.format].template : templateKey) ?? FREE_WRITE);
   const [template, setTemplate] = useState<PostTemplate | null>(builtIn ?? null);
   const [idea, setIdea] = useState("");
@@ -26,6 +27,24 @@ export function Composer({ templateKey, customId, promptKey }: { templateKey: st
   const [error, setError] = useState<string | null>(null);
   const [dictating, setDictating] = useState(false);
   const [styleId, setStyleId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const m = promptKey?.match(/^my:([0-9a-f-]+):(\d+)$/);
+    if (!m) return;
+    supabase
+      .from("prompt_packs")
+      .select("id,name,emoji,description,prompts,created_at")
+      .eq("id", m[1])
+      .maybeSingle()
+      .then(({ data }) => {
+        const pack = data as UserPack | null;
+        const p = pack?.prompts[Number(m[2])];
+        if (!pack || !p) return;
+        setTopic({ ...p, key: promptKey!, theme: pack.name });
+        setTemplate(findTemplate(PROMPT_FORMATS[p.format]?.template) ?? FREE_WRITE);
+        setPlatforms(PROMPT_FORMATS[p.format]?.platforms ?? ["linkedin"]);
+      });
+  }, [promptKey, supabase]);
 
   useEffect(() => {
     if (!customId) return;
