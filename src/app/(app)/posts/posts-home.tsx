@@ -7,7 +7,7 @@ import { Drawer } from "@/components/editor/drawer";
 import { PlatformBadge } from "@/components/social/platform-badge";
 import { timeAgo } from "@/lib/docs";
 import type { PlatformId, PostFormat } from "@/lib/social/platforms";
-import { PROMPT_FORMATS, PROMPT_PACKS, PROMPT_THEMES, PROMPTS, type PromptFormat, type TopicPrompt, type UserPack } from "@/lib/social/prompts";
+import { PROMPT_FORMATS, PROMPT_PACKS, PROMPT_SECTIONS, PROMPTS, type PromptFormat, type TopicPrompt, type UserPack } from "@/lib/social/prompts";
 import { CATEGORIES, TEMPLATES, type TemplateCategory } from "@/lib/social/templates";
 import { createClient } from "@/lib/supabase/client";
 
@@ -331,7 +331,7 @@ function PromptLibrary() {
   const q = query.trim().toLowerCase();
   const shown = all.filter(
     (p) =>
-      (theme === "all" || p.theme === theme) &&
+      (theme === "all" || !!q || p.theme === theme) &&
       (format === "all" || p.format === format) &&
       (!q || p.title.toLowerCase().includes(q) || p.prompt.toLowerCase().includes(q)),
   );
@@ -382,16 +382,27 @@ function PromptLibrary() {
       {theme === "all" && !q ? (
         <>
           <PackMaker onSaved={async () => setMyPacks(await loadPacks())} />
-          <p className="pt-2 text-xs font-semibold tracking-[0.14em] text-muted uppercase">Packs</p>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {myPacks.map((pk) =>
-              packCard(`my:${pk.id}`, pk.name, pk.emoji, pk.description, pk.prompts.filter((p) => format === "all" || p.format === format).length, pk.id),
-            )}
-            {PROMPT_THEMES.map((t) =>
-              packCard(t, t, PROMPT_PACKS[t]?.emoji, PROMPT_PACKS[t]?.description ?? "", PROMPTS.filter((p) => p.theme === t && (format === "all" || p.format === format)).length),
-            )}
-          </div>
-          <p className="pt-3 text-xs font-semibold tracking-[0.14em] text-muted uppercase">All prompts</p>
+          {myPacks.length > 0 && (
+            <>
+              <p className="pt-2 text-xs font-semibold tracking-[0.14em] text-muted uppercase">Your packs</p>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {myPacks.map((pk) =>
+                  packCard(`my:${pk.id}`, pk.name, pk.emoji, pk.description, pk.prompts.filter((p) => format === "all" || p.format === format).length, pk.id),
+                )}
+              </div>
+            </>
+          )}
+          {PROMPT_SECTIONS.map((sec) => (
+            <div key={sec.name} className="pt-3">
+              <p className="text-xs font-semibold tracking-[0.14em] text-muted uppercase">{sec.name}</p>
+              <p className="mb-2 text-sm text-muted">{sec.description}</p>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {sec.packs.map((t) =>
+                  packCard(t, t, PROMPT_PACKS[t]?.emoji, PROMPT_PACKS[t]?.description ?? "", PROMPTS.filter((p) => p.theme === t && (format === "all" || p.format === format)).length),
+                )}
+              </div>
+            </div>
+          ))}
         </>
       ) : theme !== "all" ? (
         <div className="flex items-center gap-3 pt-1">
@@ -402,9 +413,9 @@ function PromptLibrary() {
         </div>
       ) : null}
 
-      {shown.length === 0 && <p className="py-10 text-center text-muted">No prompts match that.</p>}
+      {(theme !== "all" || q) && shown.length === 0 && <p className="py-10 text-center text-muted">No prompts match that.</p>}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {shown.map((p) => (
+        {(theme !== "all" || q ? shown : []).map((p) => (
           <PromptCard key={p.key} p={p} href={`/posts/new?prompt=${encodeURIComponent(p.key)}`} pack={packName(p.theme)} />
         ))}
       </div>

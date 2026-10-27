@@ -1,4 +1,5 @@
 import type { PlatformId } from "./platforms";
+import { LIBRARY } from "./prompt-library";
 
 // A library of writing prompts (idea starters), in the spirit of Typeshare's,
 // written for Write.ai. Each prompt picks a format, which sets the template and platforms.
@@ -125,10 +126,9 @@ const THEMES: Record<string, Row[]> = {
   ],
 };
 
-export const PROMPT_THEMES = Object.keys(THEMES);
 
 /** Packs: each theme presented as a themed bundle of prompts. */
-export const PROMPT_PACKS: Record<string, { emoji: string; description: string }> = {
+const EVERYDAY_PACKS: Record<string, { emoji: string; description: string }> = {
   Traits: { emoji: "🧭", description: "Character, habits of mind, and what sets people apart." },
   Milestones: { emoji: "🎂", description: "Birthdays, anniversaries, and looking back on a year." },
   Tools: { emoji: "🧰", description: "The tools, stacks, and shortcuts behind your results." },
@@ -143,15 +143,30 @@ export const PROMPT_PACKS: Record<string, { emoji: string; description: string }
   Resources: { emoji: "📚", description: "Books, people, and courses worth sharing." },
 };
 
-export const PROMPTS: TopicPrompt[] = Object.entries(THEMES).flatMap(([theme, rows]) =>
-  rows.map(([emoji, title, prompt, format]) => ({
-    key: `${theme}-${title}`.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, ""),
-    emoji,
-    title,
-    prompt,
-    theme,
-    format,
-  })),
-);
+const slug = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+
+/** Sections group the packs, the way the library is shown on the Prompts tab. */
+export const PROMPT_SECTIONS: { name: string; description: string; packs: string[] }[] = [
+  ...LIBRARY.map((sec) => ({ name: sec.name, description: sec.description, packs: sec.packs.map((p) => p.name) })),
+  { name: "Everyday Topics", description: "Traits, milestones, habits, beliefs, and more.", packs: Object.keys(THEMES) },
+];
+
+export const PROMPT_PACKS: Record<string, { emoji: string; description: string }> = {
+  ...Object.fromEntries(LIBRARY.flatMap((sec) => sec.packs.map((p) => [p.name, { emoji: p.emoji, description: p.description }]))),
+  ...EVERYDAY_PACKS,
+};
+
+export const PROMPT_THEMES = PROMPT_SECTIONS.flatMap((s) => s.packs);
+
+export const PROMPTS: TopicPrompt[] = [
+  ...LIBRARY.flatMap((sec) =>
+    sec.packs.flatMap((pk) =>
+      pk.rows.map(([title, prompt, format], i) => ({ key: `${slug(pk.name)}-${i + 1}-${slug(title)}`, emoji: pk.emoji, title, prompt, theme: pk.name, format })),
+    ),
+  ),
+  ...Object.entries(THEMES).flatMap(([theme, rows]) =>
+    rows.map(([emoji, title, prompt, format]) => ({ key: slug(`${theme}-${title}`), emoji, title, prompt, theme, format })),
+  ),
+];
 
 export const findPrompt = (key: string | null | undefined) => PROMPTS.find((p) => p.key === key);
