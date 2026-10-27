@@ -12,6 +12,7 @@ import {
   Settings,
   Sparkles,
   Trash2,
+  NotebookPen,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -26,6 +27,7 @@ export const NAV = [
   { href: "/posts", label: "Posts", Icon: Sparkles },
   { href: "/calendar", label: "Calendar", Icon: CalendarDays },
   { href: "/styles", label: "Styles", Icon: Feather },
+  { href: "/canvas", label: "Daily Canvas", Icon: NotebookPen },
   { href: "/settings", label: "Settings", Icon: Settings },
 ];
 
