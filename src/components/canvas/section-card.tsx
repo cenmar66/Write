@@ -9,16 +9,16 @@ import { InkLayer } from "./ink";
 import { useCanvas } from "./provider";
 import { useIsDark } from "./use-dark";
 
+/** A per-device on/off setting (the planner UI only renders in the browser). */
 function useLocalFlag(key: string, initial = false): [boolean, (v: boolean) => void] {
-  const [v, setV] = useState(initial);
-  useEffect(() => {
+  const [v, setV] = useState(() => {
     try {
       const s = localStorage.getItem(key);
-      if (s !== null) setV(s === "1");
+      return s === null ? initial : s === "1";
     } catch {
-      /* ignore */
+      return initial;
     }
-  }, [key]);
+  });
   return [
     v,
     (next: boolean) => {

@@ -123,6 +123,9 @@ body:has(.dc-root) .grain {
   min-width: 0;
 }
 .dc-input::placeholder { color: var(--dc-faint); }
+.dc-input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
+.dc-input[type="number"]::-webkit-inner-spin-button,
+.dc-input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 .dc-field {
   background: var(--dc-paper-2);
   border: 1px solid var(--dc-line);
@@ -315,6 +318,8 @@ body:has(.dc-root) .grain {
 /* Print: one clean page per day */
 @media print {
   .dc-root { background: #fff; }
+  .dc-root nav, .dc-root .sticky { display: none !important; }
+  .dc-root main { padding: 0 !important; }
   .dc-noprint { display: none !important; }
   .dc-card { break-inside: avoid; box-shadow: none; }
   .dc-card-head { -webkit-print-color-adjust: exact; print-color-adjust: exact; }

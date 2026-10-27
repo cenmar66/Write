@@ -9,7 +9,8 @@ export function Sheet({ title, onClose, children, footer, wide }: { title: strin
   useEffect(() => {
     const d = ref.current;
     if (d && !d.open) d.showModal();
-    return () => d?.close();
+    // No close() on cleanup: it would fire onClose (and in React's dev double-mount,
+    // close the sheet immediately). Unmounting removes the dialog from the top layer anyway.
   }, []);
   return (
     <dialog

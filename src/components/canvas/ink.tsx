@@ -195,7 +195,11 @@ export function InkLayer({ date, zone, fixed = false }: { date: ISODate; zone: s
     }
     if (!active) return;
     e.preventDefault();
-    e.currentTarget.setPointerCapture(e.pointerId);
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      /* some synthetic or already-released pointers can't be captured */
+    }
     const { x, y, p } = pos(e);
     if (tools.tool === "eraser" || e.button === 5) {
       erased.current = [];
@@ -212,7 +216,9 @@ export function InkLayer({ date, zone, fixed = false }: { date: ISODate; zone: s
     const l = live.current;
     if (!l || l.pointerId !== e.pointerId) return;
     e.preventDefault();
-    const events = (e.nativeEvent.getCoalescedEvents?.() ?? [e.nativeEvent]) as PointerEvent[];
+    // Coalesced events give smoother lines; some browsers return an empty list.
+    const coalesced = e.nativeEvent.getCoalescedEvents?.() as PointerEvent[] | undefined;
+    const events = coalesced && coalesced.length ? coalesced : [e.nativeEvent];
     const w = size.current.w || 1;
     for (const ev of events) {
       const { x, y, p } = pos(ev);
@@ -274,13 +280,19 @@ export function InkPalette() {
   const undo = () => {
     const op = undoStack.pop();
     if (!op) return;
-    for (const id of op.ids) op.kind === "add" ? store.remove("canvas_ink", id) : store.restore("canvas_ink", id);
+    for (const id of op.ids) {
+      if (op.kind === "add") store.remove("canvas_ink", id);
+      else store.restore("canvas_ink", id);
+    }
     redoStack.push(op);
   };
   const redo = () => {
     const op = redoStack.pop();
     if (!op) return;
-    for (const id of op.ids) op.kind === "add" ? store.restore("canvas_ink", id) : store.remove("canvas_ink", id);
+    for (const id of op.ids) {
+      if (op.kind === "add") store.restore("canvas_ink", id);
+      else store.remove("canvas_ink", id);
+    }
     undoStack.push(op);
   };
   const clear = () => {

@@ -72,7 +72,7 @@ const ERRORS: Record<string, string> = {
 };
 
 export function useSpeech(lang: string) {
-  const [engine, setEngine] = useState<Engine>("none");
+  const [engine, setEngine] = useState<Engine>(() => (typeof window === "undefined" ? "none" : preferredEngine()));
   const [status, setStatus] = useState<Status>("idle");
   const [interim, setInterim] = useState("");
   const [text, setText] = useState("");
@@ -81,7 +81,6 @@ export function useSpeech(lang: string) {
   const finals = useRef<string[]>([]);
   const dg = useDeepgram();
 
-  useEffect(() => setEngine(preferredEngine()), []);
 
   const start = useCallback(async () => {
     setError(null);

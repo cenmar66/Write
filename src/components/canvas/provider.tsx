@@ -41,6 +41,9 @@ interface Ctx {
   dismissToast: (id: number) => void;
   captureOpen: boolean;
   setCaptureOpen: (v: boolean) => void;
+  /** The task whose details sheet is open (kept here so it survives section moves). */
+  openTask: { id: string; date: ISODate } | null;
+  setOpenTask: (v: { id: string; date: ISODate } | null) => void;
 }
 
 const CanvasContext = createContext<Ctx | null>(null);
@@ -82,7 +85,8 @@ export function CanvasProvider({ children }: { children: React.ReactNode }) {
           userId = data.session?.user.id ?? null;
           email = data.session?.user.email ?? null;
           if (!userId) {
-            window.location.href = "/login?next=/canvas";
+            // A full page load, so the sign-in page gets a fresh server render.
+            window.location.replace("/login?next=/canvas");
             return;
           }
         }
@@ -156,7 +160,9 @@ function Ready({
   const [pencil, setPencil] = useState(false);
   const [focus, setFocus] = useState<SectionKey | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
-  const [captureOpen, setCaptureOpen] = useState(false);
+  // Home-screen shortcut "Quick add" opens /canvas?capture=1.
+  const [captureOpen, setCaptureOpen] = useState(() => new URLSearchParams(window.location.search).get("capture") === "1");
+  const [openTask, setOpenTask] = useState<{ id: string; date: ISODate } | null>(null);
   const toastId = useRef(0);
   const prevToday = useRef(today);
 
@@ -187,6 +193,10 @@ function Ready({
   useEffect(() => {
     planner.planDay(today);
   }, [planner, today, status.lastSyncAt]);
+
+  useEffect(() => {
+    if (window.location.search.includes("capture=1")) window.history.replaceState(null, "", window.location.pathname);
+  }, []);
 
   // Ask the browser to keep our storage (helps iOS not evict offline data).
   useEffect(() => {
@@ -223,6 +233,8 @@ function Ready({
     dismissToast,
     captureOpen,
     setCaptureOpen,
+    openTask,
+    setOpenTask,
   };
   return <CanvasContext.Provider value={value}>{children}</CanvasContext.Provider>;
 }

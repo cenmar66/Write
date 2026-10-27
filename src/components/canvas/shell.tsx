@@ -24,6 +24,7 @@ import { InkPalette } from "./ink";
 import { Sprig } from "./icons";
 import { useCanvas, useSyncStatus } from "./provider";
 import { QuickCapture } from "./quick-capture";
+import { TaskSheet } from "./task-sheet";
 import { ConflictBanner } from "./conflicts";
 import { Reminders } from "./reminders";
 import { useIsDark } from "./use-dark";
@@ -38,7 +39,8 @@ const NAV = [
 ];
 
 export function Shell({ children }: { children: React.ReactNode }) {
-  const { prefs, pencil, captureOpen, setCaptureOpen } = useCanvas();
+  const { prefs, pencil, captureOpen, setCaptureOpen, openTask, setOpenTask, store } = useCanvas();
+  const sheetTask = openTask ? store.get("canvas_tasks", openTask.id) : undefined;
   const dark = useIsDark();
   const anim = prefs.animations;
 
@@ -94,6 +96,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
       <CalendarSync />
       <Reminders />
       {captureOpen && <QuickCapture onClose={() => setCaptureOpen(false)} />}
+      {openTask && sheetTask && <TaskSheet key={openTask.id} task={sheetTask} date={openTask.date} onClose={() => setOpenTask(null)} />}
     </div>
   );
 }

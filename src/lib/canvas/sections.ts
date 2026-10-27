@@ -42,7 +42,12 @@ export function resolveOrder(saved: SectionKey[] | undefined): SectionKey[] {
   const known = new Set(DEFAULT_ORDER);
   const seen = new Set<SectionKey>();
   const out: SectionKey[] = [];
-  for (const k of saved ?? []) if (known.has(k) && !seen.has(k)) (seen.add(k), out.push(k));
+  for (const k of saved ?? []) {
+    if (known.has(k) && !seen.has(k)) {
+      seen.add(k);
+      out.push(k);
+    }
+  }
   for (const k of DEFAULT_ORDER) if (!seen.has(k)) out.push(k);
   return out;
 }

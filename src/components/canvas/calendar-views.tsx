@@ -33,7 +33,8 @@ export function WeekView() {
   const { date, setDate, setView, planner, store, today, rev, prefs } = useCanvas();
   const complete = useCompleteTask();
   const ix = useIndex();
-  const days = dateRange(startOfWeek(date), addDays(startOfWeek(date), 6));
+  const weekStart = startOfWeek(date);
+  const days = useMemo(() => dateRange(weekStart, addDays(weekStart, 6)), [weekStart]);
   const open = (d: ISODate) => {
     setDate(d);
     setView("day");
@@ -49,7 +50,7 @@ export function WeekView() {
           ...store.externalEvents(d).map((e) => ({ key: e.key, time: e.allDay ? null : localTimeOf(e.start, prefs.timezone), title: e.title })),
         ].sort((a, b) => (a.time ?? "").localeCompare(b.time ?? "")),
       })),
-    [days.join(), ix, planner, store, rev, prefs.timezone], // eslint-disable-line react-hooks/exhaustive-deps
+    [days, ix, planner, store, rev, prefs.timezone], // eslint-disable-line react-hooks/exhaustive-deps
   );
   return (
     <div className="px-3 py-4 md:px-6">

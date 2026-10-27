@@ -52,6 +52,7 @@ type Row = { kind: "local"; a: Appointment; start: string | null; end: string | 
 export function AppointmentsCard({ date }: { date: ISODate }) {
   const { planner, store, rev, prefs } = useCanvas();
   const [editing, setEditing] = useState<Appointment | "new" | null>(null);
+  const [ext, setExt] = useState<ExternalEvent | null>(null);
   const rows = useMemo<Row[]>(() => {
     const local: Row[] = store
       .all("canvas_appointments")
@@ -99,10 +100,10 @@ export function AppointmentsCard({ date }: { date: ISODate }) {
               <span className="w-16 shrink-0 text-xs tabular-nums" style={{ color: "var(--dc-muted)" }}>
                 {r.e.allDay ? "All day" : formatTime(r.start)}
               </span>
-              <span className="min-w-0 flex-1 truncate text-[0.9rem]">
+              <button className="min-w-0 flex-1 truncate text-left text-[0.9rem]" onClick={() => setExt(r.e)}>
                 {r.e.title}
                 {r.e.location && <span className="ml-1 text-xs" style={{ color: "var(--dc-faint)" }}>· {r.e.location}</span>}
-              </span>
+              </button>
               <span className="dc-chip" title={`From Google Calendar: ${r.e.calendarName}`}>
                 {r.e.isTimeBlock ? "time block" : "Google"}
               </span>
@@ -118,6 +119,7 @@ export function AppointmentsCard({ date }: { date: ISODate }) {
         <QuickAppointment date={date} onAdd={(a) => planner.addAppointment(a)} />
       </ul>
       {editing && <AppointmentSheet appt={editing === "new" ? null : editing} date={date} onClose={() => setEditing(null)} />}
+      {ext && <ExternalEventSheet e={ext} onClose={() => setExt(null)} />}
     </SectionCard>
   );
 }
@@ -138,6 +140,84 @@ function QuickAppointment({ date, onAdd }: { date: ISODate; onAdd: (a: Partial<A
       <input className="dc-input text-[0.9rem]" placeholder="Add an appointment…" aria-label="Appointment title" value={title} onChange={(e) => setTitle(e.target.value)} onKeyDown={(e) => e.key === "Enter" && add()} />
       <MicButton onText={(t) => setTitle((c) => (c ? c + " " : "") + t)} label="Dictate an appointment" />
     </li>
+  );
+}
+
+/** A Google event: read here; changes go to Google only after an explicit confirm. */
+function ExternalEventSheet({ e, onClose }: { e: ExternalEvent; onClose: () => void }) {
+  const { prefs, toast, store } = useCanvas();
+  const google = useGoogleStatus();
+  const [title, setTitle] = useState(e.title);
+  const [start, setStart] = useState(e.allDay ? "" : localTimeOf(e.start, prefs.timezone));
+  const [end, setEnd] = useState(e.allDay ? "" : localTimeOf(e.end, prefs.timezone));
+  const [busy, setBusy] = useState(false);
+  const path = `/api/canvas/google/events/${encodeURIComponent(e.calendarId)}/${encodeURIComponent(e.eventId)}`;
+  const refresh = () => store.setExternalEvents(e.date, e.date, store.externalEvents(e.date).filter((x) => x.eventId !== e.eventId));
+  const save = async () => {
+    if (!window.confirm(`Update “${e.title}” in Google Calendar?`)) return;
+    setBusy(true);
+    const r = await fetch(path, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ confirmed: true, title, ...(start && end && !e.allDay ? { date: e.date, start, end, timeZone: prefs.timezone } : {}) }) });
+    setBusy(false);
+    if (!r.ok) return toast((await r.json().catch(() => ({}))).error ?? "Couldn't update the event");
+    toast("Updated in Google Calendar");
+    onClose();
+  };
+  const remove = async () => {
+    if (!window.confirm(`Delete “${e.title}” from Google Calendar? This can't be undone here.`)) return;
+    setBusy(true);
+    const r = await fetch(`${path}?confirmed=1`, { method: "DELETE" });
+    setBusy(false);
+    if (!r.ok) return toast((await r.json().catch(() => ({}))).error ?? "Couldn't delete the event");
+    refresh();
+    toast("Deleted from Google Calendar");
+    onClose();
+  };
+  const editable = google.connected && google.canWriteCalendar && !e.allDay;
+  return (
+    <Sheet
+      title="Google Calendar event"
+      onClose={onClose}
+      footer={
+        <>
+          {e.htmlLink && (
+            <a className="dc-btn" href={e.htmlLink} target="_blank" rel="noreferrer">
+              <ExternalLink size={15} /> Open in Google
+            </a>
+          )}
+          {editable && (
+            <button className="dc-btn" style={{ color: "#a33" }} disabled={busy} onClick={remove}>
+              <Trash2 size={15} /> Delete
+            </button>
+          )}
+          {editable && (
+            <button className="dc-btn dc-btn-primary ml-auto" disabled={busy} onClick={save}>
+              Save to Google
+            </button>
+          )}
+        </>
+      }
+    >
+      <div className="space-y-3">
+        <p className="text-xs" style={{ color: "var(--dc-muted)" }}>
+          From {e.calendarName}
+          {e.isTimeBlock ? " · looks like a planned time block" : ""}. Shown as of the last refresh.
+        </p>
+        <Field label="Title">
+          <input className="dc-field" value={title} onChange={(x) => setTitle(x.target.value)} disabled={!editable} />
+        </Field>
+        {!e.allDay && (
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Starts">
+              <input type="time" className="dc-field" value={start} onChange={(x) => setStart(x.target.value)} disabled={!editable} />
+            </Field>
+            <Field label="Ends">
+              <input type="time" className="dc-field" value={end} onChange={(x) => setEnd(x.target.value)} disabled={!editable} />
+            </Field>
+          </div>
+        )}
+        {e.location && <p className="text-sm">📍 {e.location}</p>}
+      </div>
+    </Sheet>
   );
 }
 
@@ -258,8 +338,13 @@ export function JournalCard({ date }: { date: ISODate }) {
 /** Text that grows with its content and saves on blur. */
 export function AutoText({ value, onSave, label, className = "" }: { value: string; onSave: (v: string) => void; label: string; className?: string }) {
   const [v, setV] = useState(value);
+  const [seen, setSeen] = useState(value);
+  if (seen !== value) {
+    // The saved text changed (e.g. from another device): show it.
+    setSeen(value);
+    setV(value);
+  }
   const ref = useRef<HTMLTextAreaElement>(null);
-  useEffect(() => setV(value), [value]);
   useEffect(() => {
     const el = ref.current;
     if (el) {
@@ -350,7 +435,10 @@ export function ExerciseCard({ date }: { date: ISODate }) {
           <Plus size={14} style={{ color: "var(--dc-faint)" }} aria-hidden />
           <input className="dc-input text-[0.9rem]" placeholder="Activity…" aria-label="New activity" value={activity} onChange={(e) => setActivity(e.target.value)} onKeyDown={(e) => e.key === "Enter" && add()} list="dc-activities" />
           <datalist id="dc-activities">{ACTIVITIES.map((a) => <option key={a} value={a} />)}</datalist>
-          <input type="number" min={0} inputMode="numeric" placeholder="min" aria-label="Minutes" className="dc-input w-12 text-right text-sm" value={mins} onChange={(e) => setMins(e.target.value)} onKeyDown={(e) => e.key === "Enter" && add()} />
+          <input type="number" min={0} inputMode="numeric" placeholder="—" aria-label="Minutes" className="dc-input w-12 text-right text-sm" value={mins} onChange={(e) => setMins(e.target.value)} onKeyDown={(e) => e.key === "Enter" && add()} />
+          <span className="text-xs" style={{ color: "var(--dc-faint)" }} aria-hidden>
+            min
+          </span>
           <button className="dc-icon-btn sm" aria-label="Add exercise" onClick={() => add()}>
             <Plus size={15} />
           </button>
@@ -391,13 +479,16 @@ export function MealsCard({ date }: { date: ISODate }) {
         type="number"
         min={0}
         inputMode="numeric"
-        className="dc-input w-16 text-right text-sm tabular-nums"
+        className="dc-input w-12 text-right text-sm tabular-nums"
         defaultValue={cal ?? ""}
         key={`c${cal}`}
-        placeholder="kcal"
+        placeholder="—"
         aria-label={`${label} calories (optional)`}
         onBlur={(e) => onCal(e.target.value ? Number(e.target.value) : null)}
       />
+      <span className="text-[0.7rem]" style={{ color: "var(--dc-faint)" }} aria-hidden>
+        kcal
+      </span>
       {onDelete && (
         <button className="dc-icon-btn sm opacity-0 group-hover:opacity-60 focus:opacity-100" aria-label="Remove snack" onClick={onDelete}>
           <Trash2 size={13} />
@@ -545,32 +636,29 @@ function IdeaRow({ idea, onConvert }: { idea: Idea; onConvert: () => void }) {
 export function NotesCard({ date }: { date: ISODate }) {
   const { planner, rev } = useCanvas();
   const note = useMemo(() => planner.noteFor(date), [planner, date, rev]); // eslint-disable-line react-hooks/exhaustive-deps
-  const [v, setV] = useState(note?.body ?? "");
-  const [dirty, setDirty] = useState(false);
+  // While typing, the draft is shown; otherwise the saved note (which may have just
+  // arrived from another device). The card is keyed by date, so days never mix.
+  const [draft, setDraft] = useState<string | null>(null);
+  const v = draft ?? note?.body ?? "";
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const latest = useRef(v);
-  latest.current = v;
-
-  // Take server/other-device changes unless the person is mid-edit.
-  useEffect(() => {
-    if (!dirty) setV(note?.body ?? "");
-  }, [note?.body, dirty]);
-  useEffect(() => setDirty(false), [date]);
+  const latest = useRef<string | null>(null);
 
   const schedule = (next: string) => {
-    setV(next);
-    setDirty(true);
+    setDraft(next);
+    latest.current = next;
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => {
-      planner.setNote(date, latest.current);
-      setDirty(false);
+      timer.current = null;
+      if (latest.current !== null) planner.setNote(date, latest.current);
+      latest.current = null;
+      setDraft(null);
     }, 600);
   };
   useEffect(
     () => () => {
       if (timer.current) {
         clearTimeout(timer.current);
-        planner.setNote(date, latest.current);
+        if (latest.current !== null) planner.setNote(date, latest.current);
       }
     },
     [planner, date],
@@ -587,12 +675,14 @@ export function NotesCard({ date }: { date: ISODate }) {
           onChange={(e) => schedule(e.target.value)}
           onBlur={() => {
             if (timer.current) clearTimeout(timer.current);
+            timer.current = null;
             if (v !== (note?.body ?? "")) planner.setNote(date, v);
-            setDirty(false);
+            latest.current = null;
+            setDraft(null);
           }}
         />
         <span className="dc-noprint absolute right-1 top-1">
-          <MicButton onText={(t) => schedule((latest.current ? latest.current.replace(/\s+$/, "") + " " : "") + t)} label="Dictate notes" />
+          <MicButton onText={(t) => schedule((v ? v.replace(/\s+$/, "") + " " : "") + t)} label="Dictate notes" />
         </span>
       </div>
     </SectionCard>

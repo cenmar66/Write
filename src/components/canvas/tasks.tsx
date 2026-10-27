@@ -5,10 +5,9 @@ import { useMemo, useRef, useState } from "react";
 import { formatShort, formatTime } from "@/lib/canvas/dates";
 import { haptic, penScratch } from "@/lib/canvas/feedback";
 import { carryCount } from "@/lib/canvas/planning";
-import type { ISODate, Placement, Task, TaskSection } from "@/lib/canvas/types";
+import type { ISODate, Task, TaskSection } from "@/lib/canvas/types";
 import { MicButton } from "./dictation";
 import { useCanvas } from "./provider";
-import { TaskSheet } from "./task-sheet";
 
 export function Checkbox({ checked, onToggle, label }: { checked: boolean; onToggle: () => void; label: string }) {
   const [just, setJust] = useState(false);
@@ -131,7 +130,6 @@ export function TaskList({
         <TaskRow
           key={it.task.id}
           task={it.task}
-          placement={it.placement}
           date={date}
           carried={carryCount(it.task.id, placements)}
           showMeta={showMeta}
@@ -152,7 +150,6 @@ export function TaskList({
 
 function TaskRow({
   task,
-  placement,
   date,
   carried,
   showMeta,
@@ -163,7 +160,6 @@ function TaskRow({
   depth = 0,
 }: {
   task: Task;
-  placement?: Placement;
   date: ISODate;
   carried: number;
   showMeta: boolean;
@@ -173,11 +169,10 @@ function TaskRow({
   onKeyMove?: (dir: -1 | 1) => void;
   depth?: number;
 }) {
-  const { planner, rev, today, store } = useCanvas();
+  const { planner, rev, today, store, setOpenTask } = useCanvas();
   const complete = useCompleteTask();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(task.title);
-  const [sheet, setSheet] = useState(false);
   const [open, setOpen] = useState(false);
   const subs = useMemo(() => planner.subtasks(task.id), [planner, task.id, rev]); // eslint-disable-line react-hooks/exhaustive-deps
   const linked = useMemo(() => store.all("canvas_task_links").some((l) => l.task_id === task.id && l.state !== "broken"), [store, task.id, rev]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -233,7 +228,7 @@ function TaskRow({
           )}
         </div>
         {task.priority >= 3 && <Star size={14} className="shrink-0" fill="#d9a836" color="#d9a836" aria-label="High priority" />}
-        <button className="dc-icon-btn sm dc-noprint opacity-60 group-hover:opacity-100 focus:opacity-100" aria-label={`Details for ${task.title}`} onClick={() => setSheet(true)}>
+        <button className="dc-icon-btn sm dc-noprint opacity-60 group-hover:opacity-100 focus:opacity-100" aria-label={`Details for ${task.title}`} onClick={() => setOpenTask({ id: task.id, date })}>
           <MoreHorizontal size={15} />
         </button>
         {onDragHandle && (
@@ -255,7 +250,6 @@ function TaskRow({
           ))}
         </ul>
       )}
-      {sheet && <TaskSheet task={task} date={date} onClose={() => setSheet(false)} />}
       {date < today && done && task.completed_on && task.completed_on !== date && (
         <span className="sr-only">Completed on {task.completed_on}</span>
       )}

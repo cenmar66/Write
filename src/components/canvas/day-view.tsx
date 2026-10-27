@@ -39,7 +39,7 @@ export function renderSection(key: SectionKey, date: ISODate) {
     case "ideas":
       return <IdeasCard key={key} date={date} />;
     case "notes":
-      return <NotesCard key={key} date={date} />;
+      return <NotesCard key={`${key}-${date}`} date={date} />;
   }
 }
 

@@ -4,6 +4,9 @@ Your personal AI writing studio: an AI document editor, social post templates, p
 
 **Status:** Phase 1 (setup + login) ✅ · Phase 2 editor + AI ✅ · Phase 3 dictation ✅ · Phase 4 voice profile ✅ · Phase 5 social templates ✅ · Phase 6 publishing ✅ · Home screen, styles, import ✅
 
+
+> **New: [The Daily Canvas](docs/canvas/README.md)** — a calm daily planner at `/canvas` (paper-planner sections, voice, Apple Pencil, offline, Google Calendar/Tasks). Setup: run `supabase/migrations/0009_daily_canvas.sql`, deploy, open `/canvas`.
+
 ---
 
 ## What's inside
