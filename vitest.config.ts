@@ -4,7 +4,7 @@ import path from "node:path";
 export default defineConfig({
   resolve: { alias: { "@": path.resolve(__dirname, "src") } },
   test: {
-    include: ["tests/canvas/**/*.test.ts"],
+    include: ["tests/canvas/**/*.test.ts", "tests/social/**/*.test.ts"],
     environment: "node",
   },
 });
