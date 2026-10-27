@@ -1,4 +1,4 @@
-// Record shapes for The Daily Canvas. They mirror supabase/migrations/0009_daily_canvas.sql.
+// Record shapes for The Daily Canvas. They mirror supabase/migrations/0010_daily_canvas.sql.
 
 export type ISODate = string; // 'YYYY-MM-DD' local calendar date
 export type TaskSection = "must" | "work" | "personal" | "comms" | "shopping";

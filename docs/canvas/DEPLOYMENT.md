@@ -4,7 +4,7 @@ The Daily Canvas ships with Write.ai: same Vercel project, same Supabase project
 
 ## 1. Database (Supabase)
 
-Supabase → SQL Editor → New query → paste [`supabase/migrations/0009_daily_canvas.sql`](../../supabase/migrations/0009_daily_canvas.sql) → Run. (Or run all of `supabase/setup-all.sql`.) Safe to run again; it never deletes data.
+Supabase → SQL Editor → New query → paste [`supabase/migrations/0010_daily_canvas.sql`](../../supabase/migrations/0010_daily_canvas.sql) → Run. (Or run all of `supabase/setup-all.sql`.) Safe to run again; it never deletes data.
 
 Check: Table Editor shows the `canvas_*` tables, each with "RLS enabled". Database → Publications → `supabase_realtime` includes a few `canvas_*` tables (for instant cross-device updates; sync still works without it).
 

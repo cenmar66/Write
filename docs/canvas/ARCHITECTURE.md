@@ -30,7 +30,7 @@ src/lib/canvas/
   gcal.ts/gtasks.ts  Google conversions and sync decisions (pure)
   google.ts       server-side Google token handling
 public/canvas-sw.js             service worker (offline)
-supabase/migrations/0009_daily_canvas.sql
+supabase/migrations/0010_daily_canvas.sql
 ```
 
 ## Data flow

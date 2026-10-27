@@ -1,4 +1,4 @@
--- Write.ai: the whole database in one go (updates 0001 to 0009; 0009 is The Daily Canvas).
+-- Write.ai: the whole database in one go (updates 0001 to 0010; 0010 is The Daily Canvas).
 -- Safe to run any number of times: it only adds what's missing and never deletes your data.
 -- Paste all of it into Supabase > SQL Editor > New query, then click Run.
 
@@ -197,13 +197,25 @@ create table if not exists public.access_tokens (
 create index if not exists access_tokens_user on public.access_tokens (user_id, created_at desc);
 
 
+-- 0009: your own prompt packs ---------------------------------------------------
+create table if not exists public.prompt_packs (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users on delete cascade,
+  name text not null,
+  emoji text not null default '✨',
+  description text not null default '',
+  prompts jsonb not null default '[]'::jsonb,
+  created_at timestamptz not null default now()
+);
+create index if not exists prompt_packs_user on public.prompt_packs (user_id, created_at desc);
+
 -- Privacy: every table is "owner only" ------------------------------------------
 do $$
 declare t text;
 begin
   foreach t in array array['folders', 'documents', 'document_versions', 'chat_messages', 'user_settings',
                            'voice_samples', 'post_templates', 'posts', 'connected_accounts', 'writing_styles',
-                           'access_tokens'] loop
+                           'access_tokens', 'prompt_packs'] loop
     execute format('alter table public.%I enable row level security', t);
     execute format('drop policy if exists "owner only" on public.%I', t);
     execute format(
@@ -213,7 +225,7 @@ begin
 end $$;
 
 
--- 0009: The Daily Canvas ------------------------------------------------------------
+-- 0010: The Daily Canvas ------------------------------------------------------------
 -- The Daily Canvas: a personal daily planner that lives next to Write.ai.
 -- Safe to run more than once. Never deletes data.
 --

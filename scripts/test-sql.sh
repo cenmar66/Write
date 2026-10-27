@@ -15,6 +15,6 @@ $RUN "$BIN/initdb" -D "$DIR/data" -A trust -U postgres >/dev/null
 $RUN "$BIN/pg_ctl" -D "$DIR/data" -o "-p $PORT -k $DIR -c listen_addresses=''" -l "$DIR/log" start -w >/dev/null
 PSQL=(psql -X -q -h "$DIR" -p "$PORT" -U postgres -d postgres -v ON_ERROR_STOP=1)
 "${PSQL[@]}" -f "$ROOT/supabase/tests/supabase-shim.sql"
-"${PSQL[@]}" -f "$ROOT/supabase/migrations/0009_daily_canvas.sql"
-"${PSQL[@]}" -f "$ROOT/supabase/migrations/0009_daily_canvas.sql"   # must be re-runnable
+"${PSQL[@]}" -f "$ROOT/supabase/migrations/0010_daily_canvas.sql"
+"${PSQL[@]}" -f "$ROOT/supabase/migrations/0010_daily_canvas.sql"   # must be re-runnable
 "${PSQL[@]}" -f "$ROOT/supabase/tests/canvas.test.sql"

@@ -19,7 +19,7 @@ Updated: 2026-10-27. Branch: `claude/focused-bell-9z1bhs`.
 
 ## Needs you
 
-1. Run `supabase/migrations/0009_daily_canvas.sql` in Supabase.
+1. Run `supabase/migrations/0010_daily_canvas.sql` in Supabase.
 2. Deploy, open `/canvas`, install on each device.
 3. For Google: create the OAuth client and add `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` in Vercel ([INTEGRATIONS.md](INTEGRATIONS.md)).
 4. Run the manual device checklist in [TESTING.md](TESTING.md).

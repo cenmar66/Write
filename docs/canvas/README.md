@@ -30,7 +30,7 @@ NEXT_PUBLIC_CANVAS_LOCAL_ONLY=1 npm run dev
 
 ## Going live (once)
 
-1. In Supabase → SQL Editor, run [`supabase/migrations/0009_daily_canvas.sql`](../../supabase/migrations/0009_daily_canvas.sql) (or the whole `supabase/setup-all.sql`; both are safe to re-run).
+1. In Supabase → SQL Editor, run [`supabase/migrations/0010_daily_canvas.sql`](../../supabase/migrations/0010_daily_canvas.sql) (or the whole `supabase/setup-all.sql`; both are safe to re-run).
 2. Push to the branch Vercel deploys. Open `https://YOUR-DOMAIN/canvas` and sign in as usual.
 3. Optional: set up Google ([INTEGRATIONS.md](INTEGRATIONS.md)).
 4. Install it: iPhone/iPad Safari → Share → **Add to Home Screen**; Mac Safari → File → **Add to Dock**.

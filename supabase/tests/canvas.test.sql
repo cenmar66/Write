@@ -1,4 +1,4 @@
--- Behaviour tests for 0009_daily_canvas.sql. Run with: npm run test:sql
+-- Behaviour tests for 0010_daily_canvas.sql. Run with: npm run test:sql
 \set ON_ERROR_STOP 1
 insert into auth.users values ('11111111-1111-1111-1111-111111111111', 'me@example.com'),
                               ('22222222-2222-2222-2222-222222222222', 'other@example.com');

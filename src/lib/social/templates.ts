@@ -1,6 +1,6 @@
 import type { PlatformId, PostFormat } from "./platforms";
 
-export type TemplateCategory = "hooks" | "lists" | "stories" | "how-to" | "threads" | "carousels" | "mine";
+export type TemplateCategory = "essays" | "hooks" | "ideas" | "lists" | "stories" | "how-to" | "threads" | "carousels" | "mine";
 
 export type PostTemplate = {
   key: string;
@@ -16,7 +16,9 @@ export type PostTemplate = {
 
 export const CATEGORIES: { id: TemplateCategory | "all"; label: string }[] = [
   { id: "all", label: "All" },
+  { id: "essays", label: "Essays" },
   { id: "hooks", label: "Hooks" },
+  { id: "ideas", label: "Ideas" },
   { id: "lists", label: "Lists" },
   { id: "stories", label: "Stories" },
   { id: "how-to", label: "How-to" },
@@ -199,6 +201,214 @@ export const TEMPLATES: PostTemplate[] = [
     bestFor: ["instagram", "linkedin"],
   },
 ];
+
+
+const LONG: PlatformId[] = ["linkedin", "facebook"];
+const SHORT: PlatformId[] = ["linkedin", "x", "threads"];
+
+// Typeshare / Ship 30-style formats: essays, idea frameworks, and more lists, stories, and threads.
+const MORE: PostTemplate[] = [
+  {
+    key: "atomic-essay",
+    name: "Atomic Essay",
+    category: "essays",
+    description: "A complete 250-word essay: one idea, fully explained.",
+    structure:
+      "About 250 words (200-300). Line 1: a headline that names the reader and the outcome. Intro (2-3 short lines): who this is for, the problem they feel, and the promise. Body: 3 short sections, each starting with a bold or numbered mini-headline, 1-3 sentences each, concrete and specific. Conclusion: one or two punchy lines that restate the big idea. Short paragraphs, no fluff, no hashtags in the body.",
+    example: "How To Hire Your First Employee Without Regret\n\nMost founders hire too fast. They feel the pain of doing everything, so they grab the first good-enough person.\n\n1. Write the role before the job post…",
+    format: "single",
+    bestFor: LONG,
+  },
+  {
+    key: "subatomic-essay",
+    name: "Subatomic Essay",
+    category: "essays",
+    description: "A tiny essay that fits on one image card (about 50 words).",
+    structure:
+      "40-70 words total. Line 1: a short, bold headline (under 8 words). Then 3-5 very short lines that build one idea, each line a complete thought. Last line: the punchline or takeaway. Written to be turned into a quote card image, so no hashtags or links inside it.",
+    example: "Busy Isn't A Strategy\n\nBusy feels productive.\nBusy looks impressive.\nBusy fills the calendar.\n\nBut focus is what moves the needle.",
+    format: "single",
+    bestFor: ["instagram", "linkedin", "x", "threads"],
+  },
+  {
+    key: "annotated-quote",
+    name: "Annotated quote",
+    category: "ideas",
+    description: "Share a quote you love, then what it means to you.",
+    structure:
+      "Line 1: the quote in quotation marks with the author's name. Then one line on why it stuck with you. Then 2-3 short lines applying it to your reader's work or life, with one concrete example. End with a one-line takeaway.",
+    example: "\"The obstacle is the way.\" — Marcus Aurelius\n\nI used to read this as motivation. Now I read it as instructions.",
+    format: "single",
+    bestFor: ALL,
+  },
+  {
+    key: "observation",
+    name: "Observation",
+    category: "ideas",
+    description: "Something you noticed that others miss.",
+    structure:
+      "Line 1: 'I've noticed something about [group/topic]:' or a direct statement of the pattern. Then 2-3 examples that show the pattern. Then why it happens. End with what the reader should do about it.",
+    example: "I've noticed something about the best salespeople I know:\n\nThey talk the least in the room.",
+    format: "single",
+    bestFor: SHORT,
+  },
+  {
+    key: "reframe",
+    name: "Reframe",
+    category: "ideas",
+    description: "Take a familiar idea and flip how people see it.",
+    structure:
+      "Line 1: 'Most people see [X] as [common view].' Line 2: 'I see it as [new view].' Then explain the shift in 2-4 short lines with an example. End with a one-line takeaway the reader can use today.",
+    example: "Most people see rejection as a no.\n\nI see it as a 'not yet, and here's why.'",
+    format: "single",
+    bestFor: ALL,
+  },
+  {
+    key: "prediction",
+    name: "Bold prediction",
+    category: "ideas",
+    description: "Where your industry is heading, and why.",
+    structure:
+      "Line 1: a specific, bold prediction with a timeframe. Then 3 signals you're seeing today that point to it. Then what it means for the reader. End with a question inviting agreement or disagreement.",
+    example: "Prediction: in 3 years, every small business will have an AI front desk.\n\nHere's what I'm seeing:",
+    format: "single",
+    bestFor: SHORT,
+  },
+  {
+    key: "mental-model",
+    name: "Mental model",
+    category: "ideas",
+    description: "Name a way of thinking and show how to use it.",
+    structure:
+      "Line 1: name the mental model and the problem it solves. Then explain it in one plain sentence. Then a quick real-world example. Then 2-3 situations where the reader can apply it. End with a one-line summary.",
+    example: "The 'two-way door' rule changed how I make decisions.\n\nIf a choice is easy to undo, decide fast.",
+    format: "single",
+    bestFor: ALL,
+  },
+  {
+    key: "comparison",
+    name: "This vs. that",
+    category: "lists",
+    description: "Compare two approaches side by side.",
+    structure:
+      "Line 1: '[Thing A] vs. [Thing B]:' as the hook. Then 4-6 paired lines contrasting them ('A: … / B: …' or 'Amateurs … / Pros …'). End with one line on which to choose and why.",
+    example: "Busy founders vs. effective founders:\n\nBusy: answer every email.\nEffective: answer the right ones.",
+    format: "single",
+    bestFor: ALL,
+  },
+  {
+    key: "do-dont",
+    name: "Do this, not that",
+    category: "lists",
+    description: "Swap a common habit for a better one.",
+    structure:
+      "Hook line naming the topic. Then 4-6 lines in the form '❌ Don't: … / ✅ Do: …' (or 'Instead of … try …'). End with the principle behind all of them in one line.",
+    example: "Better meetings in 5 swaps:\n\nInstead of 'any updates?' → ask 'what's blocked?'",
+    format: "single",
+    bestFor: ALL,
+  },
+  {
+    key: "curated-list",
+    name: "Curated resources",
+    category: "lists",
+    description: "The best books, tools, or links on a topic.",
+    structure:
+      "Hook line: '[N] [resources] that [specific outcome]:'. Then a numbered list, each item with its name and one line on why it's worth it. End with a question asking readers for their favorite.",
+    example: "5 books that made me a better leader:\n\n1. Extreme Ownership — no excuses, ever.",
+    format: "single",
+    bestFor: ["linkedin", "facebook", "threads"],
+  },
+  {
+    key: "questions",
+    name: "Questions to ask yourself",
+    category: "lists",
+    description: "A short list of questions that make readers think.",
+    structure:
+      "Hook line: '[N] questions to ask before you [decision/situation]:'. Then a numbered list of 5-7 sharp questions, each with an optional one-line why. End with the one question that matters most.",
+    example: "6 questions to ask before you take on a new client:\n\n1. Do they respect my time already?",
+    format: "single",
+    bestFor: ALL,
+  },
+  {
+    key: "signs",
+    name: "Signs you're…",
+    category: "lists",
+    description: "Signs you're doing something right (or wrong).",
+    structure:
+      "Hook line: '[N] signs you're [situation]:'. Then a numbered list of 5-7 specific, recognizable signs. End with an encouraging or challenging one-line close.",
+    example: "7 signs you're ready to raise your prices:\n\n1. You're booked out for weeks.",
+    format: "single",
+    bestFor: ALL,
+  },
+  {
+    key: "three-lessons",
+    name: "3 lessons from…",
+    category: "stories",
+    description: "One experience, three lessons.",
+    structure:
+      "Line 1: name the experience in one specific sentence. One or two lines of context. Then '3 lessons:' and three numbered lessons, each with one sentence of why. End with the lesson you'd tell your younger self.",
+    example: "I lost a $50K deal yesterday.\n\n3 lessons I'm taking with me:",
+    format: "single",
+    bestFor: ALL,
+  },
+  {
+    key: "start-over",
+    name: "If I had to start over",
+    category: "stories",
+    description: "What you'd do differently, knowing what you know now.",
+    structure:
+      "Line 1: 'If I had to start [business/career/skill] from zero, here's exactly what I'd do:'. Then a numbered list of 5-7 concrete steps, each one line. End with the one thing you'd never skip.",
+    example: "If I had to start my business over from zero, here's exactly what I'd do:\n\n1. Sell before I build.",
+    format: "single",
+    bestFor: ["linkedin", "x", "threads", "facebook"],
+  },
+  {
+    key: "milestone",
+    name: "Milestone reflection",
+    category: "stories",
+    description: "Celebrate a milestone with what it taught you.",
+    structure:
+      "Line 1: the milestone, stated plainly with a number or date. Then a short honest line about the journey (the hard part). Then 3 things that made the difference. End with a thank-you or a line of encouragement for the reader.",
+    example: "10 years ago today I started Mastery Enterprises with one client and a laptop.",
+    format: "single",
+    bestFor: ["linkedin", "facebook", "instagram"],
+  },
+  {
+    key: "pas",
+    name: "Problem → solution",
+    category: "how-to",
+    description: "Name the pain, stir it, then solve it.",
+    structure:
+      "Line 1: name a specific problem the reader has. Then 2 lines on why it hurts (the cost of ignoring it). Then the solution in 3 clear steps. End with a one-line nudge to take the first step.",
+    example: "Your website gets visitors but no calls.\n\nEvery day it stays that way costs you leads.",
+    format: "single",
+    bestFor: ALL,
+  },
+  {
+    key: "thread-listicle",
+    name: "List thread",
+    category: "threads",
+    description: "One tip per post, numbered, with a strong opener.",
+    structure:
+      "Post 1: hook with the number and payoff, ending with 'A thread 🧵'. Posts 2 to N-1: one tip each, a bold first line and one or two lines of why. Last post: recap in one line and a call to repost or follow. 6-10 posts.",
+    example: "1/ 9 lessons from 10 years of running a service business. A thread 🧵",
+    format: "thread",
+    bestFor: ["x", "threads"],
+  },
+  {
+    key: "thread-story",
+    name: "Story thread",
+    category: "threads",
+    description: "Tell a story across posts, end with the lesson.",
+    structure:
+      "Post 1: a gripping opening moment that makes people want the rest. Posts 2 to N-2: the story in short beats, one moment per post, building tension. Second-to-last post: the turning point. Last post: the lesson and a question for readers. 5-8 posts.",
+    example: "1/ In 2019 I had $312 in the bank and payroll due Friday. Here's what happened next:",
+    format: "thread",
+    bestFor: ["x", "threads"],
+  },
+];
+
+TEMPLATES.push(...MORE);
 
 export const FREE_WRITE: PostTemplate = {
   key: "free",

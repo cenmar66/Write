@@ -1,6 +1,6 @@
 # Database
 
-Migration: [`supabase/migrations/0009_daily_canvas.sql`](../../supabase/migrations/0009_daily_canvas.sql). Re-runnable; never deletes data. Also appended to `supabase/setup-all.sql`.
+Migration: [`supabase/migrations/0010_daily_canvas.sql`](../../supabase/migrations/0010_daily_canvas.sql). Re-runnable; never deletes data. Also appended to `supabase/setup-all.sql`.
 
 ## Shared columns (every synced table)
 

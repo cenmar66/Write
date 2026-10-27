@@ -5,7 +5,7 @@ Your personal AI writing studio: an AI document editor, social post templates, p
 **Status:** Phase 1 (setup + login) ✅ · Phase 2 editor + AI ✅ · Phase 3 dictation ✅ · Phase 4 voice profile ✅ · Phase 5 social templates ✅ · Phase 6 publishing ✅ · Home screen, styles, import ✅
 
 
-> **New: [The Daily Canvas](docs/canvas/README.md)** — a calm daily planner at `/canvas` (paper-planner sections, voice, Apple Pencil, offline, Google Calendar/Tasks). Setup: run `supabase/migrations/0009_daily_canvas.sql`, deploy, open `/canvas`.
+> **New: [The Daily Canvas](docs/canvas/README.md)** — a calm daily planner at `/canvas` (paper-planner sections, voice, Apple Pencil, offline, Google Calendar/Tasks). Setup: run `supabase/migrations/0010_daily_canvas.sql`, deploy, open `/canvas`.
 
 ---
 
@@ -35,7 +35,7 @@ You'll copy a few values between websites. Keep a notes file open to paste them 
    - **Project URL** (`https://xxxx.supabase.co`)
    - **Publishable key** (starts with `sb_publishable_`; older dashboards call it the **anon** key)
 3. Open **SQL Editor → New query**, paste everything from [`supabase/migrations/0001_lock_signups.sql`](supabase/migrations/0001_lock_signups.sql), and click **Run**. This is the "nobody but me" lock.
-4. **Easiest:** paste all of [`supabase/setup-all.sql`](supabase/setup-all.sql) and click **Run**. It contains every database update (0001 to 0008), skips anything already done, and never deletes data, so it's safe to run again whenever the app gets a new update. (Or run them one by one:) Do the same with [`supabase/migrations/0002_documents.sql`](supabase/migrations/0002_documents.sql) (documents, folders, version history, chat), then [`0003_user_settings.sql`](supabase/migrations/0003_user_settings.sql) (app settings, like which AI model to use), then [`0004_voice.sql`](supabase/migrations/0004_voice.sql) (writing samples and your voice profile), then [`0005_posts.sql`](supabase/migrations/0005_posts.sql) (social posts and custom templates), then [`0006_publishing.sql`](supabase/migrations/0006_publishing.sql) (connected accounts, media storage, brand kit), then [`0007_styles.sql`](supabase/migrations/0007_styles.sql) (multiple writing styles and the Trash; your existing voice profile moves into a style called "My voice"), then [`0008_access_tokens.sql`](supabase/migrations/0008_access_tokens.sql) (access codes for your AI assistant).
+4. **Easiest:** paste all of [`supabase/setup-all.sql`](supabase/setup-all.sql) and click **Run**. It contains every database update (0001 to 0009), skips anything already done, and never deletes data, so it's safe to run again whenever the app gets a new update. (Or run them one by one:) Do the same with [`supabase/migrations/0002_documents.sql`](supabase/migrations/0002_documents.sql) (documents, folders, version history, chat), then [`0003_user_settings.sql`](supabase/migrations/0003_user_settings.sql) (app settings, like which AI model to use), then [`0004_voice.sql`](supabase/migrations/0004_voice.sql) (writing samples and your voice profile), then [`0005_posts.sql`](supabase/migrations/0005_posts.sql) (social posts and custom templates), then [`0006_publishing.sql`](supabase/migrations/0006_publishing.sql) (connected accounts, media storage, brand kit), then [`0007_styles.sql`](supabase/migrations/0007_styles.sql) (multiple writing styles and the Trash; your existing voice profile moves into a style called "My voice"), then [`0008_access_tokens.sql`](supabase/migrations/0008_access_tokens.sql) (access codes for your AI assistant).
 
    > Whenever a new phase adds a file in `supabase/migrations/`, run it the same way, in number order.
 5. **Upgrade to Pro** (you chose this): **Organization → Billing → Upgrade**.
@@ -178,6 +178,12 @@ Open **Posts** in the menu.
 - **Drafts, Scheduled, Published** tabs keep everything organized.
 
 Instagram's hashtag limit is in flux (30 per post on some accounts, 5 on newer ones), so the app suggests at most 5.
+
+## Prompts and packs
+
+**Posts → Prompts** is a library of writing prompts grouped into packs (Traits, Milestones, Tools, and more). Each prompt is tagged Atomic Essay, Short Form, LinkedIn, or Thread. Pick one, jot your answer (or dictate it), and the AI turns it into posts in your style.
+
+**Create a pack with AI:** type any theme (for example "lessons from the restoration business") and, optionally, a line about you. Claude writes a fresh pack of 6-12 prompts. Remove the ones you don't want, rename the pack, and **Save pack**. Your packs appear first in the grid; the trash icon deletes one. (Needs the `0009` database update, included in `supabase/setup-all.sql`.)
 
 ## Publishing and scheduling
 

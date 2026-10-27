@@ -1,12 +1,13 @@
 "use client";
 
-import { ArrowUpRight, FileText, Layers, Loader2, PenLine, Plus, Sparkles, Trash2, Wand2 } from "lucide-react";
+import { ArrowUpRight, FileText, Layers, Loader2, PenLine, Plus, Sparkles, Trash2, Wand2, X } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Drawer } from "@/components/editor/drawer";
 import { PlatformBadge } from "@/components/social/platform-badge";
 import { timeAgo } from "@/lib/docs";
 import type { PlatformId, PostFormat } from "@/lib/social/platforms";
+import { PROMPT_FORMATS, PROMPT_PACKS, PROMPT_THEMES, PROMPTS, type PromptFormat, type TopicPrompt, type UserPack } from "@/lib/social/prompts";
 import { CATEGORIES, TEMPLATES, type TemplateCategory } from "@/lib/social/templates";
 import { createClient } from "@/lib/supabase/client";
 
@@ -23,7 +24,7 @@ type DraftRow = {
   scheduled_at: string | null;
   published_at: string | null;
 };
-type Tab = "templates" | "drafts" | "scheduled" | "published";
+type Tab = "templates" | "prompts" | "drafts" | "scheduled" | "published";
 
 export function PostsHome() {
   const supabase = useMemo(() => createClient(), []);
@@ -92,8 +93,8 @@ export function PostsHome() {
       </div>
 
       <div className="mt-8 flex items-center gap-1 overflow-x-auto border-b border-line">
-        {(["templates", "drafts", "scheduled", "published"] as const).map((t) => {
-          const n = t === "templates" ? 0 : (lists[t]?.length ?? 0);
+        {(["templates", "prompts", "drafts", "scheduled", "published"] as const).map((t) => {
+          const n = t === "templates" || t === "prompts" ? 0 : (lists[t]?.length ?? 0);
           return (
             <button
               key={t}
@@ -106,6 +107,8 @@ export function PostsHome() {
           );
         })}
       </div>
+
+      {tab === "prompts" && <PromptLibrary />}
 
       {tab === "templates" && (
         <>
@@ -151,7 +154,7 @@ export function PostsHome() {
         </>
       )}
 
-      {tab !== "templates" && (
+      {tab !== "templates" && tab !== "prompts" && (
         <ul className="mt-4 space-y-2">
           {drafts === null && <li className="py-8 text-center text-muted"><Loader2 className="mx-auto animate-spin" /></li>}
           {lists[tab]?.length === 0 && (
@@ -225,9 +228,11 @@ function TemplateCard({
       </div>
       <p className="mt-1 text-sm text-muted">{description}</p>
       {example && (
-        <p className="mt-3 line-clamp-3 rounded-2xl bg-surface-strong px-3 py-2 text-sm leading-relaxed whitespace-pre-line text-ink/80">
-          {example.split("\n").filter((l) => l.trim()).slice(0, 2).join("\n")}
-        </p>
+        <div className="mt-3 rounded-2xl bg-surface-strong px-3 py-2">
+          <p className="line-clamp-3 text-sm leading-relaxed whitespace-pre-line text-ink/80">
+            {example.split("\n").filter((l) => l.trim()).slice(0, 2).join("\n")}
+          </p>
+        </div>
       )}
       <span className="mt-auto flex items-center gap-1 pt-3 text-sm text-accent opacity-0 transition group-hover:opacity-100">
         Use template <ArrowUpRight size={14} />
@@ -299,5 +304,246 @@ function TemplateForm({ supabase, onClose, onSaved }: { supabase: ReturnType<typ
         </button>
       </div>
     </Drawer>
+  );
+}
+
+/** Typeshare-style idea starters: pick a prompt, answer it in your own words, get a post. */
+function PromptLibrary() {
+  const supabase = useMemo(() => createClient(), []);
+  const [theme, setTheme] = useState<string>("all");
+  const [format, setFormat] = useState<PromptFormat | "all">("all");
+  const [query, setQuery] = useState("");
+  const [myPacks, setMyPacks] = useState<UserPack[]>([]);
+
+  const loadPacks = useCallback(async () => {
+    const { data } = await supabase.from("prompt_packs").select("id,name,emoji,description,prompts,created_at").order("created_at", { ascending: false });
+    return (data as UserPack[]) ?? [];
+  }, [supabase]);
+  useEffect(() => {
+    loadPacks().then(setMyPacks);
+  }, [loadPacks]);
+
+  // Your packs' prompts use keys like "my:<packId>:<index>".
+  const mine: TopicPrompt[] = myPacks.flatMap((pk) =>
+    pk.prompts.map((p, i) => ({ ...p, key: `my:${pk.id}:${i}`, theme: `my:${pk.id}` })),
+  );
+  const all = [...mine, ...PROMPTS];
+  const q = query.trim().toLowerCase();
+  const shown = all.filter(
+    (p) =>
+      (theme === "all" || p.theme === theme) &&
+      (format === "all" || p.format === format) &&
+      (!q || p.title.toLowerCase().includes(q) || p.prompt.toLowerCase().includes(q)),
+  );
+  const packName = (t: string) => (t.startsWith("my:") ? (myPacks.find((p) => `my:${p.id}` === t)?.name ?? "Your pack") : t);
+  const packEmoji = (t: string) => (t.startsWith("my:") ? myPacks.find((p) => `my:${p.id}` === t)?.emoji : PROMPT_PACKS[t]?.emoji);
+
+  async function deletePack(id: string) {
+    if (!confirm("Delete this pack?")) return;
+    await supabase.from("prompt_packs").delete().eq("id", id);
+    setMyPacks((p) => p.filter((x) => x.id !== id));
+    setTheme("all");
+  }
+
+  const packCard = (key: string, name: string, emoji: string | undefined, description: string, count: number, own?: string) => (
+    <div key={key} className="relative">
+      <button onClick={() => setTheme(key)} className="glass flex h-full w-full flex-col rounded-2xl p-4 text-left transition hover:-translate-y-0.5">
+        <span className="text-2xl grayscale" aria-hidden>{emoji}</span>
+        <span className="mt-2 pr-6 font-medium">{name} pack</span>
+        <span className="mt-1 text-sm text-muted">{description}</span>
+        <span className="mt-auto pt-3 text-xs text-muted">{count} prompts{own ? " · yours" : ""}</span>
+      </button>
+      {own && (
+        <button onClick={() => deletePack(own)} aria-label={`Delete ${name} pack`} className="absolute top-3 right-3 rounded-full p-1.5 text-muted hover:bg-surface-strong hover:text-red-700 dark:hover:text-red-400">
+          <Trash2 size={14} />
+        </button>
+      )}
+    </div>
+  );
+
+  return (
+    <div className="mt-4 space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={`Search ${all.length} prompts`}
+          aria-label="Search prompts"
+          className="min-w-48 flex-1 rounded-full bg-surface px-4 py-2 text-sm ring-1 ring-line outline-none focus:ring-2 focus:ring-accent"
+        />
+        <select value={format} onChange={(e) => setFormat(e.target.value as PromptFormat | "all")} aria-label="Format" className="rounded-full bg-surface px-3 py-2 text-sm ring-1 ring-line">
+          <option value="all">All formats</option>
+          {(Object.keys(PROMPT_FORMATS) as PromptFormat[]).map((f) => (
+            <option key={f} value={f}>{PROMPT_FORMATS[f].label}</option>
+          ))}
+        </select>
+      </div>
+
+      {theme === "all" && !q ? (
+        <>
+          <PackMaker onSaved={async () => setMyPacks(await loadPacks())} />
+          <p className="pt-2 text-xs font-semibold tracking-[0.14em] text-muted uppercase">Packs</p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {myPacks.map((pk) =>
+              packCard(`my:${pk.id}`, pk.name, pk.emoji, pk.description, pk.prompts.filter((p) => format === "all" || p.format === format).length, pk.id),
+            )}
+            {PROMPT_THEMES.map((t) =>
+              packCard(t, t, PROMPT_PACKS[t]?.emoji, PROMPT_PACKS[t]?.description ?? "", PROMPTS.filter((p) => p.theme === t && (format === "all" || p.format === format)).length),
+            )}
+          </div>
+          <p className="pt-3 text-xs font-semibold tracking-[0.14em] text-muted uppercase">All prompts</p>
+        </>
+      ) : theme !== "all" ? (
+        <div className="flex items-center gap-3 pt-1">
+          <button onClick={() => setTheme("all")} className="text-sm text-muted hover:text-ink">← All packs</button>
+          <span className="text-sm font-medium">
+            <span className="grayscale" aria-hidden>{packEmoji(theme)}</span> {packName(theme)} pack
+          </span>
+        </div>
+      ) : null}
+
+      {shown.length === 0 && <p className="py-10 text-center text-muted">No prompts match that.</p>}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {shown.map((p) => (
+          <PromptCard key={p.key} p={p} href={`/posts/new?prompt=${encodeURIComponent(p.key)}`} pack={packName(p.theme)} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function PromptCard({ p, href, pack, onRemove }: { p: Pick<TopicPrompt, "emoji" | "title" | "prompt" | "format">; href?: string; pack?: string; onRemove?: () => void }) {
+  const body = (
+    <>
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xl grayscale" aria-hidden>{p.emoji}</span>
+        <span className="flex items-center gap-1">
+          <span className="rounded-full bg-surface-strong px-2.5 py-0.5 text-xs text-muted">{PROMPT_FORMATS[p.format]?.label ?? p.format}</span>
+          {onRemove && (
+            <button onClick={onRemove} aria-label={`Remove ${p.title}`} className="rounded-full p-1 text-muted hover:text-red-700 dark:hover:text-red-400">
+              <X size={14} />
+            </button>
+          )}
+        </span>
+      </div>
+      <p className="mt-2 font-medium leading-snug">{p.title}</p>
+      <p className="mt-1 line-clamp-3 text-sm text-muted">{p.prompt}</p>
+      {pack && <p className="mt-auto pt-3 text-xs text-muted">{pack}</p>}
+    </>
+  );
+  return href ? (
+    <Link href={href} className="glass group flex flex-col rounded-2xl p-4 transition hover:-translate-y-0.5">{body}</Link>
+  ) : (
+    <div className="glass flex flex-col rounded-2xl p-4">{body}</div>
+  );
+}
+
+type Draft = { name: string; emoji: string; description: string; prompts: { emoji: string; title: string; prompt: string; format: PromptFormat }[] };
+
+/** "Create a pack with AI": type a theme, get a pack of prompts, keep the ones you like. */
+function PackMaker({ onSaved }: { onSaved: () => Promise<void> }) {
+  const supabase = useMemo(() => createClient(), []);
+  const [theme, setTheme] = useState("");
+  const [audience, setAudience] = useState(() => {
+    try {
+      return localStorage.getItem("write.packAudience") ?? "";
+    } catch {
+      return "";
+    }
+  });
+  const [count, setCount] = useState(8);
+  const [busy, setBusy] = useState<null | "make" | "save">(null);
+  const [error, setError] = useState<string | null>(null);
+  const [draft, setDraft] = useState<Draft | null>(null);
+
+  async function make() {
+    if (!theme.trim()) return;
+    setBusy("make");
+    setError(null);
+    try {
+      localStorage.setItem("write.packAudience", audience);
+    } catch {}
+    try {
+      const res = await fetch("/api/ai/prompt-pack", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ theme, audience, count }) });
+      const body = (await res.json()) as { pack?: Draft; error?: string };
+      if (!body.pack) throw new Error(body.error || "Couldn't create the pack.");
+      setDraft(body.pack);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+    setBusy(null);
+  }
+
+  async function save() {
+    if (!draft?.prompts.length) return;
+    setBusy("save");
+    const { error } = await supabase.from("prompt_packs").insert(draft);
+    setBusy(null);
+    if (error) return setError("Couldn't save the pack. Has the 0009 database update been run?");
+    setDraft(null);
+    setTheme("");
+    await onSaved();
+  }
+
+  return (
+    <section className="glass rounded-3xl p-4 sm:p-5">
+      <div className="flex items-center gap-2">
+        <Wand2 size={17} />
+        <h3 className="font-medium">Create a pack with AI</h3>
+      </div>
+      <p className="mt-0.5 text-sm text-muted">Type any theme and get fresh prompts written for you. Keep the ones you like.</p>
+      <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_1fr_auto_auto]">
+        <input
+          value={theme}
+          onChange={(e) => setTheme(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && make()}
+          placeholder="Theme, e.g. lessons from the restoration business"
+          aria-label="Pack theme"
+          className="rounded-xl bg-bg px-3 py-2 text-sm ring-1 ring-line outline-none focus:ring-2 focus:ring-accent"
+        />
+        <input
+          value={audience}
+          onChange={(e) => setAudience(e.target.value)}
+          placeholder="About you (optional): business coach for owners…"
+          aria-label="About you or your audience"
+          className="rounded-xl bg-bg px-3 py-2 text-sm ring-1 ring-line outline-none focus:ring-2 focus:ring-accent"
+        />
+        <select value={count} onChange={(e) => setCount(Number(e.target.value))} aria-label="Number of prompts" className="rounded-xl bg-bg px-2 py-2 text-sm ring-1 ring-line">
+          {[6, 8, 10, 12].map((n) => (
+            <option key={n} value={n}>{n} prompts</option>
+          ))}
+        </select>
+        <button onClick={make} disabled={!theme.trim() || !!busy} className="bg-gradient-brand flex items-center justify-center gap-1.5 rounded-xl px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
+          {busy === "make" ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />} {draft ? "Make another" : "Create pack"}
+        </button>
+      </div>
+      {error && <p className="mt-2 text-sm text-red-700 dark:text-red-400">{error}</p>}
+
+      {draft && (
+        <div className="mt-4 space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xl grayscale" aria-hidden>{draft.emoji}</span>
+            <input
+              value={draft.name}
+              onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+              aria-label="Pack name"
+              className="rounded-lg bg-transparent px-1 font-medium outline-none ring-line focus:ring-1"
+            />
+            <span className="text-sm text-muted">{draft.description}</span>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {draft.prompts.map((p, i) => (
+              <PromptCard key={i} p={p} onRemove={() => setDraft({ ...draft, prompts: draft.prompts.filter((_, j) => j !== i) })} />
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <button onClick={save} disabled={!draft.prompts.length || !!busy} className="bg-gradient-brand flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
+              {busy === "save" ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />} Save pack ({draft.prompts.length})
+            </button>
+            <button onClick={() => setDraft(null)} className="rounded-full px-3 py-2 text-sm text-muted hover:text-ink">Discard</button>
+          </div>
+        </div>
+      )}
+    </section>
   );
 }
