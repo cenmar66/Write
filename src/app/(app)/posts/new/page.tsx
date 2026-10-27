@@ -1,11 +1,11 @@
 import { Suspense } from "react";
 import { Composer } from "./composer";
 
-type Search = Promise<{ template?: string; custom?: string }>;
+type Search = Promise<{ template?: string; custom?: string; prompt?: string }>;
 
 async function Loader({ searchParams }: { searchParams: Search }) {
-  const { template, custom } = await searchParams;
-  return <Composer templateKey={template ?? "free"} customId={custom} />;
+  const { template, custom, prompt } = await searchParams;
+  return <Composer templateKey={template ?? "free"} customId={custom} promptKey={prompt} />;
 }
 
 export default function NewPostPage({ searchParams }: { searchParams: Search }) {

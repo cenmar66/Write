@@ -7,6 +7,7 @@ import { Drawer } from "@/components/editor/drawer";
 import { PlatformBadge } from "@/components/social/platform-badge";
 import { timeAgo } from "@/lib/docs";
 import type { PlatformId, PostFormat } from "@/lib/social/platforms";
+import { PROMPT_FORMATS, PROMPT_PACKS, PROMPT_THEMES, PROMPTS, type PromptFormat } from "@/lib/social/prompts";
 import { CATEGORIES, TEMPLATES, type TemplateCategory } from "@/lib/social/templates";
 import { createClient } from "@/lib/supabase/client";
 
@@ -23,7 +24,7 @@ type DraftRow = {
   scheduled_at: string | null;
   published_at: string | null;
 };
-type Tab = "templates" | "drafts" | "scheduled" | "published";
+type Tab = "templates" | "prompts" | "drafts" | "scheduled" | "published";
 
 export function PostsHome() {
   const supabase = useMemo(() => createClient(), []);
@@ -92,8 +93,8 @@ export function PostsHome() {
       </div>
 
       <div className="mt-8 flex items-center gap-1 overflow-x-auto border-b border-line">
-        {(["templates", "drafts", "scheduled", "published"] as const).map((t) => {
-          const n = t === "templates" ? 0 : (lists[t]?.length ?? 0);
+        {(["templates", "prompts", "drafts", "scheduled", "published"] as const).map((t) => {
+          const n = t === "templates" || t === "prompts" ? 0 : (lists[t]?.length ?? 0);
           return (
             <button
               key={t}
@@ -106,6 +107,8 @@ export function PostsHome() {
           );
         })}
       </div>
+
+      {tab === "prompts" && <PromptLibrary />}
 
       {tab === "templates" && (
         <>
@@ -151,7 +154,7 @@ export function PostsHome() {
         </>
       )}
 
-      {tab !== "templates" && (
+      {tab !== "templates" && tab !== "prompts" && (
         <ul className="mt-4 space-y-2">
           {drafts === null && <li className="py-8 text-center text-muted"><Loader2 className="mx-auto animate-spin" /></li>}
           {lists[tab]?.length === 0 && (
@@ -301,5 +304,79 @@ function TemplateForm({ supabase, onClose, onSaved }: { supabase: ReturnType<typ
         </button>
       </div>
     </Drawer>
+  );
+}
+
+/** Typeshare-style idea starters: pick a prompt, answer it in your own words, get a post. */
+function PromptLibrary() {
+  const [theme, setTheme] = useState<string>("all");
+  const [format, setFormat] = useState<PromptFormat | "all">("all");
+  const [query, setQuery] = useState("");
+  const q = query.trim().toLowerCase();
+  const shown = PROMPTS.filter(
+    (p) =>
+      (theme === "all" || p.theme === theme) &&
+      (format === "all" || p.format === format) &&
+      (!q || p.title.toLowerCase().includes(q) || p.prompt.toLowerCase().includes(q)),
+  );
+
+  return (
+    <div className="mt-4 space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={`Search ${PROMPTS.length} prompts`}
+          aria-label="Search prompts"
+          className="min-w-48 flex-1 rounded-full bg-surface px-4 py-2 text-sm ring-1 ring-line outline-none focus:ring-2 focus:ring-accent"
+        />
+        <select value={format} onChange={(e) => setFormat(e.target.value as PromptFormat | "all")} aria-label="Format" className="rounded-full bg-surface px-3 py-2 text-sm ring-1 ring-line">
+          <option value="all">All formats</option>
+          {(Object.keys(PROMPT_FORMATS) as PromptFormat[]).map((f) => (
+            <option key={f} value={f}>{PROMPT_FORMATS[f].label}</option>
+          ))}
+        </select>
+      </div>
+      {theme === "all" && !q ? (
+        <>
+          <p className="pt-1 text-xs font-semibold tracking-[0.14em] text-muted uppercase">Packs</p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {PROMPT_THEMES.map((t) => {
+              const n = PROMPTS.filter((p) => p.theme === t && (format === "all" || p.format === format)).length;
+              return (
+                <button key={t} onClick={() => setTheme(t)} className="glass flex flex-col rounded-2xl p-4 text-left transition hover:-translate-y-0.5">
+                  <span className="text-2xl grayscale" aria-hidden>{PROMPT_PACKS[t]?.emoji}</span>
+                  <span className="mt-2 font-medium">{t} pack</span>
+                  <span className="mt-1 text-sm text-muted">{PROMPT_PACKS[t]?.description}</span>
+                  <span className="mt-auto pt-3 text-xs text-muted">{n} prompts</span>
+                </button>
+              );
+            })}
+          </div>
+          <p className="pt-3 text-xs font-semibold tracking-[0.14em] text-muted uppercase">All prompts</p>
+        </>
+      ) : theme !== "all" ? (
+        <div className="flex items-center gap-3 pt-1">
+          <button onClick={() => setTheme("all")} className="text-sm text-muted hover:text-ink">← All packs</button>
+          <span className="text-sm font-medium">
+            <span className="grayscale" aria-hidden>{PROMPT_PACKS[theme]?.emoji}</span> {theme} pack
+          </span>
+        </div>
+      ) : null}
+      {shown.length === 0 && <p className="py-10 text-center text-muted">No prompts match that.</p>}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {shown.map((p) => (
+          <Link key={p.key} href={`/posts/new?prompt=${p.key}`} className="glass group flex flex-col rounded-2xl p-4 transition hover:-translate-y-0.5">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xl grayscale" aria-hidden>{p.emoji}</span>
+              <span className="rounded-full bg-surface-strong px-2.5 py-0.5 text-xs text-muted">{PROMPT_FORMATS[p.format].label}</span>
+            </div>
+            <p className="mt-2 font-medium leading-snug">{p.title}</p>
+            <p className="mt-1 line-clamp-3 text-sm text-muted">{p.prompt}</p>
+            <p className="mt-auto pt-3 text-xs text-muted">{p.theme}</p>
+          </Link>
+        ))}
+      </div>
+    </div>
   );
 }
