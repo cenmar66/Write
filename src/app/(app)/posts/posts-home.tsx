@@ -225,9 +225,11 @@ function TemplateCard({
       </div>
       <p className="mt-1 text-sm text-muted">{description}</p>
       {example && (
-        <p className="mt-3 line-clamp-3 rounded-2xl bg-surface-strong px-3 py-2 text-sm leading-relaxed whitespace-pre-line text-ink/80">
-          {example.split("\n").filter((l) => l.trim()).slice(0, 2).join("\n")}
-        </p>
+        <div className="mt-3 rounded-2xl bg-surface-strong px-3 py-2">
+          <p className="line-clamp-3 text-sm leading-relaxed whitespace-pre-line text-ink/80">
+            {example.split("\n").filter((l) => l.trim()).slice(0, 2).join("\n")}
+          </p>
+        </div>
       )}
       <span className="mt-auto flex items-center gap-1 pt-3 text-sm text-accent opacity-0 transition group-hover:opacity-100">
         Use template <ArrowUpRight size={14} />
