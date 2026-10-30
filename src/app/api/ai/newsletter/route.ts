@@ -1,3 +1,4 @@
+import { ANTI_SLOP } from "@/lib/ai/anti-slop";
 import { PROVIDERS } from "@/lib/ai/providers";
 import { loadAiSettings, requireOwner } from "@/lib/ai/server";
 
@@ -31,6 +32,7 @@ export async function POST(request: Request) {
         model,
         system: [
           "You package writing as a Substack newsletter issue. Write in the same language as the document (English or Spanish). Be specific and inviting, never clickbait.",
+          ANTI_SLOP,
           voice,
         ]
           .filter(Boolean)

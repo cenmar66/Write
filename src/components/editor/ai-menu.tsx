@@ -16,6 +16,7 @@ import {
   Sparkles,
   Baby,
   Palette,
+  Fingerprint,
 } from "lucide-react";
 import { useState } from "react";
 import { EDIT_ACTIONS, TONES, type EditAction, type Tone } from "@/lib/ai/actions";
@@ -26,6 +27,7 @@ const ACTION_ICONS = {
   expand: Maximize2,
   grammar: SpellCheck,
   simplify: Baby,
+  humanize: Fingerprint,
 } as const;
 
 /** Appears when you highlight text: formatting plus the AI actions. */

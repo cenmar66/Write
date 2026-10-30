@@ -2,9 +2,9 @@
 
 import type { Editor } from "@tiptap/react";
 import { useEditorState } from "@tiptap/react";
-import { Eye } from "lucide-react";
+import { Eye, Fingerprint, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { STYLE_KINDS } from "@/lib/editor/style-check";
+import { type SlopItem, slopReport, STYLE_KINDS } from "@/lib/editor/style-check";
 import { type FocusMode, setWritingModes, styleKey } from "@/lib/editor/writing-modes";
 
 /**
@@ -168,7 +168,7 @@ export function WritingViewMenu({
         onClick={() => setOpen(!open)}
         aria-label="Writing view"
         title="Writing view"
-        className={`rounded-full p-2.5 transition ${open || view.focus !== "off" ? "bg-surface-strong text-accent" : "text-muted hover:bg-surface-strong hover:text-ink"}`}
+        className={`rounded-full p-2 transition sm:p-2.5 ${open || view.focus !== "off" ? "bg-surface-strong text-accent" : "text-muted hover:bg-surface-strong hover:text-ink"}`}
       >
         <Eye size={19} />
       </button>
@@ -271,6 +271,88 @@ export function StyleNotes({ editor, notes }: { editor: Editor; notes: ReturnTyp
               </button>
             ))}
           </div>
+      )}
+    </div>
+  );
+}
+
+const LEVELS = {
+  low: { label: "Low", line: "Sounds like you.", bars: 1 },
+  medium: { label: "Medium", line: "A few AI tells.", bars: 2 },
+  high: { label: "High", line: "Reads like AI.", bars: 3 },
+} as const;
+
+/** Slop check: how machine-written the doc sounds, what gives it away, and a one-tap fix. */
+export function SlopPanel({ editor, onHumanizeAll, onClose }: { editor: Editor; onHumanizeAll: () => void; onClose: () => void }) {
+  const report = useEditorState({
+    editor,
+    selector: ({ editor: e }) => slopReport(e.getText({ blockSeparator: "\n" })),
+    equalityFn: (a, b) => JSON.stringify(a) === JSON.stringify(b),
+  });
+  if (!report) return null;
+  const level = LEVELS[report.level];
+
+  function jump(item: SlopItem) {
+    const issues = styleKey.getState(editor.state)?.issues ?? [];
+    const hit = issues.find((i) => (item.id === "cliche" ? i.kind === "cliche" : i.rule === item.id));
+    if (hit) editor.chain().focus().setTextSelection({ from: hit.pos, to: hit.pos + hit.text.length }).scrollIntoView().run();
+  }
+
+  return (
+    <div
+      className="bar fixed inset-x-3 bottom-24 z-40 rounded-2xl p-4 text-sm shadow-xl animate-rise print:hidden sm:inset-x-auto sm:right-6 sm:w-80"
+      style={{ background: "var(--surface)" }}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-medium tracking-wide text-muted uppercase">Slop check</p>
+          <p className="mt-1 font-display text-2xl">{level.label}</p>
+          <p className="text-muted">{report.words < 40 ? "Write a bit more for a real reading." : level.line}</p>
+        </div>
+        <div className="flex items-start gap-2">
+          <div className="mt-2 flex items-end gap-1" aria-hidden>
+            {[1, 2, 3].map((n) => (
+              <span key={n} className={`w-2 rounded-sm ${n <= level.bars ? "bg-ink" : "bg-line"}`} style={{ height: 6 + n * 6 }} />
+            ))}
+          </div>
+          <button onClick={onClose} aria-label="Close slop check" className="rounded-full p-1.5 text-muted hover:bg-surface-strong hover:text-ink">
+            <X size={16} />
+          </button>
+        </div>
+      </div>
+
+      {report.items.length > 0 ? (
+        <ul className="mt-3 max-h-56 space-y-0.5 overflow-y-auto border-t border-line pt-2">
+          {report.items.map((item) => (
+            <li key={item.id}>
+              <button
+                onClick={() => jump(item)}
+                disabled={item.id === "threes" || item.id === "rhythm"}
+                className="flex w-full items-start gap-3 rounded-xl px-2 py-1.5 text-left enabled:hover:bg-surface-strong"
+              >
+                <span className="flex-1">
+                  <span className="block font-medium">{item.label}</span>
+                  <span className="block text-xs text-muted">{item.hint}</span>
+                </span>
+                <span className="mt-0.5 rounded-full bg-surface-strong px-2 text-xs tabular-nums">{item.count}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-3 border-t border-line pt-3 text-muted">Nothing flagged.</p>
+      )}
+
+      {report.items.length > 0 && (
+        <>
+          <button
+            onClick={onHumanizeAll}
+            className="bg-gradient-brand mt-3 flex w-full items-center justify-center gap-2 rounded-full px-4 py-2 font-medium text-white"
+          >
+            <Fingerprint size={16} /> Humanize all
+          </button>
+          <p className="mt-2 text-center text-xs text-muted">Fixes only the AI-sounding parts. You’ll see it before anything changes.</p>
+        </>
       )}
     </div>
   );

@@ -18,6 +18,7 @@ import {
   Loader2,
   Megaphone,
   MessageCircle,
+  ScanSearch,
   Newspaper,
   Mic,
   Sparkles,
@@ -40,7 +41,7 @@ import { copyForLinkedInArticle, exportDocx, exportMarkdown, exportPdf } from ".
 import { HistoryPanel } from "./history-panel";
 import { SubstackPanel } from "./substack-panel";
 import { type Suggestion, SuggestionCard } from "./suggestion-card";
-import { StyleNotes, useDismiss, useDocStats, useQuietChrome, useWritingView, WritingViewMenu } from "./writing-view";
+import { SlopPanel, StyleNotes, useDismiss, useDocStats, useQuietChrome, useWritingView, WritingViewMenu } from "./writing-view";
 
 type SaveStatus = "saved" | "saving" | "unsaved" | "error";
 type AiRun = { action: EditAction; tone?: Tone; from: number; to: number; abort: AbortController };
@@ -296,7 +297,8 @@ function LoadedEditor({ doc, supabase, autoDictate }: { doc: Doc; supabase: Supa
         }
       } else {
         if (from === to) return;
-        text = editor.state.doc.textBetween(from, to, "\n\n");
+        const whole = from <= 1 && to >= editor.state.doc.content.size - 1;
+        text = whole ? editor.getMarkdown() : editor.state.doc.textBetween(from, to, "\n\n");
       }
 
       aiRun.current?.abort.abort();
@@ -468,6 +470,7 @@ function LoadedEditor({ doc, supabase, autoDictate }: { doc: Doc; supabase: Supa
 
   const exportRef = useDismiss<HTMLDivElement>(exportOpen, () => setExportOpen(false));
   const [view, updateView] = useWritingView(editor);
+  const [slopOpen, setSlopOpen] = useState(false);
   useQuietChrome(view.quiet);
   const stats = useDocStats(editor, doc.word_count);
   const shortcut = isMac() ? "⌘J" : "Ctrl+J";
@@ -480,7 +483,17 @@ function LoadedEditor({ doc, supabase, autoDictate }: { doc: Doc; supabase: Supa
           <ArrowLeft size={20} />
         </Link>
         <SaveBadge status={status} />
-        <div className="ml-auto flex items-center gap-1">
+        <div className="ml-auto flex items-center gap-0.5 sm:gap-1">
+          <IconButton
+            label="Slop check"
+            active={slopOpen}
+            onClick={() => {
+              if (!slopOpen) updateView({ styleCheck: true });
+              setSlopOpen(!slopOpen);
+            }}
+          >
+            <ScanSearch size={19} />
+          </IconButton>
           <WritingViewMenu editor={editor} view={view} update={updateView} aiWords={stats.aiWords} />
           <IconButton label="Chat" active={panel === "chat"} onClick={() => setPanel(panel === "chat" ? null : "chat")}>
             <MessageCircle size={19} />
@@ -601,6 +614,17 @@ function LoadedEditor({ doc, supabase, autoDictate }: { doc: Doc; supabase: Supa
         </div>
       )}
 
+      {slopOpen && editor && !suggestion && (
+        <SlopPanel
+          editor={editor}
+          onClose={() => setSlopOpen(false)}
+          onHumanizeAll={() => {
+            setSlopOpen(false);
+            start("humanize", undefined, { from: 0, to: editor.state.doc.content.size });
+          }}
+        />
+      )}
+
       {dictating && (
         <DictationPanel
           ref={dictationPanel}
@@ -679,7 +703,7 @@ function SaveBadge({ status }: { status: SaveStatus }) {
   return (
     <span className={`flex items-center gap-1.5 px-2 text-xs ${status === "error" ? "text-red-700 dark:text-red-400" : "text-muted"}`}>
       {map.icon}
-      {map.text}
+      <span className="max-sm:sr-only">{map.text}</span>
     </span>
   );
 }
@@ -700,7 +724,7 @@ function IconButton({
       onClick={onClick}
       aria-label={label}
       title={label}
-      className={`rounded-full p-2.5 transition ${active ? "bg-surface-strong text-accent" : "text-muted hover:bg-surface-strong hover:text-ink"}`}
+      className={`rounded-full p-2 transition sm:p-2.5 ${active ? "bg-surface-strong text-accent" : "text-muted hover:bg-surface-strong hover:text-ink"}`}
     >
       {children}
     </button>

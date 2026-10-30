@@ -9,6 +9,7 @@ export const EDIT_ACTIONS = {
   expand: { label: "Expand", hint: "Add depth and detail" },
   grammar: { label: "Fix grammar", hint: "Spelling and punctuation" },
   simplify: { label: "Simplify", hint: "7th-grade reading level" },
+  humanize: { label: "Humanize", hint: "Remove AI-sounding bits" },
   tone: { label: "Change tone", hint: "" },
   continue: { label: "Continue writing", hint: "" },
 } as const;

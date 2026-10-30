@@ -1,3 +1,4 @@
+import { ANTI_SLOP } from "@/lib/ai/anti-slop";
 import { PLATFORM_IDS, PLATFORMS, type PlatformId, type PostFormat } from "./platforms";
 import { TEMPLATES, type PostTemplate } from "./templates";
 
@@ -70,6 +71,7 @@ Write in the language of the idea or source (English or Spanish).
 Never put hashtags inside content or parts; put them only in the hashtags list.
 For carousels, put the slide texts in parts and the post caption in content.
 Respect every character limit strictly, counting carefully.`,
+    ANTI_SLOP,
     voice,
     `Platform rules:\n${platformRules(platforms)}`,
   ]
