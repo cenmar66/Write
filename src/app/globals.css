@@ -222,6 +222,34 @@ body {
   opacity: 0.6;
   pointer-events: none;
 }
+/* ---------- iA-style writing view ---------- */
+/* Toolbars fade while you type. */
+[data-chrome] { transition: opacity 0.5s ease; }
+html[data-quiet] [data-chrome] { opacity: 0; pointer-events: none; }
+
+/* Focus: everything fades except the sentence or paragraph you're in. */
+.writing-focus .tiptap-doc { color: color-mix(in srgb, var(--ink) 26%, transparent); }
+.writing-focus .tiptap-doc :is(p, li, h1, h2, h3, blockquote, a) { transition: color 0.25s ease; }
+.writing-focus .tiptap-doc :is(a, blockquote) { color: inherit; }
+.writing-focus .tiptap-doc .is-focused { color: var(--ink); }
+
+/* Authorship: AI-written text stays grey until you edit it. */
+.show-authorship .tiptap-doc [data-ai] { color: color-mix(in srgb, var(--ink) 52%, transparent); }
+.writing-focus.show-authorship .tiptap-doc [data-ai] { color: inherit; opacity: 0.6; }
+
+/* Style check: quiet underlines, a different line for each kind. */
+.style-flag {
+  text-decoration-line: underline;
+  text-decoration-color: var(--accent-3);
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 4px;
+  cursor: help;
+}
+.style-filler { text-decoration-style: dotted; }
+.style-cliche { text-decoration-style: wavy; }
+.style-redundancy { text-decoration-style: dashed; }
+.style-ai { text-decoration-style: double; }
+
 .tiptap-doc ::selection { background: color-mix(in srgb, var(--accent) 22%, transparent); }
 
 /* ---------- Print / PDF ---------- */

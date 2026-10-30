@@ -98,7 +98,7 @@ function SidebarView({ isActive }: { isActive: (href: string) => boolean }) {
   }
 
   return (
-    <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col border-r border-line bg-bg print:hidden md:flex">
+    <aside data-chrome className="fixed inset-y-0 left-0 hidden w-64 flex-col border-r border-line bg-bg print:hidden md:flex">
       <div className="flex h-full flex-col overflow-y-auto px-3 py-4">
         <Link href="/" className="flex items-center gap-2.5 px-2 pb-4" title="Write.ai">
           <Logo size={28} />
@@ -172,6 +172,7 @@ export function BottomNav() {
   const isActive = (href: string) => (href === "/" ? path === "/" : path.startsWith(href));
   return (
     <nav
+      data-chrome
       className="bar fixed inset-x-3 bottom-3 z-40 flex justify-around rounded-3xl px-2 py-1.5 shadow-lg md:hidden"
       style={{ marginBottom: "env(safe-area-inset-bottom)" }}
     >

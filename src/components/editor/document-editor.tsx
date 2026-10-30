@@ -3,7 +3,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { CharacterCount, Placeholder } from "@tiptap/extensions";
 import { Markdown } from "@tiptap/markdown";
-import { EditorContent, type JSONContent, useEditor } from "@tiptap/react";
+import { type Editor, EditorContent, type JSONContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import {
   ArrowLeft,
@@ -28,6 +28,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { EDIT_ACTIONS, type EditAction, type Tone } from "@/lib/ai/actions";
 import type { DictationResult } from "@/lib/ai/dictation";
 import { type Brief, briefKey, type Doc, type Version } from "@/lib/docs";
+import { AiText } from "@/lib/editor/ai-text";
+import { KEEP_AUTHORSHIP, WritingModes } from "@/lib/editor/writing-modes";
 import { streamFetch } from "@/lib/stream";
 import { createClient } from "@/lib/supabase/client";
 import { ModelChip } from "../model-picker";
@@ -38,11 +40,34 @@ import { copyForLinkedInArticle, exportDocx, exportMarkdown, exportPdf } from ".
 import { HistoryPanel } from "./history-panel";
 import { SubstackPanel } from "./substack-panel";
 import { type Suggestion, SuggestionCard } from "./suggestion-card";
+import { StyleNotes, useDismiss, useDocStats, useQuietChrome, useWritingView, WritingViewMenu } from "./writing-view";
 
 type SaveStatus = "saved" | "saving" | "unsaved" | "error";
 type AiRun = { action: EditAction; tone?: Tone; from: number; to: number; abort: AbortController };
 
 const hasContent = (c: JSONContent) => Array.isArray(c?.content) && c.content.length > 0;
+/** Inserts AI-written Markdown and marks it as AI text, as one undo step. */
+function insertAi(editor: Editor, at: number | { from: number; to: number }, markdown: string, focusEnd = false) {
+  const from = typeof at === "number" ? at : at.from;
+  const to = typeof at === "number" ? at : at.to;
+  let size = 0;
+  const chain = focusEnd ? editor.chain().focus("end") : editor.chain().focus();
+  return chain
+    .command(({ tr }) => {
+      size = tr.doc.content.size;
+      return true;
+    })
+    .insertContentAt(at, markdown, { contentType: "markdown" })
+    .command(({ tr }) => {
+      const type = tr.doc.type.schema.marks.aiText;
+      const end = Math.min(tr.doc.content.size, to + (tr.doc.content.size - size));
+      if (type && end > from) tr.addMark(from, end, type.create());
+      tr.setMeta(KEEP_AUTHORSHIP, true);
+      return true;
+    })
+    .run();
+}
+
 const isMac = () => typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.userAgent);
 
 export function DocumentEditor({ id, autoDictate = false }: { id: string; autoDictate?: boolean }) {
@@ -107,6 +132,8 @@ function LoadedEditor({ doc, supabase, autoDictate }: { doc: Doc; supabase: Supa
       Placeholder.configure({ placeholder: "Start writing… or press ⌘J and let AI keep going." }),
       CharacterCount,
       Markdown,
+      AiText,
+      WritingModes,
     ],
     content: hasContent(doc.content) ? doc.content : undefined,
     editorProps: {
@@ -232,7 +259,18 @@ function LoadedEditor({ doc, supabase, autoDictate }: { doc: Doc; supabase: Supa
       (soFar) => show(soFar),
       abort.signal,
     )
-      .then((final) => show(final, true))
+      .then((final) => {
+        show(final, true);
+        editor
+          .chain()
+          .command(({ tr }) => {
+            const type = tr.doc.type.schema.marks.aiText;
+            if (type) tr.addMark(0, tr.doc.content.size, type.create());
+            tr.setMeta(KEEP_AUTHORSHIP, true).setMeta("addToHistory", false);
+            return true;
+          })
+          .run();
+      })
       .catch((e) => {
         if (!abort.signal.aborted) setToast({ message: (e as Error).message });
       })
@@ -369,12 +407,12 @@ function LoadedEditor({ doc, supabase, autoDictate }: { doc: Doc; supabase: Supa
     if (!editor || !run || !suggestion) return;
     await snapshot(`Before AI: ${suggestion.label}`);
     if (mode === "replace") {
-      editor.chain().focus().insertContentAt({ from: run.from, to: run.to }, suggestion.text, { contentType: "markdown" }).run();
+      insertAi(editor, { from: run.from, to: run.to }, suggestion.text);
     } else {
       // Drop it in as new paragraphs right after the block you were in.
       const $pos = editor.state.doc.resolve(Math.min(run.to, editor.state.doc.content.size));
       const after = $pos.depth > 0 ? $pos.after(1) : run.to;
-      editor.chain().focus().insertContentAt(after, suggestion.text, { contentType: "markdown" }).run();
+      insertAi(editor, after, suggestion.text);
     }
     aiRun.current = null;
     setSuggestion(null);
@@ -390,14 +428,14 @@ function LoadedEditor({ doc, supabase, autoDictate }: { doc: Doc; supabase: Supa
   async function insertFromChat(markdown: string) {
     if (!editor) return;
     await snapshot("Before inserting from chat");
-    editor.chain().focus("end").insertContent(markdown, { contentType: "markdown" }).run();
+    insertAi(editor, editor.state.doc.content.size, markdown, true);
     setToast({ message: "Added to the end of your doc.", undo: true });
   }
 
   async function restore(v: Version) {
     if (!editor) return;
     await snapshot("Before restoring");
-    editor.commands.setContent(v.content);
+    editor.chain().setMeta(KEEP_AUTHORSHIP, true).setContent(v.content).run();
     titleRef.current = v.title;
     setTitle(v.title);
     scheduleSave();
@@ -428,18 +466,22 @@ function LoadedEditor({ doc, supabase, autoDictate }: { doc: Doc; supabase: Supa
     if (kind === "pdf") exportPdf();
   }
 
-  const words = editor?.storage.characterCount.words() ?? doc.word_count;
+  const exportRef = useDismiss<HTMLDivElement>(exportOpen, () => setExportOpen(false));
+  const [view, updateView] = useWritingView(editor);
+  useQuietChrome(view.quiet);
+  const stats = useDocStats(editor, doc.word_count);
   const shortcut = isMac() ? "⌘J" : "Ctrl+J";
 
   return (
     <div className="-mt-2">
       {/* Top bar */}
-      <div className="sticky top-0 z-30 -mx-5 flex items-center gap-1 bg-[var(--bar)] px-3 py-2 backdrop-blur-xl print:hidden md:-mx-10 md:px-6">
+      <div data-chrome className="sticky top-0 z-30 -mx-5 flex items-center gap-1 bg-[var(--bar)] px-3 py-2 backdrop-blur-xl print:hidden md:-mx-10 md:px-6">
         <Link href="/" aria-label="Back to home" className="rounded-full p-2 text-muted hover:bg-surface-strong hover:text-ink">
           <ArrowLeft size={20} />
         </Link>
         <SaveBadge status={status} />
         <div className="ml-auto flex items-center gap-1">
+          <WritingViewMenu editor={editor} view={view} update={updateView} aiWords={stats.aiWords} />
           <IconButton label="Chat" active={panel === "chat"} onClick={() => setPanel(panel === "chat" ? null : "chat")}>
             <MessageCircle size={19} />
           </IconButton>
@@ -458,13 +500,12 @@ function LoadedEditor({ doc, supabase, autoDictate }: { doc: Doc; supabase: Supa
           <IconButton label="History" active={panel === "history"} onClick={() => setPanel(panel === "history" ? null : "history")}>
             <History size={19} />
           </IconButton>
-          <div className="relative">
+          <div ref={exportRef} className="relative">
             <IconButton label="Export or copy" active={exportOpen} onClick={() => setExportOpen(!exportOpen)}>
               <Download size={19} />
             </IconButton>
             {exportOpen && (
               <>
-                <div className="fixed inset-0 z-30" onClick={() => setExportOpen(false)} />
                 <div className="bar absolute top-11 right-0 z-40 w-64 rounded-2xl p-1.5 text-sm shadow-xl">
                   <ExportItem icon={<ClipboardCopy size={16} />} onClick={() => runExport("linkedin")}>
                     Copy for LinkedIn article
@@ -487,7 +528,10 @@ function LoadedEditor({ doc, supabase, autoDictate }: { doc: Doc; supabase: Supa
       </div>
 
       {/* Writing surface */}
-      <article className="mx-auto max-w-2xl pt-8 pb-48 md:pt-14" style={{ paddingBottom: "calc(var(--bottom-panel, 0px) + 12rem)" }}>
+      <article
+        className={`mx-auto max-w-2xl pt-8 pb-48 md:pt-14 ${view.focus !== "off" ? "writing-focus" : ""} ${view.authorship ? "show-authorship" : ""}`}
+        style={{ paddingBottom: `calc(var(--bottom-panel, 0px) + ${view.typewriter ? "55dvh" : "12rem"})` }}
+      >
         <textarea
           value={title}
           onChange={(e) => onTitle(e.target.value)}
@@ -521,7 +565,7 @@ function LoadedEditor({ doc, supabase, autoDictate }: { doc: Doc; supabase: Supa
       {/* Bottom dock */}
       {!suggestion && !dictating && !drafting && panel !== "chat" && (
         <div className="fixed inset-x-0 bottom-0 z-30 flex justify-center px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] print:hidden md:left-64">
-          <div className="bar flex items-center gap-1 rounded-full p-1.5 shadow-lg">
+          <div data-chrome className="bar flex items-center gap-1 rounded-full p-1.5 shadow-lg">
             <button
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => openDictation(true)}
@@ -540,7 +584,11 @@ function LoadedEditor({ doc, supabase, autoDictate }: { doc: Doc; supabase: Supa
               <kbd className="hidden rounded bg-white/20 px-1.5 text-[11px] md:inline">{shortcut}</kbd>
             </button>
             <ModelChip documentId={doc.id} styleId={doc.style_id ?? null} />
-            <span className="pr-3 text-xs text-muted tabular-nums">{words} words</span>
+            {editor && view.styleCheck && <StyleNotes editor={editor} notes={stats.notes} />}
+            <span className="pr-3 pl-1 text-xs text-muted tabular-nums" title={`About ${stats.minutes} min to read`}>
+              {stats.picked ? `${stats.picked} of ${stats.words}` : stats.words} words
+              <span className="max-sm:hidden"> · {stats.minutes} min</span>
+            </span>
           </div>
         </div>
       )}

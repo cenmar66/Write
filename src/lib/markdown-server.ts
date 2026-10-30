@@ -1,6 +1,7 @@
 import { Editor, type JSONContent } from "@tiptap/core";
 import { Markdown } from "@tiptap/markdown";
 import StarterKit from "@tiptap/starter-kit";
+import { AiText } from "./editor/ai-text";
 
 // The editor must get its content up front on the server: starting empty makes it
 // parse HTML, which needs a browser.
@@ -9,8 +10,8 @@ const EMPTY: JSONContent = { type: "doc", content: [{ type: "paragraph" }] };
 function withEditor<T>(content: JSONContent | string, fn: (editor: Editor) => T): T {
   const editor =
     typeof content === "string"
-      ? new Editor({ extensions: [StarterKit, Markdown], content, contentType: "markdown" })
-      : new Editor({ extensions: [StarterKit, Markdown], content });
+      ? new Editor({ extensions: [StarterKit, Markdown, AiText], content, contentType: "markdown" })
+      : new Editor({ extensions: [StarterKit, Markdown, AiText], content });
   try {
     return fn(editor);
   } finally {
