@@ -30,6 +30,12 @@ After deploying, visit `https://YOUR-DOMAIN/canvas`, sign in, and run the manual
 
 The installed app is scoped to `/canvas`, separate from the Write.ai app icon. Open it once while online on each device so the offline copy is stored.
 
+## Your own domain
+
+`cenmar.org` and `www.cenmar.org` open straight to the planner (the home page redirects to `/canvas`; every other path, like `/docs` or `/posts`, is Write.ai as usual). To change which domains do this, set `PLANNER_HOSTS` in Vercel, e.g. `cenmar.org,www.cenmar.org`.
+
+Setup: Vercel → project → Settings → Domains → add `cenmar.org` (and `www`), set the DNS records Vercel shows at your registrar, then in Supabase → Authentication → URL Configuration set Site URL `https://cenmar.org` and add `https://cenmar.org/**` to Redirect URLs.
+
 ## Rollback
 
 Code: redeploy the previous deployment in Vercel. Database: the migration only adds tables/functions; leaving them in place is harmless. To remove the planner's data, use Settings → Your data → Delete (export first).
