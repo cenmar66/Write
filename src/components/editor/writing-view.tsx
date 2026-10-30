@@ -201,6 +201,12 @@ export function WritingViewMenu({
                 ))}
               </div>
             )}
+            {aiWords === 0 && (
+              <p className="mt-3 border-t border-line px-1 pt-3 text-xs text-muted">
+                No AI text marked in this doc. Text the AI adds from now on (Continue writing, rewrites, chat inserts, drafts) shows
+                in grey. Text written before this feature isn’t marked.
+              </p>
+            )}
             {aiWords > 0 && editor && (
               <div className="mt-3 flex items-center justify-between gap-2 border-t border-line px-1 pt-3 text-xs text-muted">
                 <span>{aiWords} words still written by AI</span>

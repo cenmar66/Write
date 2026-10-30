@@ -234,8 +234,8 @@ html[data-quiet] [data-chrome] { opacity: 0; pointer-events: none; }
 .writing-focus .tiptap-doc .is-focused { color: var(--ink); }
 
 /* Authorship: AI-written text stays grey until you edit it. */
-.show-authorship .tiptap-doc [data-ai] { color: color-mix(in srgb, var(--ink) 52%, transparent); }
-.writing-focus.show-authorship .tiptap-doc [data-ai] { color: inherit; opacity: 0.6; }
+.show-authorship .tiptap-doc [data-ai] { color: color-mix(in srgb, var(--ink) 40%, transparent); }
+.writing-focus.show-authorship .tiptap-doc [data-ai] { color: inherit; opacity: 0.55; }
 
 /* Style check: quiet underlines, a different line for each kind. */
 .style-flag {

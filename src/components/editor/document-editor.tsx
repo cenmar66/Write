@@ -585,6 +585,14 @@ function LoadedEditor({ doc, supabase, autoDictate }: { doc: Doc; supabase: Supa
             </button>
             <ModelChip documentId={doc.id} styleId={doc.style_id ?? null} />
             {editor && view.styleCheck && <StyleNotes editor={editor} notes={stats.notes} />}
+            {view.authorship && stats.aiWords > 0 && (
+              <span
+                className="rounded-full bg-surface-strong px-2 py-0.5 text-xs text-muted tabular-nums"
+                title={`${stats.aiWords} of ${stats.words} words were written by AI and not edited yet (shown in grey)`}
+              >
+                AI {Math.min(100, Math.round((stats.aiWords / Math.max(1, stats.words)) * 100))}%
+              </span>
+            )}
             <span className="pr-3 pl-1 text-xs text-muted tabular-nums" title={`About ${stats.minutes} min to read`}>
               {stats.picked ? `${stats.picked} of ${stats.words}` : stats.words} words
               <span className="max-sm:hidden"> · {stats.minutes} min</span>
