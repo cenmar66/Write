@@ -5,7 +5,7 @@ Your personal AI writing studio: an AI document editor, social post templates, p
 **Status:** Phase 1 (setup + login) ✅ · Phase 2 editor + AI ✅ · Phase 3 dictation ✅ · Phase 4 voice profile ✅ · Phase 5 social templates ✅ · Phase 6 publishing ✅ · Home screen, styles, import ✅
 
 
-> **New: [PromptDojo](docs/dojo/README.md)** — a prompt-engineering studio at `/dojo`: describe a task in plain words and get a recommended prompt, three alternatives, an explanation, refinements, version history, an analyzer, a testing lab and a library. Setup: run `supabase/migrations/0011_promptdojo.sql`, deploy, open `/dojo`.
+> **New: [PromptSatori](docs/satori/README.md)** — a prompt-engineering studio with its own home at **promptsatori.com** (also at `/satori`): describe a task in plain words and get a recommended prompt, three alternatives, an explanation, refinements, version history, an analyzer, a testing lab and a library. Setup: run `supabase/migrations/0011_promptsatori.sql`, deploy, then connect the domain ([steps](docs/satori/README.md#its-own-home-promptsatoricom)).
 
 > **New: [The Daily Canvas](docs/canvas/README.md)** — a calm daily planner at `/canvas` (paper-planner sections, voice, Apple Pencil, offline, Google Calendar/Tasks). Setup: run `supabase/migrations/0010_daily_canvas.sql`, deploy, open `/canvas`.
 

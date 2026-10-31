@@ -1,13 +1,13 @@
 import type { NextConfig } from "next";
 
-// Content Security Policy for PromptDojo (/dojo and its API). Static (no nonces) so pages
+// Content Security Policy for PromptSatori (/satori and its API). Static (no nonces) so pages
 // can stay prerendered: inline scripts are allowed for Next.js's bootstrap, but scripts,
 // frames, objects and network connections from other origins are not. See
-// docs/dojo/SECURITY.md.
+// docs/satori/SECURITY.md.
 const isDev = process.env.NODE_ENV !== "production";
 const supabase = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").replace(/\/+$/, "");
 const supabaseWs = supabase.replace(/^http/, "ws");
-const dojoCsp = [
+const satoriCsp = [
   "default-src 'self'",
   `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline'",
@@ -24,7 +24,7 @@ const dojoCsp = [
 ].map((d) => d.replace(/\s+/g, " ").trim()).join("; ");
 
 const securityHeaders = [
-  { key: "Content-Security-Policy", value: dojoCsp },
+  { key: "Content-Security-Policy", value: satoriCsp },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "X-Frame-Options", value: "DENY" },
@@ -45,9 +45,9 @@ const nextConfig: NextConfig = {
   },
   async headers() {
     return [
-      { source: "/dojo", headers: securityHeaders },
-      { source: "/dojo/:path*", headers: securityHeaders },
-      { source: "/api/dojo/:path*", headers: [{ key: "X-Content-Type-Options", value: "nosniff" }, { key: "Cache-Control", value: "no-store" }] },
+      { source: "/satori", headers: securityHeaders },
+      { source: "/satori/:path*", headers: securityHeaders },
+      { source: "/api/satori/:path*", headers: [{ key: "X-Content-Type-Options", value: "nosniff" }, { key: "Cache-Control", value: "no-store" }] },
     ];
   },
 };

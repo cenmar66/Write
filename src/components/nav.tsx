@@ -119,7 +119,7 @@ function SidebarView({ isActive }: { isActive: (href: string) => boolean }) {
 
         <Section title="Resources">
           <Item href="/styles" label="Styles" Icon={Feather} active={isActive("/styles")} />
-          <Item href="/dojo" label="PromptDojo" Icon={Wand2} active={isActive("/dojo")} />
+          <Item href="/satori" label="PromptSatori" Icon={Wand2} active={isActive("/satori")} />
         </Section>
 
         <Section
