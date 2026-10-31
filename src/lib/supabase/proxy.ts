@@ -3,11 +3,13 @@ import { NextResponse, type NextRequest } from "next/server";
 import { isAllowed, SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from "@/lib/env";
 
 // /api/cron checks its own secret, and /api/v1 checks access codes (no one is signed in for either).
-const PUBLIC_PATHS = ["/login", "/auth", "/manifest.webmanifest", "/canvas/manifest.webmanifest", "/api/cron/", "/api/v1"];
+const PUBLIC_PATHS = ["/login", "/auth", "/manifest.webmanifest", "/canvas/manifest.webmanifest", "/dojo/manifest.webmanifest", "/api/cron/", "/api/v1"];
 
 // Dev/test only: lets The Daily Canvas run on this device without signing in (data stays in
 // the browser). Ignored in production builds, whatever the variable says.
 const CANVAS_LOCAL_ONLY = process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_CANVAS_LOCAL_ONLY === "1";
+// Same idea for PromptDojo: local demo/test mode with in-memory data. Never in production.
+const DOJO_LOCAL_ONLY = process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_DOJO_LOCAL_ONLY === "1";
 
 /** Refreshes the session cookie and keeps everyone but the owner out. */
 export async function updateSession(request: NextRequest) {
@@ -34,7 +36,8 @@ export async function updateSession(request: NextRequest) {
   const { data } = await supabase.auth.getClaims();
   const email = data?.claims?.email as string | undefined;
   const path = request.nextUrl.pathname;
-  const isPublic = PUBLIC_PATHS.some((p) => path.startsWith(p)) || (CANVAS_LOCAL_ONLY && path.startsWith("/canvas"));
+  const isPublic = PUBLIC_PATHS.some((p) => path.startsWith(p)) || (CANVAS_LOCAL_ONLY && path.startsWith("/canvas")) ||
+    (DOJO_LOCAL_ONLY && (path.startsWith("/dojo") || path.startsWith("/api/dojo")));
 
   const redirectTo = (pathname: string, error?: string) => {
     const url = request.nextUrl.clone();
@@ -53,12 +56,14 @@ export async function updateSession(request: NextRequest) {
     if (path.startsWith("/api/")) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    if (path.startsWith("/canvas")) {
-      // Come back to the planner after signing in.
-      const url = request.nextUrl.clone();
-      url.pathname = "/login";
-      url.search = "?next=/canvas";
-      return NextResponse.redirect(url);
+    for (const app of ["/canvas", "/dojo"]) {
+      if (path.startsWith(app)) {
+        // Come back to the planner / PromptDojo after signing in.
+        const url = request.nextUrl.clone();
+        url.pathname = "/login";
+        url.search = `?next=${app}`;
+        return NextResponse.redirect(url);
+      }
     }
     return redirectTo("/login");
   }

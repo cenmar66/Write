@@ -1,9 +1,10 @@
 // Everything a person types, pastes or imports is untrusted data. Meta-prompts never mix
-// it into their own instructions: it goes inside a clearly named tag, and any text that
-// looks like one of our tags is defanged first so it can't close the block early and
-// pose as instructions.
+// it into their own instructions: it goes inside a clearly named <dojo_...> tag, and any
+// text that looks like one of OUR tags is defanged first so it can't close the block
+// early and pose as instructions. Other tags (<instructions>, <context>…) are left alone:
+// they're legitimate structure in prompts written for Claude and can't escape a block.
 
-const TAG_LIKE = /<\s*\/?\s*(dojo_[a-z_]+|system|instructions?|assistant|user)\b[^>]*>/gi;
+const TAG_LIKE = /<\s*\/?\s*dojo_[a-z_]*[^>]*>/gi;
 
 /** Neutralise tag look-alikes and control characters, and cap the length. */
 export function sanitize(value: string, max = 20_000): string {

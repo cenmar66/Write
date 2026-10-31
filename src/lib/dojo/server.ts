@@ -43,7 +43,9 @@ export async function readBody<S extends z.ZodType>(request: Request, schema: S)
   const parsed = schema.safeParse(body);
   if (!parsed.success) {
     const issue = parsed.error.issues[0];
-    return { denied: jsonError(issue ? `${issue.path.join(".") || "request"}: ${issue.message}` : "Invalid request.", 400) };
+    // Custom messages are written for people; generic ones get the field name.
+    const generic = issue && /^(Invalid|Expected|Too (big|small)|Unrecognized)/i.test(issue.message);
+    return { denied: jsonError(issue ? (generic ? `${issue.path.join(".") || "request"}: ${issue.message}` : issue.message) : "Invalid request.", 400) };
   }
   return { data: parsed.data };
 }
