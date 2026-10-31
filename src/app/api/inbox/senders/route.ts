@@ -25,3 +25,22 @@ export async function GET(request: Request) {
     return { senders };
   });
 }
+
+/** Add senders by address (e.g. VIPs during onboarding, before any mail has synced). */
+export async function POST(request: Request) {
+  const { body, HttpError, requireWorkspace, audit } = await import("@/lib/inbox/server/workspace");
+  const { isValidEmail, domainOf } = await import("@/lib/inbox/mail/parse");
+  return handle(async (ctx) => {
+    const b = await body<{ ws?: string; emails?: string[]; is_vip?: boolean }>(request);
+    const ws = await requireWorkspace(ctx, b.ws);
+    const emails = [...new Set((b.emails ?? []).map((e) => String(e).trim().toLowerCase()))].filter(isValidEmail).slice(0, 100);
+    if (!emails.length) throw new HttpError(400, "Add at least one valid email address.");
+    const { data: existing } = await ctx.db.from("ip_senders").select("email").eq("workspace_id", ws.id).in("email", emails);
+    const known = new Set((existing ?? []).map((e) => e.email));
+    const fresh = emails.filter((e) => !known.has(e));
+    if (fresh.length) await ctx.db.from("ip_senders").insert(fresh.map((email) => ({ workspace_id: ws.id, email, domain: domainOf(email), is_vip: !!b.is_vip })));
+    if (known.size) await ctx.db.from("ip_senders").update({ is_vip: !!b.is_vip }).eq("workspace_id", ws.id).in("email", [...known]);
+    await audit(ctx.db, ws.id, "user", "sender.add", null, { count: emails.length, vip: !!b.is_vip });
+    return { ok: true, added: emails.length };
+  });
+}

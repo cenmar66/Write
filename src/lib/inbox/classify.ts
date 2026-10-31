@@ -162,7 +162,10 @@ export function classifyMessage(m: Msg, ctx: ClassifyContext): Classification {
     const sameDay = soonest.toISOString().slice(0, 10) <= ctx.now.toISOString().slice(0, 10);
     time = hours <= 6 ? "immediate" : sameDay ? "today" : hours <= 24 * 7 ? "this_week" : "flexible";
     const ev = explicit.find((d) => +new Date(d.date) === +soonest)!;
-    add(`Explicit deadline: “${ev.phrase}”`, time === "immediate" || time === "today" ? w.deadlineToday : time === "this_week" ? w.deadlineWeek : 0, "deadline");
+    // A date only raises priority when it's a deadline for *you* (the message asks something of you).
+    const onMe = action === "reply_needed" || action === "review_needed" || action === "task_required";
+    add(onMe ? `Explicit deadline: “${ev.phrase}”` : `Mentions a date: “${ev.phrase}”`, !onMe ? 0 : time === "immediate" || time === "today" ? w.deadlineToday : time === "this_week" ? w.deadlineWeek : 0, "deadline");
+    if (!onMe) time = "flexible";
   } else if (human && RX.statedUrgency.test(text) && (sender?.replied_count ?? 0) > 0) {
     // Only a known correspondent's "urgent" nudges the score, and only slightly.
     add("Sender says it's urgent (no date given)", 4, "content");

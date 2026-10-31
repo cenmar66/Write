@@ -66,6 +66,9 @@ const CASCADE: Record<string, [string, string, "cascade" | "null"][]> = {
   ip_rules: [["ip_rule_executions", "rule_id", "null"]],
 };
 
+/** Numbers compare as numbers (like Postgres), everything else as text (ISO dates sort correctly). */
+const cmp = (a: unknown, b: unknown) => (typeof a === "number" && (typeof b === "number" || (typeof b === "string" && b.trim() !== "" && !Number.isNaN(Number(b)))) ? a - Number(b) : textCmp(String(a), String(b)));
+const textCmp = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 const keyOf = (r: Row, cols: string[]) => (cols.every((c) => r[c] != null) ? cols.map((c) => JSON.stringify(r[c])).join("|") : null);
 const clone = <T,>(v: T): T => (v === undefined ? v : JSON.parse(JSON.stringify(v)));
 
@@ -95,7 +98,7 @@ export class MemoryDb {
       const t = Date.now();
       const ready = this.rows("ip_jobs")
         .filter((j) => (j.status === "queued" && Date.parse(String(j.run_after)) <= t) || (j.status === "running" && Date.parse(String(j.locked_until)) < t))
-        .sort((a, b) => String(a.run_after).localeCompare(String(b.run_after)))
+        .sort((a, b) => textCmp(String(a.run_after), String(b.run_after)))
         .slice(0, n);
       for (const j of ready) Object.assign(j, { status: "running", attempts: Number(j.attempts) + 1, locked_until: new Date(t + lease * 1000).toISOString(), updated_at: now() });
       return { data: clone(ready), error: null };
@@ -214,10 +217,10 @@ class Query implements PromiseLike<{ data: unknown; error: { message: string; co
     else this.filters.push((r) => r[c] !== v);
     return this;
   }
-  gte(c: string, v: unknown) { this.filters.push((r) => r[c] != null && String(r[c]) >= String(v)); return this; }
-  gt(c: string, v: unknown) { this.filters.push((r) => r[c] != null && String(r[c]) > String(v)); return this; }
-  lte(c: string, v: unknown) { this.filters.push((r) => r[c] != null && String(r[c]) <= String(v)); return this; }
-  lt(c: string, v: unknown) { this.filters.push((r) => r[c] != null && String(r[c]) < String(v)); return this; }
+  gte(c: string, v: unknown) { this.filters.push((r) => r[c] != null && cmp(r[c], v) >= 0); return this; }
+  gt(c: string, v: unknown) { this.filters.push((r) => r[c] != null && cmp(r[c], v) > 0); return this; }
+  lte(c: string, v: unknown) { this.filters.push((r) => r[c] != null && cmp(r[c], v) <= 0); return this; }
+  lt(c: string, v: unknown) { this.filters.push((r) => r[c] != null && cmp(r[c], v) < 0); return this; }
   ilike(c: string, pattern: string) {
     const re = new RegExp("^" + pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/%/g, ".*").replace(/_/g, ".") + "$", "is");
     this.filters.push((r) => re.test(String(r[c] ?? "")));
@@ -232,8 +235,8 @@ class Query implements PromiseLike<{ data: unknown; error: { message: string; co
       const val = rest.join(".");
       if (op === "ilike") { const re = new RegExp("^" + val.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/%/g, ".*") + "$", "is"); return (r: Row) => re.test(String(r[col] ?? "")); }
       if (op === "is") return (r: Row) => (val === "null" ? r[col] == null : String(r[col]) === val);
-      if (op === "lte") return (r: Row) => r[col] != null && String(r[col]) <= val;
-      if (op === "gt") return (r: Row) => r[col] != null && String(r[col]) > val;
+      if (op === "lte") return (r: Row) => r[col] != null && cmp(r[col], val) <= 0;
+      if (op === "gt") return (r: Row) => r[col] != null && cmp(r[col], val) > 0;
       return (r: Row) => String(r[col]) === val;
     });
     this.filters.push((r) => tests.some((t) => t(r)));
@@ -276,8 +279,9 @@ class Query implements PromiseLike<{ data: unknown; error: { message: string; co
         }
       }
     } else if (this.op === "update") {
-      for (const r of all.filter(match)) Object.assign(r, clone(this.patch), { updated_at: new Date().toISOString() });
+      // Like Postgres RETURNING: the rows that were updated, even if they no longer match the filter.
       result = all.filter(match);
+      for (const r of result) Object.assign(r, clone(this.patch), { updated_at: new Date().toISOString() });
     } else if (this.op === "delete") {
       result = all.filter(match);
       for (const r of result) db.deleteRow(this.table, r);
@@ -291,7 +295,7 @@ class Query implements PromiseLike<{ data: unknown; error: { message: string; co
           if (av == null && bv == null) continue;
           if (av == null) return o.nullsFirst ? -1 : 1;
           if (bv == null) return o.nullsFirst ? 1 : -1;
-          const cmp = typeof av === "number" && typeof bv === "number" ? av - bv : String(av).localeCompare(String(bv));
+          const cmp = typeof av === "number" && typeof bv === "number" ? av - bv : textCmp(String(av), String(bv));
           if (cmp) return o.asc ? cmp : -cmp;
         }
         return 0;

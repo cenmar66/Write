@@ -173,3 +173,18 @@ describe("AI output cannot command the backend", () => {
     setProviderForTests(null);
   });
 });
+
+describe("memory database fidelity", () => {
+  it("returns updated rows like Postgres RETURNING, and compares numbers numerically", async () => {
+    const mem2 = new MemoryDb(USER);
+    const db2 = mem2 as unknown as Db;
+    await db2.from("ip_drafts").insert({ workspace_id: "w", account_id: "a", status: "draft" });
+    const { data } = await db2.from("ip_drafts").update({ status: "sending" }).eq("status", "draft").select("id");
+    expect(data).toHaveLength(1);
+    const again = await db2.from("ip_drafts").update({ status: "sending" }).eq("status", "draft").select("id");
+    expect(again.data).toHaveLength(0); // second claim fails → no double send
+    await db2.from("ip_messages").insert([{ workspace_id: "w", account_id: "a", provider_message_id: "1", provider_thread_id: "t", received_at: "2026-01-01", priority_score: 7 }, { workspace_id: "w", account_id: "a", provider_message_id: "2", provider_thread_id: "t", received_at: "2026-01-01", priority_score: 65 }]);
+    const { data: hi } = await db2.from("ip_messages").select("priority_score").gte("priority_score", 60);
+    expect(hi).toEqual([{ priority_score: 65 }]);
+  });
+});
