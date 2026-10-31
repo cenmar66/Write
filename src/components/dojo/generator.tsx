@@ -267,6 +267,11 @@ export function Generator() {
 
   function openSave() {
     if (!session || !track) return;
+    // Already in the library: an edit becomes a new version of that prompt, not a copy.
+    if (track.savedId) {
+      if (dirty) void commitEdit();
+      return;
+    }
     const versions = track.versions.map((v) => ({ content: v.content, kind: v.kind as never, instruction: v.instruction, provider: v.servedBy?.provider ?? null, model: v.servedBy?.model ?? null }));
     if (dirty) versions.push({ content: track.working!, kind: "edited" as never, instruction: "", provider: null, model: null });
     const r = session.generation.result;

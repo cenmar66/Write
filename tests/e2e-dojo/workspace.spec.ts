@@ -20,19 +20,24 @@ test.describe("library, templates, analyzer, lab, history, settings", () => {
     // Refinements after saving sync to the library as new versions.
     await page.getByRole("button", { name: "Add examples" }).first().click();
     await expect(page.getByRole("heading", { name: /Versions/ })).toContainText("(3)");
+    // Editing a saved prompt and pressing Save adds a version instead of a duplicate.
+    const genEditor = page.locator("#pd-editor");
+    await genEditor.fill(`${await genEditor.inputValue()}\nOne more line.`);
+    await page.getByRole("button", { name: "Save edit" }).click();
+    await expect(page.getByRole("heading", { name: /Versions/ })).toContainText("(4)");
 
     await page.goto("/dojo/library");
     await page.getByPlaceholder("Search titles, text and tags").fill("roofing");
     const card = page.locator("li", { hasText: title });
-    await expect(card).toBeVisible();
+    await expect(card).toHaveCount(1);
     await card.getByRole("link", { name: title }).click();
     await expect(page.getByRole("heading", { name: title })).toBeVisible();
-    await expect(page.getByRole("heading", { name: /Versions/ })).toContainText("(3)");
+    await expect(page.getByRole("heading", { name: /Versions/ })).toContainText("(4)");
 
     const editor = page.locator("#pd-detail-editor");
     await editor.fill("Hand-edited prompt text.");
     await page.getByRole("button", { name: "Save as new version" }).click();
-    await expect(page.getByRole("heading", { name: /Versions/ })).toContainText("(4)");
+    await expect(page.getByRole("heading", { name: /Versions/ })).toContainText("(5)");
 
     await page.getByRole("button", { name: "Add to favorites" }).click();
     await page.goto("/dojo/library");
