@@ -68,6 +68,8 @@ describe("sync pipeline (demo mailbox)", () => {
     expect(titles.some((t) => t.startsWith("i_owe: Reply to Maya"))).toBe(true);
     expect(titles.some((t) => t.includes("brand guidelines"))).toBe(false); // I already replied
 
+    expect(bySubject("Can you share the brand guidelines?").done_at).toBeTruthy(); // I replied → handled
+    expect(bySubject("Quick question on the budget").done_at).toBeNull();
     const senders = rows("ip_senders");
     expect(senders.find((s) => s.email === "lena@yourco.test")?.replied_count).toBe(1);
   });

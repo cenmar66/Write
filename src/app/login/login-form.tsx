@@ -65,7 +65,7 @@ export function LoginForm({ initialError }: { initialError?: string }) {
     } else {
       // Only internal planner paths are honoured, so this can't redirect off-site.
       const next = new URLSearchParams(window.location.search).get("next");
-      router.replace(next && /^\/canvas(\/[\w-]*)?$/.test(next) ? next : "/");
+      router.replace(next && /^\/(canvas|inbox)(\/[\w-]*)?$/.test(next) ? next : "/");
       router.refresh();
     }
   }

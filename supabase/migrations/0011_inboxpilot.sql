@@ -155,7 +155,9 @@ create table if not exists public.ip_messages (
   auto_submitted text,
   precedence text,
   signals jsonb not null default '{}'::jsonb, -- header-derived flags (bulk, noreply, auto-reply, dsn...)
-  category text,                         -- virtual category key (ip_categories.key)
+  category text,                         -- effective virtual category (user's choice or the classifier's)
+  importance text,                       -- effective importance (denormalized from ip_classifications for fast lists)
+  priority_score integer not null default 0,
   snoozed_until timestamptz,
   snooze_until_reply boolean not null default false,
   done_at timestamptz,                   -- handled in InboxPilot (doesn't touch Gmail)
@@ -166,6 +168,8 @@ create table if not exists public.ip_messages (
 create index if not exists ip_messages_ws_received on public.ip_messages (workspace_id, received_at desc);
 create index if not exists ip_messages_thread on public.ip_messages (thread_id, received_at);
 create index if not exists ip_messages_from on public.ip_messages (workspace_id, from_email);
+create index if not exists ip_messages_priority on public.ip_messages (workspace_id, priority_score desc, received_at desc);
+create index if not exists ip_messages_category on public.ip_messages (workspace_id, category, received_at desc);
 
 create table if not exists public.ip_classifications (
   message_id uuid primary key references public.ip_messages on delete cascade,

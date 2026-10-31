@@ -204,7 +204,8 @@ export function classifyMessage(m: Msg, ctx: ClassifyContext): Classification {
   }
   if (sender?.is_vip || sender?.always_priority) certainty = Math.max(certainty, 0.9);
   if (human && type === "other" && !ctx.feedback.msg_type) certainty = Math.min(certainty, 0.5);
-  if (human && (sender?.replied_count ?? 0) > 0) certainty = Math.max(certainty, 0.7);
+  if (human && ((sender?.replied_count ?? 0) > 0 || (sender?.sent_to_count ?? 0) > 0)) certainty = Math.max(certainty, 0.7);
+  if (human && !m.is_sent && action !== "informational") certainty = Math.max(certainty, 0.6); // a clear ask is a decent signal
 
   // ---- category (virtual folder)
   let category: string;

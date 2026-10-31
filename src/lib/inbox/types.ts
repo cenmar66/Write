@@ -99,6 +99,8 @@ export interface MessageRow {
   precedence: string | null;
   signals: Signals;
   category: string | null;
+  importance?: string | null;
+  priority_score?: number;
   snoozed_until: string | null;
   snooze_until_reply: boolean;
   done_at: string | null;

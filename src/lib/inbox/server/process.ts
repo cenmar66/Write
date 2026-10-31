@@ -60,11 +60,16 @@ export async function processNewMessages(db: Db, admin: Db | null, acc: AccountR
     const { data: existing } = await db.from("ip_classifications").select("user_corrected").eq("message_id", m.id).maybeSingle();
     if (!existing?.user_corrected) {
       await db.from("ip_classifications").upsert({ message_id: m.id, workspace_id: m.workspace_id, ...c, factors: c.factors.slice(0, 20), user_corrected: false }, { onConflict: "message_id" });
+      await db.from("ip_messages").update({ category: c.category, importance: c.importance, priority_score: c.priority_score }).eq("id", m.id);
     }
     await executePlan(db, provider, acc, m, plan, prefs);
     if (sender?.blocked) await db.from("ip_messages").update({ done_at: now.toISOString() }).eq("id", m.id);
   }
 
+  // Once I've replied, the earlier incoming messages in that thread are handled.
+  for (const m of sorted.filter((x) => x.is_sent && x.thread_id)) {
+    await db.from("ip_messages").update({ done_at: m.received_at }).eq("thread_id", m.thread_id!).eq("is_sent", false).lt("received_at", m.received_at).is("done_at", null);
+  }
   // A reply in a thread wakes anything snoozed "until a reply arrives".
   for (const m of sorted.filter((x) => !x.is_sent && x.thread_id)) {
     await db.from("ip_messages").update({ snoozed_until: null, snooze_until_reply: false }).eq("thread_id", m.thread_id!).eq("snooze_until_reply", true);

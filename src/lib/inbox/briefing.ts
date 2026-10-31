@@ -48,7 +48,7 @@ export function buildBriefing(input: {
   previousCounts?: Record<string, number> | null;
   mode: "concise" | "expanded";
 }): BriefingContent {
-  const { now, since, tz } = input;
+  const { now, since } = input;
   const limit = input.mode === "concise" ? 5 : 15;
   const active = input.messages.filter((m) => !m.is_sent && !m.done_at && !(m.snoozed_until && new Date(m.snoozed_until) > now));
   const inPeriod = active.filter((m) => new Date(m.received_at) >= since);
