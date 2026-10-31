@@ -12,7 +12,10 @@
     "test:e2e": "playwright test",
     "test:sql": "./scripts/test-sql.sh",
     "test:offline": "./scripts/canvas-offline/run.sh",
-    "test:all": "npm run typecheck && npm run lint && npm test && npm run test:sql && npm run test:e2e"
+    "test:all": "npm run typecheck && npm run lint && npm test && npm run test:sql && npm run test:e2e && npm run test:e2e:dojo",
+    "test:e2e:dojo": "playwright test -c playwright.dojo.config.ts",
+    "eval:dojo": "DOJO_EVAL=1 vitest run tests/dojo/eval.live.test.ts",
+    "icons:dojo": "node scripts/make-dojo-icons.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.133.0",

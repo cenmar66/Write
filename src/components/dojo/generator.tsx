@@ -97,6 +97,11 @@ export function Generator() {
   const [onboarded, setOnboarded] = useState(true);
   const [shortcuts, setShortcuts] = useState(false);
   const abort = useRef<AbortController | null>(null);
+  // Latest session for async handlers (state updaters run lazily, so read from here).
+  const sessionRef = useRef<Session | null>(null);
+  useEffect(() => {
+    sessionRef.current = session;
+  }, [session]);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
 
@@ -221,25 +226,27 @@ export function Generator() {
     setSession((s) => (s ? { ...s, tracks: { ...s.tracks, [key]: fn(s.tracks[key]) } } : s));
   }, []);
 
-  /** Appends a version (immutable history) and syncs it to the library if saved there. */
+  /**
+   * Appends a version (immutable history). If this prompt is saved in the library, the
+   * version is stored there first, so what you see is already persisted.
+   */
   const appendVersion = useCallback(
     async (key: TabKey, v: Omit<WorkVersion, "id" | "createdAt">, newTarget?: TargetSpec) => {
       const version: WorkVersion = { ...v, id: uid(), createdAt: new Date().toISOString() };
-      let savedId: string | null = null;
-      setSession((s) => {
-        if (!s) return s;
-        const t = s.tracks[key];
-        savedId = t.savedId;
-        const versions = [...t.versions, version];
-        return { ...s, tracks: { ...s.tracks, [key]: { ...t, versions, cursor: versions.length - 1, working: null, target: newTarget ?? t.target } } };
-      });
+      const savedId = sessionRef.current?.tracks[key].savedId ?? null;
       if (savedId) {
         try {
           await api(`/api/dojo/prompts/${savedId}/versions`, { body: { content: version.content, kind: version.kind, instruction: version.instruction, provider: version.servedBy?.provider ?? null, model: version.servedBy?.model ?? null } });
         } catch (e) {
-          toast(`Saved here, but couldn't sync to your library: ${(e as Error).message}`, "error");
+          toast(`Kept here, but couldn't add it to your library: ${(e as Error).message}`, "error");
         }
       }
+      setSession((s) => {
+        if (!s) return s;
+        const t = s.tracks[key];
+        const versions = [...t.versions, version];
+        return { ...s, tracks: { ...s.tracks, [key]: { ...t, versions, cursor: versions.length - 1, working: null, target: newTarget ?? t.target } } };
+      });
       return version;
     },
     [toast],

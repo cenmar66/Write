@@ -2,7 +2,7 @@
 
 import { ArrowLeft, FlaskConical, Gauge, Save, Star, Trash2 } from "lucide-react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import type { TemplateResult } from "@/lib/dojo/schema";
 import type { TargetSpec } from "@/lib/dojo/targets";
@@ -19,8 +19,7 @@ type Full = PromptRecord & { versions: PromptVersion[] };
 
 const KIND_LABEL: Record<string, string> = { generated: "Generated", alternative: "Alternative", refined: "Refined", edited: "Edited", adapted: "Adapted", imported: "Imported", restored: "Restored", analyzed: "Analyzer revision", template: "From template" };
 
-export function PromptDetailPage() {
-  const { id } = useParams<{ id: string }>();
+export function PromptDetailPage({ id }: { id: string }) {
   const router = useRouter();
   const { toast } = useDojo();
   const [p, setP] = useState<Full | null>(null);

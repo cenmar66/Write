@@ -133,6 +133,7 @@ export function PageHeader({ title, subtitle, actions }: { title: string; subtit
 /** Accessible modal dialog using the native <dialog> element. */
 export function Dialog({ open, onClose, title, children, wide }: { open: boolean; onClose: () => void; title: string; children: ReactNode; wide?: boolean }) {
   const ref = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
   useEffect(() => {
     const d = ref.current;
     if (!d) return;
@@ -146,12 +147,12 @@ export function Dialog({ open, onClose, title, children, wide }: { open: boolean
       onClick={(e) => e.target === ref.current && onClose()}
       className={`pd-card m-auto max-h-[90dvh] w-[calc(100%-1.5rem)] overflow-hidden p-0 backdrop:bg-black/40 ${wide ? "max-w-4xl" : "max-w-lg"}`}
       style={{ color: "var(--pd-ink)" }}
-      aria-labelledby={`${title}-title`}
+      aria-labelledby={titleId}
     >
       {open && (
         <div className="flex max-h-[90dvh] flex-col">
           <div className="flex items-center gap-3 border-b px-5 py-3.5 pd-line">
-            <h2 id={`${title}-title`} className="pd-serif flex-1 text-lg font-semibold">
+            <h2 id={titleId} className="pd-serif flex-1 text-lg font-semibold">
               {title}
             </h2>
             <button type="button" className="pd-btn pd-btn-ghost pd-btn-icon pd-btn-sm" onClick={onClose} aria-label="Close">
