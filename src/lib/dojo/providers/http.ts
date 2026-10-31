@@ -1,7 +1,7 @@
 // OpenAI and Gemini, called over their documented REST APIs (no extra SDKs).
 // Both are optional and only appear when their key AND model list are configured, so the
 // app never guesses model names. They have not been exercised against live accounts in
-// this repository's tests; see docs/dojo/PROVIDERS.md.
+// this repository's tests; see docs/dojo/ARCHITECTURE.md.
 import { ProviderError, type DojoProvider, type ProviderModel } from "./types";
 
 function modelList(envName: string): ProviderModel[] {
