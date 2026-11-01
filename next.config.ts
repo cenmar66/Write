@@ -31,6 +31,14 @@ const securityHeaders = [
   { key: "Permissions-Policy", value: "camera=(), geolocation=(), microphone=(self)" },
 ];
 
+// PromptSatori's own domains (see src/lib/satori-host.ts). On them, the browser-tab icon,
+// home-screen icons and favicon are PromptSatori's, never Write.ai's.
+const satoriHosts = (process.env.SATORI_HOSTS ?? "promptsatori.com,www.promptsatori.com")
+  .split(",")
+  .map((h) => h.trim().toLowerCase())
+  .filter(Boolean);
+const onSatoriHost = [{ type: "host" as const, value: `(?:${satoriHosts.map((h) => h.replace(/\./g, "\\.")).join("|")})` }];
+
 const nextConfig: NextConfig = {
   /* config options here */
   cacheComponents: true,
@@ -42,6 +50,17 @@ const nextConfig: NextConfig = {
         as: "*.css",
       },
     },
+  },
+  async rewrites() {
+    return {
+      beforeFiles: [
+        { source: "/favicon.ico", has: onSatoriHost, destination: "/satori-icons/favicon-48.png" },
+        { source: "/icon.svg", has: onSatoriHost, destination: "/satori-icons/icon.svg" },
+        { source: "/icons/:file", has: onSatoriHost, destination: "/satori-icons/:file" },
+      ],
+      afterFiles: [],
+      fallback: [],
+    };
   },
   async headers() {
     return [
