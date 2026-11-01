@@ -75,7 +75,6 @@ export async function updateSession(request: NextRequest, rewriteTo: string | nu
                     return NextResponse.redirect(url);
           }
     }
-          }
     return redirectTo("/login");
   }
   if (data?.claims && path === "/login") return redirectTo("/");
