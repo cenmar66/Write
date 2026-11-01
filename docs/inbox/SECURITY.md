@@ -20,7 +20,7 @@
 | Scope | Used for | Google classification* |
 |---|---|---|
 | `gmail.readonly` | sync, read, search (required) | Restricted |
-| `gmail.modify` | labels, archive, read state (optional; never delete/trash/spam — enforced in code) | Restricted |
+| `gmail.modify` | labels, archive, read state, and Delete = move to Trash on an explicit user click (optional; never permanent delete or spam — enforced in code) | Restricted |
 | `gmail.send` | send after explicit review (optional) | Sensitive |
 | `openid email` | identify the account | Non-sensitive |
 
@@ -50,7 +50,8 @@
 - ✅ Header-injection guard in the RFC 5322 builder (tested).
 - ✅ HTML email converted to text server-side (scripts/styles/hidden blocks dropped); React escapes everything rendered. Remote images and links in mail aren't rendered as HTML.
 - ✅ CSV export neutralizes spreadsheet formulas.
-- ✅ InboxSatori never opens unsubscribe links and never moves mail to spam/trash.
+- ✅ InboxSatori never opens unsubscribe links and never marks spam or permanently deletes. Delete moves to Gmail Trash (restorable 30 days) only when you click it (bulk asks first; Undo offered); rules/AI/assistant/Black Hole have no trash action (tested).
+- ✅ Black Hole: per-sender, user-chosen; archives (never trashes) existing mail after confirmation and future mail on arrival; each archive has an undo record; leaving the Black Hole restores them.
 - ✅ Suspicious-sender warnings (display-name spoofing, reply-to mismatch, brand names from free-mail domains, DMARC failure).
 
 ## Abuse protection & operations

@@ -137,6 +137,18 @@ export const demoProvider: MailProvider = {
     for (const l of change.remove ?? []) set.delete(l);
     for (const l of change.add ?? []) set.add(l);
   },
+  async trash(acc, id) {
+    await demoProvider.modify(acc, id, {});
+    const set = stateFor(acc.id).labels.get(id)!;
+    set.delete("INBOX");
+    set.add("TRASH");
+  },
+  async untrash(acc, id) {
+    await demoProvider.modify(acc, id, {});
+    const set = stateFor(acc.id).labels.get(id)!;
+    set.delete("TRASH");
+    set.add("INBOX");
+  },
   async ensureLabel(_acc, name) {
     return `Label_${name.replace(/\W+/g, "_")}`;
   },

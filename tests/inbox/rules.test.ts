@@ -67,3 +67,18 @@ describe("rules engine", () => {
     expect(ok.ok).toBe(true);
   });
 });
+
+describe("inbox zero and deleting", () => {
+  it("offers a low-priority → archive template that never touches VIPs", async () => {
+    const { RULE_TEMPLATES } = await import("@/lib/inbox/rules");
+    const t = RULE_TEMPLATES.find((r) => r.name.includes("inbox zero"))!;
+    const low = { ...msg({ from_email: "promo@shop.test" }), classification: { ...base, importance: "low" as const }, sender_vip: false };
+    const vip = { ...low, sender_vip: true };
+    expect(planActions([{ ...t, id: "t", confirmed_broad: true }], low, "automatic", { canModifyProvider: true }).map((p) => [p.action.kind, p.decision])).toEqual([["gmail_archive", "apply"], ["mark_done", "apply"]]);
+    expect(planActions([{ ...t, id: "t", confirmed_broad: true }], vip, "automatic", { canModifyProvider: true })).toHaveLength(0);
+    expect(planActions([{ ...t, id: "t" }], low, "observe", { canModifyProvider: true }).find((p) => p.action.kind === "gmail_archive")?.decision).toBe("suggest");
+  });
+  it("rules can never delete or trash mail (deleting is a manual, user-only action)", () => {
+    for (const kind of ["trash", "delete", "gmail_trash", "untrash"]) expect(validateRule({ name: "x", actions: [{ kind }] }).ok).toBe(false);
+  });
+});

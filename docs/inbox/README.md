@@ -36,10 +36,15 @@ Open `http://localhost:3000/inbox`, go through onboarding and choose **Use the d
 ## Main screens
 
 - **Home**: priority emails, replies due, follow-ups waiting, deadlines; daily brief; recommended actions; inbox health; productivity snapshot.
-- **Priority Inbox / All Mail / Views**: virtual categories (Needs My Attention, To Do, Read Later, Newsletters, Notifications, Receipts & Documents, Personal, Low Priority, Review: Uncertain, plus your own). Keyboard: `j`/`k`, `e` done, `s` snooze, `x` select, `r` reply, `t` task, `/` search. Swipe right (done) / left (snooze) on phones.
+- **Priority Inbox / All Mail / Views**: virtual categories (Needs My Attention, To Do, Read Later, Newsletters, Notifications, Receipts & Documents, Personal, Low Priority, Review: Uncertain, plus your own). Keyboard: `j`/`k`, `e` done, `#` delete, `s` snooze, `x` select, `r` reply, `t` task, `/` search. Swipe right (done) / left (snooze) on phones.
 - **Reader**: AI summary, “Why it's here” with every factor and one-click corrections, suggested actions, rule suggestions with approve/undo, conversation tracking, sender controls, security warnings.
 - **Tasks & Follow-ups**: I owe someone · Someone owes me · Upcoming · Completed.
 - **Daily Brief**: morning/midday/evening or “Brief me now”; concise or expanded; every line links to its source.
 - **Rules**: no-code builder with “What will change?” preview, conflict detection, action history and undo.
-- **Senders**: Sender Control Center (VIP, always prioritize, mute, screen out, hide, default category).
+- **Senders**: Sender Control Center (VIP, always prioritize, mute, screen out, **Black Hole**, default category).
+
+## Inbox zero
+- **Done** = handled in InboxSatori only (Gmail unchanged). **Archive** = leaves your Gmail inbox, still searchable. **Delete** = Gmail Trash (restorable 30 days). Archive/Delete need the Organize permission (one click: “Grant permission”).
+- **Black Hole** a sender (message view or Senders page): their mail, now and in future, is marked done and archived out of your Gmail inbox. Undo by clicking it again.
+- Rule template **“Low priority → out of my inbox (inbox zero)”**: archives low-importance, non-VIP mail automatically in Automatic mode (as suggestions in Observe/Assisted).
 - **Analytics**, **Connected Accounts**, **Settings** (privacy & AI, retention, automation, briefing, focus, writing profile, categories, export, delete), **Operations**.

@@ -73,11 +73,13 @@ export async function POST(request: Request) {
         if (ids.length > 1 && !b.confirm) throw new HttpError(409, `This will ${b.action === "archive" ? "archive" : "mark as read"} ${ids.length} messages in your mailbox. Confirm to continue.`);
         const { data: accs } = await ctx.db.from("ip_accounts").select("*").in("id", [...new Set(msgs.map((m) => m.account_id))]);
         const failures: string[] = [];
+        // Accounts connected with read-only access: the UI offers a one-click "Grant permission".
+        const needsPermission = new Map<string, string>();
         for (const m of msgs) {
           const acc = (accs ?? []).find((a) => a.id === m.account_id) as AccountRow;
           const p = await providerFor(acc, { admin: ctx.admin });
           if (!p.capabilities(acc).modify) {
-            failures.push(`${acc.email}: no permission to organize`);
+            needsPermission.set(acc.id, acc.email);
             continue;
           }
           try {
@@ -88,7 +90,47 @@ export async function POST(request: Request) {
           }
         }
         await audit(ctx.db, msgs[0].workspace_id, "user", `mail.${b.action}`, null, { count: ids.length, failures: failures.length });
-        return { ok: failures.length === 0, failures: [...new Set(failures)] };
+        return { ok: failures.length === 0 && !needsPermission.size, failures: [...new Set(failures)], needsPermission: [...needsPermission].map(([accountId, email]) => ({ accountId, email })) };
+      }
+      case "trash":
+      case "untrash": {
+        // Delete = move to the mailbox's Trash (recoverable; Gmail empties it after 30 days).
+        // Only ever from an explicit user click here; rules, AI and the assistant have no trash action.
+        if (b.action === "trash" && ids.length > 1 && !b.confirm) throw new HttpError(409, `Delete ${ids.length} messages? They go to your Gmail Trash, where you can restore them for 30 days.`);
+        const { data: accs } = await ctx.db.from("ip_accounts").select("*").in("id", [...new Set(msgs.map((m) => m.account_id))]);
+        const failures: string[] = [];
+        // Accounts connected with read-only access: the UI offers a one-click "Grant permission".
+        const needsPermission = new Map<string, string>();
+        let done = 0;
+        for (const m of msgs) {
+          const acc = (accs ?? []).find((a) => a.id === m.account_id) as AccountRow;
+          const p = await providerFor(acc, { admin: ctx.admin });
+          if (!p.capabilities(acc).modify) {
+            needsPermission.set(acc.id, acc.email);
+            continue;
+          }
+          try {
+            const { data: cur } = await ctx.db.from("ip_messages").select("label_ids").eq("id", m.id).single();
+            const labels = new Set<string>((cur?.label_ids as string[]) ?? []);
+            if (b.action === "trash") {
+              await p.trash(acc, m.provider_message_id);
+              labels.delete("INBOX");
+              labels.add("TRASH");
+              await ctx.db.from("ip_messages").update({ label_ids: [...labels], in_inbox: false, done_at: now.toISOString() }).eq("id", m.id);
+            } else {
+              await p.untrash(acc, m.provider_message_id);
+              labels.delete("TRASH");
+              labels.add("INBOX");
+              await ctx.db.from("ip_messages").update({ label_ids: [...labels], in_inbox: true, done_at: null }).eq("id", m.id);
+            }
+            await ctx.db.from("ip_rule_executions").insert({ workspace_id: m.workspace_id, rule_id: null, rule_name: "You", message_id: m.id, action: { kind: b.action, value: null, at: now.toISOString() }, status: "applied", provider_applied: true, undo: b.action === "trash" ? { untrash: true } : null });
+            done++;
+          } catch (e) {
+            failures.push(e instanceof Error ? e.message : String(e));
+          }
+        }
+        await audit(ctx.db, msgs[0].workspace_id, "user", `mail.${b.action}`, null, { count: done, failures: failures.length });
+        return { ok: failures.length === 0 && !needsPermission.size, done, failures: [...new Set(failures)], needsPermission: [...needsPermission].map(([accountId, email]) => ({ accountId, email })) };
       }
       default:
         throw new HttpError(400, "Unknown action.");
