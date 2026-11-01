@@ -283,3 +283,34 @@ test.describe("Inbox zero", () => {
     expect(m.done_at).toBeNull();
   });
 });
+
+test.describe("Long lists", () => {
+  test("every selected message can be scrolled to; pages and Select all work", async ({ page }, info) => {
+    test.skip(info.project.name !== "desktop");
+    await page.setViewportSize({ width: 1280, height: 560 }); // short window, like a laptop with the dock up
+    await page.request.delete("/api/inbox/data", { data: { confirm: "DELETE" } });
+    await page.request.post("/api/inbox/demo");
+    await page.request.patch("/api/inbox/settings", { data: { onboarding: { step: 10 } } });
+    await page.goto("/inbox/mail?view=all");
+    const rows = page.locator("li[data-id]");
+    await expect(rows.first()).toBeVisible({ timeout: 45_000 });
+    const n = await rows.count();
+    await expect(page.getByText(`1–${n} of ${n}`)).toBeVisible();
+    await page.getByLabel("Select all").check();
+    await expect(page.getByText(`${n} selected`)).toBeVisible();
+    // The last row must be reachable by scrolling inside the list, and actually on screen.
+    await rows.last().scrollIntoViewIfNeeded();
+    await expect(rows.last()).toBeInViewport();
+    const box = await rows.last().boundingBox();
+    expect(box!.y + box!.height).toBeLessThanOrEqual(560);
+
+    // Server paging: pages of 10 add up to the total with no overlaps.
+    const a = await (await page.request.get("/api/inbox/messages?ws=all&view=all&limit=10&page=0")).json();
+    const b = await (await page.request.get("/api/inbox/messages?ws=all&view=all&limit=10&page=1")).json();
+    expect(a.total).toBe(n);
+    expect(a.messages).toHaveLength(10);
+    expect(new Set([...a.messages, ...b.messages].map((m: { id: string }) => m.id)).size).toBe(20);
+    const sel = await (await page.request.get("/api/inbox/messages?ws=all&view=all&ids=1")).json();
+    expect(sel.ids).toHaveLength(n);
+  });
+});

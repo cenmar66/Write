@@ -167,7 +167,7 @@
   color: #fff;
 }
 
-.ip-scroll { overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+.ip-scroll { min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
 .ip-fade-in { animation: ip-fade 0.18s ease-out; }
 @keyframes ip-fade { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
 .ip-skeleton { background: linear-gradient(90deg, var(--ip-surface-2), var(--ip-hover), var(--ip-surface-2)); background-size: 200% 100%; animation: ip-shimmer 1.2s infinite; border-radius: 6px; }

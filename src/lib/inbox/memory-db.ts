@@ -213,6 +213,7 @@ class Query implements PromiseLike<{ data: unknown; error: { message: string; co
   is(c: string, v: null | boolean) { this.filters.push((r) => (v === null ? r[c] == null : r[c] === v)); return this; }
   not(c: string, op: string, v: unknown) {
     if (op === "is") this.filters.push((r) => (v === null ? r[c] != null : r[c] !== v));
+    else if (op === "cs") { const want = String(v).replace(/[{}]/g, "").split(",").filter(Boolean); this.filters.push((r) => !(Array.isArray(r[c]) && want.every((x) => (r[c] as unknown[]).includes(x)))); }
     else if (op === "in") { const list = String(v).replace(/[()]/g, "").split(",").map((s) => s.replace(/"/g, "").trim()); this.filters.push((r) => !list.includes(String(r[c]))); }
     else this.filters.push((r) => r[c] !== v);
     return this;
