@@ -1,5 +1,5 @@
 import { providerFor } from "@/lib/inbox/mail/provider";
-import { enrich, listMessagesPage, PAGE_SIZE, scopeWorkspaces, type View } from "@/lib/inbox/server/queries";
+import { enrich, listMessagesPage, PAGE_SIZE, scopeWorkspaces, unreadInView, type View } from "@/lib/inbox/server/queries";
 import { storeMessages } from "@/lib/inbox/server/sync";
 import { processNewMessages } from "@/lib/inbox/server/process";
 import { audit, body, handle, HttpError, isUuid, loadPrefs, rateLimit } from "@/lib/inbox/server/workspace";
@@ -41,7 +41,9 @@ export async function GET(request: Request) {
       }
       ({ rows, total } = await listMessagesPage(ctx.db, wsIds, { view, q, account: acct, limit: size, offset: 0 }));
     }
-    return { messages: await enrich(ctx.db, rows), total, page, pageSize: size };
+    // Unread in this view, with the same filters as the list (matches the sidebar badge).
+    const [messages, unread] = await Promise.all([enrich(ctx.db, rows), unreadInView(ctx.db, wsIds, { view, q, account: acct })]);
+    return { messages, total, unread, page, pageSize: size };
   });
 }
 

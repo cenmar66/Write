@@ -30,12 +30,17 @@ export async function listMessages(db: Db, wsIds: string[], opts: { view: View; 
  * matching message (Trash excluded). `idsOnly` returns just ids, up to 1,000, for
  * "Select all N in this view".
  */
-export async function listMessagesPage(db: Db, wsIds: string[], opts: { view: View; q?: string; account?: string | null; limit?: number; offset?: number; before?: string | null; now?: Date; idsOnly?: boolean }): Promise<{ rows: MessageRow[]; total: number }> {
-  if (!wsIds.length) return { rows: [], total: 0 };
+type ViewOpts = { view: View; q?: string; account?: string | null; now?: Date };
+
+/**
+ * The filters that define a view. Lists, folder totals and sidebar badges all use this,
+ * so the numbers always agree with what the folder shows.
+ */
+export function viewQuery(db: Db, wsIds: string[], opts: ViewOpts, select: string, countOpts?: { count: "exact"; head?: boolean }) {
   const now = (opts.now ?? new Date()).toISOString();
   const f: SearchFilters = opts.q ? parseQuery(opts.q) : { text: [] };
   // Messages in the mailbox's Trash never show up in lists.
-  let q = db.from("ip_messages").select(opts.idsOnly ? "id,to_addrs,cc_addrs,from_email" : LIST_COLUMNS, { count: "exact" }).in("workspace_id", wsIds).not("label_ids", "cs", "{TRASH}");
+  let q = db.from("ip_messages").select(select, countOpts).in("workspace_id", wsIds).not("label_ids", "cs", "{TRASH}");
   const v = opts.view;
   const active = () => {
     q = q.is("done_at", null).or(`snoozed_until.is.null,snoozed_until.lte.${now}`);
@@ -71,6 +76,27 @@ export async function listMessagesPage(db: Db, wsIds: string[], opts: { view: Vi
   for (const t of f.text.map((t) => t.replace(SAFE, "").trim()).filter(Boolean).slice(0, 4)) {
     q = q.or(`subject.ilike.%${t}%,snippet.ilike.%${t}%,from_email.ilike.%${t}%,from_name.ilike.%${t}%`);
   }
+  return { q, f };
+}
+
+/** Unread messages in a view (exact, same filters as the list). */
+export async function unreadInView(db: Db, wsIds: string[], opts: ViewOpts): Promise<number> {
+  if (!wsIds.length) return 0;
+  const { count } = await viewQuery(db, wsIds, opts, "id", { count: "exact", head: true }).q.eq("is_unread", true);
+  return count ?? 0;
+}
+
+/**
+ * One page of a view (Gmail-style "1–100 of N"), newest first. `total` counts every
+ * matching message (Trash excluded). `idsOnly` returns just ids, up to 1,000, for
+ * "Select all N in this view".
+ */
+export async function listMessagesPage(db: Db, wsIds: string[], opts: ViewOpts & { limit?: number; offset?: number; before?: string | null; idsOnly?: boolean }): Promise<{ rows: MessageRow[]; total: number }> {
+  if (!wsIds.length) return { rows: [], total: 0 };
+  const v = opts.view;
+  const built = viewQuery(db, wsIds, opts, opts.idsOnly ? "id,to_addrs,cc_addrs,from_email" : LIST_COLUMNS, { count: "exact" });
+  const f = built.f;
+  let q = built.q;
   if (opts.before) q = q.lt("received_at", opts.before);
   q = v === "priority" ? q.order("priority_score", { ascending: false }).order("received_at", { ascending: false }) : q.order("received_at", { ascending: false });
   const size = Math.max(1, Math.min(opts.limit ?? PAGE_SIZE, opts.idsOnly ? 1000 : 200));
@@ -110,11 +136,18 @@ export async function enrich(db: Db, rows: MessageRow[]) {
   });
 }
 
+/**
+ * Sidebar and dashboard numbers. View badges are unread counts computed with exactly the
+ * folder's own filters (Trash and snoozed mail excluded), so a badge always matches the
+ * "unread" number shown at the top of that folder.
+ */
 export async function counts(db: Db, wsIds: string[], now = new Date()) {
   if (!wsIds.length) return {};
   const iso = now.toISOString();
-  const base = () => db.from("ip_messages").select("id", { count: "exact", head: true }).in("workspace_id", wsIds).eq("is_sent", false).is("done_at", null).or(`snoozed_until.is.null,snoozed_until.lte.${iso}`);
-  const [priority, unread, attention, review, followOwe, followWait, tasks] = await Promise.all([
+  const base = () => db.from("ip_messages").select("id", { count: "exact", head: true }).in("workspace_id", wsIds).not("label_ids", "cs", "{TRASH}").eq("is_sent", false).is("done_at", null).or(`snoozed_until.is.null,snoozed_until.lte.${iso}`);
+  const { data: catRows } = await db.from("ip_categories").select("key").in("workspace_id", wsIds);
+  const keys = [...new Set((catRows ?? []).map((c) => c.key as string))];
+  const [priority, unread, attention, review, followOwe, followWait, tasks, priorityUnread, ...byCat] = await Promise.all([
     base().gte("priority_score", 60),
     base().eq("is_unread", true),
     base().eq("category", "needs_attention"),
@@ -122,11 +155,14 @@ export async function counts(db: Db, wsIds: string[], now = new Date()) {
     db.from("ip_followups").select("id", { count: "exact", head: true }).in("workspace_id", wsIds).eq("status", "open").eq("kind", "i_owe"),
     db.from("ip_followups").select("id", { count: "exact", head: true }).in("workspace_id", wsIds).eq("status", "open").eq("kind", "they_owe"),
     db.from("ip_tasks").select("id", { count: "exact", head: true }).in("workspace_id", wsIds).in("status", ["open", "in_progress"]),
+    unreadInView(db, wsIds, { view: "priority", now }).then((count) => ({ count })),
+    ...keys.map((k) => unreadInView(db, wsIds, { view: `category:${k}`, now }).then((count) => ({ count }))),
   ]);
-  const { data: cats } = await db.from("ip_messages").select("category").in("workspace_id", wsIds).eq("is_sent", false).is("done_at", null).eq("is_unread", true).limit(5000);
   const byCategory: Record<string, number> = {};
-  for (const r of cats ?? []) if (r.category) byCategory[r.category as string] = (byCategory[r.category as string] ?? 0) + 1;
-  return { priority: priority.count ?? 0, unread: unread.count ?? 0, attention: attention.count ?? 0, review: review.count ?? 0, i_owe: followOwe.count ?? 0, they_owe: followWait.count ?? 0, tasks: tasks.count ?? 0, unread_by_category: byCategory };
+  keys.forEach((k, i) => {
+    if (byCat[i].count) byCategory[k] = byCat[i].count ?? 0;
+  });
+  return { priority: priority.count ?? 0, priority_unread: priorityUnread.count ?? 0, unread: unread.count ?? 0, attention: attention.count ?? 0, review: review.count ?? 0, i_owe: followOwe.count ?? 0, they_owe: followWait.count ?? 0, tasks: tasks.count ?? 0, unread_by_category: byCategory };
 }
 
 /** Recent incoming messages with classifications, for rule previews and conflict checks. */

@@ -336,3 +336,21 @@ test.describe("Formatted email", () => {
     await expect(frame).toHaveCount(0);
   });
 });
+
+test.describe("Unread counts", () => {
+  test("a folder's sidebar badge matches the unread count at the top of the folder", async ({ page }, info) => {
+    test.skip(info.project.name !== "desktop");
+    await page.request.delete("/api/inbox/data", { data: { confirm: "DELETE" } });
+    await page.request.post("/api/inbox/demo");
+    await page.request.patch("/api/inbox/settings", { data: { onboarding: { step: 10 } } });
+    for (const name of ["Low Priority", "Newsletters"]) {
+      const link = page.getByRole("navigation", { name: "InboxSatori" }).getByRole("link", { name: new RegExp(`^${name}`) });
+      if (!(await page.url().includes("/inbox/mail"))) await page.goto("/inbox/mail?view=all");
+      await expect(link).toBeVisible({ timeout: 45_000 });
+      const badge = Number((await link.locator(".ip-badge").textContent().catch(() => "0")) || 0);
+      await link.click();
+      await expect(page.locator("li[data-id]").first()).toBeVisible();
+      await expect(page.getByText(`${badge} unread`, { exact: true })).toBeVisible();
+    }
+  });
+});

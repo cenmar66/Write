@@ -45,7 +45,7 @@ function FullSpinner() {
 
 const MAIN = [
   { href: "/inbox", label: "Home", Icon: Home },
-  { href: "/inbox/mail?view=priority", label: "Priority Inbox", Icon: Star, count: "priority" },
+  { href: "/inbox/mail?view=priority", label: "Priority Inbox", Icon: Star, count: "priority_unread" },
   { href: "/inbox/mail?view=all", label: "All Mail", Icon: Mail },
   { href: "/inbox/followups?tab=they_owe", label: "Awaiting Reply", Icon: Clock, count: "they_owe" },
   { href: "/inbox/followups", label: "Tasks", Icon: CheckSquare, count: "tasks" },
