@@ -44,6 +44,8 @@ export class ProviderError extends Error {
     message: string,
     public status: number,
     public retryable = false,
+    /** The provider's own wording, when it gave one. */
+    public reason = "",
   ) {
     super(message);
   }

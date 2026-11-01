@@ -169,6 +169,9 @@ test.describe("API safeguards", () => {
   });
   test("never exposes secrets in status", async ({ request }) => {
     const s = await (await request.get("/api/satori/status")).text();
-    expect(s).not.toMatch(/sk-|api_key|apiKey/i);
+    // Setting NAMES may appear (to say what's missing); key VALUES never do.
+    expect(s).not.toMatch(/sk-[A-Za-z0-9]|sk-ant-|AIza[0-9A-Za-z]|"apiKey"|"api_key"/);
+    const status = JSON.parse(s) as { providers: { missing: string[] }[] };
+    for (const p of status.providers) for (const m of p.missing) expect(m).toMatch(/^[A-Z_]+$/);
   });
 });
