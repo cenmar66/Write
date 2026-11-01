@@ -19,5 +19,8 @@ PSQL=(psql -X -q -h "$DIR" -p "$PORT" -U postgres -d postgres -v ON_ERROR_STOP=1
 "${PSQL[@]}" -f "$ROOT/supabase/migrations/0010_daily_canvas.sql"   # must be re-runnable
 "${PSQL[@]}" -f "$ROOT/supabase/tests/canvas.test.sql"
 "${PSQL[@]}" -f "$ROOT/supabase/migrations/0011_promptsatori.sql"
-"${PSQL[@]}" -f "$ROOT/supabase/migrations/0011_promptsatori.sql"   # must be re-runnable
+"${PSQL[@]}" -f "$ROOT/supabase/migrations/0011_promptsatori.sql"  # must be re-runnable
 "${PSQL[@]}" -f "$ROOT/supabase/tests/satori.test.sql"
+"${PSQL[@]}" -f "$ROOT/supabase/migrations/0012_inboxsatori.sql"
+"${PSQL[@]}" -f "$ROOT/supabase/migrations/0012_inboxsatori.sql"  # must be re-runnable
+"${PSQL[@]}" -f "$ROOT/supabase/tests/inbox.test.sql"

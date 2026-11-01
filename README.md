@@ -5,6 +5,7 @@ Your personal AI writing studio: an AI document editor, social post templates, p
 **Status:** Phase 1 (setup + login) ✅ · Phase 2 editor + AI ✅ · Phase 3 dictation ✅ · Phase 4 voice profile ✅ · Phase 5 social templates ✅ · Phase 6 publishing ✅ · Home screen, styles, import ✅
 
 
+> **New: [InboxSatori](docs/inbox/README.md)** — an email command center at `/inbox`: priority inbox, follow-up tracking, email → tasks, grounded daily briefings, AI drafts you review before sending. Setup: run `supabase/migrations/0012_inboxsatori.sql`, follow [docs/inbox/SETUP.md](docs/inbox/SETUP.md), open `/inbox`. Try it locally with no accounts: `INBOX_LOCAL_DEMO=1 INBOX_SIMULATED_AI=1 npm run dev`.
 > **New: [PromptSatori](docs/satori/README.md)** — a prompt-engineering studio with its own home at **promptsatori.com** (also at `/satori`): describe a task in plain words and get a recommended prompt, three alternatives, an explanation, refinements, version history, an analyzer, a testing lab and a library. Setup: run `supabase/migrations/0011_promptsatori.sql`, deploy, then connect the domain ([steps](docs/satori/README.md#its-own-home-promptsatoricom)).
 
 > **New: [The Daily Canvas](docs/canvas/README.md)** — a calm daily planner at `/canvas` (paper-planner sections, voice, Apple Pencil, offline, Google Calendar/Tasks). Setup: run `supabase/migrations/0010_daily_canvas.sql`, deploy, open `/canvas`.
