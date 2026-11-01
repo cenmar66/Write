@@ -53,7 +53,7 @@ export interface Bootstrap {
   accounts: Account[];
   categories: Category[];
   entitlements: Record<string, { plan: string; label: string; features: string[]; maxAccounts: number }>;
-  counts: { priority?: number; unread?: number; attention?: number; review?: number; i_owe?: number; they_owe?: number; tasks?: number; unread_by_category?: Record<string, number> };
+  counts: { priority?: number; priority_unread?: number; unread?: number; attention?: number; review?: number; i_owe?: number; they_owe?: number; tasks?: number; unread_by_category?: Record<string, number> };
   server: { gmail: boolean; gmailReason: string | null; outlook: boolean; billing: boolean; ai: { available: boolean; reason?: string; provider?: string }; simulatedAi: boolean; costEstimate: { perMonthUsd: number; assumptions: Record<string, number> } };
 }
 
@@ -142,7 +142,7 @@ export function useMessages(ws: string, view: string, q = "", account = "") {
 export function useMessagePage(ws: string, view: string, q: string, account: string, page: number) {
   return useQuery({
     queryKey: [...qk.messages(ws, view, q, account), "page", page],
-    queryFn: () => api<{ messages: ListMessage[]; total: number; page: number; pageSize: number }>(`/messages?${new URLSearchParams({ ws, view, q, page: String(page), ...(account ? { account } : {}) })}`),
+    queryFn: () => api<{ messages: ListMessage[]; total: number; unread: number; page: number; pageSize: number }>(`/messages?${new URLSearchParams({ ws, view, q, page: String(page), ...(account ? { account } : {}) })}`),
     placeholderData: (prev) => prev, // keep the current page on screen while the next one loads
   });
 }
@@ -153,11 +153,12 @@ export function useMessagePage(ws: string, view: string, q: string, account: str
  */
 export function hideFromLists(qc: QueryClient, ids: string[]) {
   const gone = new Set(ids);
-  qc.setQueriesData<ListMessage[] | { messages: ListMessage[]; total: number }>({ queryKey: ["messages"] }, (d) => {
+  qc.setQueriesData<ListMessage[] | { messages: ListMessage[]; total: number; unread?: number }>({ queryKey: ["messages"] }, (d) => {
     if (!d) return d;
     if (Array.isArray(d)) return d.filter((m) => !gone.has(m.id));
     const messages = d.messages.filter((m) => !gone.has(m.id));
-    return { ...d, messages, total: Math.max(0, d.total - (d.messages.length - messages.length)) };
+    const unreadGone = d.messages.filter((m) => gone.has(m.id) && m.is_unread).length;
+    return { ...d, messages, total: Math.max(0, d.total - (d.messages.length - messages.length)), ...("unread" in d ? { unread: Math.max(0, (d as { unread: number }).unread - unreadGone) } : {}) };
   });
 }
 

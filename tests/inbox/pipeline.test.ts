@@ -225,3 +225,31 @@ describe("message list paging", () => {
     expect(idsOnly.rows).toHaveLength(all - 1);
   });
 });
+
+describe("unread counts", () => {
+  it("sidebar badges, folder unread and the list itself agree (Trash and snoozed excluded)", async () => {
+    await setup();
+    await syncAccount(db, db, acc, prefs, { now: NOW });
+    const { counts, listMessagesPage, unreadInView } = await import("@/lib/inbox/server/queries");
+    const ws = [acc.workspace_id];
+    const all = await listMessagesPage(db, ws, { view: "all", limit: 200, now: NOW });
+    const unreadRows = all.rows.filter((r) => r.is_unread && !r.is_sent && !r.done_at);
+    // Trash one unread message (as if deleted in Gmail) and snooze another.
+    await db.from("ip_messages").update({ label_ids: ["TRASH"] }).eq("id", unreadRows[0].id);
+    await db.from("ip_messages").update({ snoozed_until: new Date(NOW.getTime() + 86_400_000).toISOString() }).eq("id", unreadRows[1].id);
+    const c = (await counts(db, ws, NOW)) as { unread_by_category: Record<string, number>; priority_unread: number };
+    const { data: cats } = await db.from("ip_categories").select("key").in("workspace_id", ws);
+    let checked = 0;
+    for (const { key } of cats ?? []) {
+      const view = `category:${key}` as const;
+      const page = await listMessagesPage(db, ws, { view, limit: 200, now: NOW });
+      const shown = page.rows.filter((r) => r.is_unread).length;
+      expect(c.unread_by_category[key] ?? 0, key).toBe(shown);
+      expect(await unreadInView(db, ws, { view, now: NOW })).toBe(shown);
+      checked += shown;
+    }
+    expect(checked).toBeGreaterThan(0);
+    const pri = await listMessagesPage(db, ws, { view: "priority", limit: 200, now: NOW });
+    expect(c.priority_unread).toBe(pri.rows.filter((r) => r.is_unread).length);
+  });
+});

@@ -33,6 +33,7 @@ export function MailPage() {
   const title = view.startsWith("category:") ? catName(view.slice(9)) : TITLES[view] ?? "Mail";
   const rows = useMemo(() => list.data?.messages ?? [], [list.data]);
   const total = list.data?.total ?? 0;
+  const unread = list.data?.unread ?? 0;
   const pageSize = list.data?.pageSize ?? 100;
   const first = total ? page * pageSize + 1 : 0;
   const last = Math.min(total, page * pageSize + rows.length);
@@ -154,7 +155,6 @@ export function MailPage() {
   }, [selectedId]);
 
   const accountsInScope = boot.accounts.filter((a) => ws === "all" || a.workspace_id === ws);
-  const unread = useMemo(() => rows.filter((r) => r.is_unread).length, [rows]);
 
   const deepSearch = async () => {
     setDeep(true);
@@ -178,7 +178,7 @@ export function MailPage() {
             onChange={(e) => setChecked(e.target.checked ? new Set(rows.map((r) => r.id)) : new Set())}
           />
           <h1 className="font-semibold">{q ? `Search: ${q}` : title}</h1>
-          <span className="ip-muted text-[12px]">{rows.length ? `${unread} unread` : ""}</span>
+          <span className="ip-muted text-[12px]" title="Unread in this whole view, not just this page (matches the sidebar)">{total ? `${unread} unread` : ""}</span>
           <div className="ml-auto flex items-center gap-1">
             {accountsInScope.length > 1 && (
               <label className="relative">
