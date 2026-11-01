@@ -1,12 +1,12 @@
 "use client";
 
-import { AlertTriangle, Archive, ArrowLeft, Check, Clock, Filter, RefreshCw, Search, ShieldAlert, Star } from "lucide-react";
+import { AlertTriangle, Archive, ArrowLeft, Check, Clock, Filter, RefreshCw, Search, ShieldAlert, Star, Trash2 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, ApiError, useAct, useMessages, type ListMessage } from "./api";
 import { MessageReader } from "./reader";
 import { useScope } from "./shell";
-import { Avatar, CategoryChip, Empty, ImportanceChip, Skeleton, Spinner, errText, timeLabel, useToast } from "./ui";
+import { Avatar, CategoryChip, Empty, ImportanceChip, type MailboxResult, Skeleton, Spinner, errText, reportMailboxResult, timeLabel, useToast } from "./ui";
 
 const TITLES: Record<string, string> = { priority: "Priority Inbox", attention: "Needs My Attention", all: "All Mail", sent: "Sent", snoozed: "Snoozed", done: "Done" };
 
@@ -36,11 +36,15 @@ export function MailPage() {
   };
   const open = (id: string | null) => setParam("m", id);
 
-  const bulk = useAct((a: { action: string; value?: string; confirm?: boolean; ids: string[] }) => api<{ ok: boolean; failures?: string[] }>("/messages", { method: "POST", json: a }), {
+  const bulk = useAct((a: { action: string; value?: string; confirm?: boolean; ids: string[] }) => api<MailboxResult>("/messages", { method: "POST", json: a }), {
     onSuccess: (r, a) => {
       setChecked(new Set());
-      if (r.failures?.length) toast({ text: `Some changes failed: ${r.failures[0]}`, tone: "error" });
-      else if (a.action === "done") toast({ text: `Marked ${a.ids.length} done.`, tone: "ok", action: { label: "Undo", run: () => bulk.mutate({ action: "undone", ids: a.ids }) } });
+      if (["archive", "mark_read", "trash", "untrash"].includes(a.action)) {
+        const n = r.done ?? a.ids.length;
+        const text = a.action === "trash" ? `Moved ${n} to Trash.` : a.action === "archive" ? `Archived ${n} in Gmail.` : a.action === "untrash" ? "Restored from Trash." : "Marked read.";
+        const undo = a.action === "trash" ? { label: "Undo", run: () => bulk.mutate({ action: "untrash", ids: a.ids }) } : undefined;
+        reportMailboxResult(toast, r, { text, tone: "ok", action: undo });
+      } else if (a.action === "done") toast({ text: `Marked ${a.ids.length} done.`, tone: "ok", action: { label: "Undo", run: () => bulk.mutate({ action: "undone", ids: a.ids }) } });
       else if (a.action === "snooze") toast({ text: "Snoozed.", tone: "ok", action: { label: "Undo", run: () => bulk.mutate({ action: "undone", ids: a.ids }) } });
       else toast({ text: "Done.", tone: "ok" });
     },
@@ -79,6 +83,7 @@ export function MailPage() {
         const n = rows[Math.max(0, idx - 1)];
         if (n) open(n.id);
       } else if (e.key === "e" && selectedId) runBulk("done", undefined, [selectedId]);
+      else if (e.key === "#" && checked.size) runBulk("trash");
       else if (e.key === "s" && selectedId) runBulk("snooze", "tomorrow", [selectedId]);
       else if (e.key === "x" && selectedId) toggle(selectedId);
       else if (e.key === "Escape") open(null);
@@ -137,7 +142,8 @@ export function MailPage() {
         {checked.size > 0 && (
           <div className="flex flex-wrap items-center gap-1.5 border-b px-3 py-2 ip-line ip-fade-in" style={{ background: "var(--ip-surface-2)" }}>
             <span className="text-[12px] font-medium">{checked.size} selected</span>
-            <button className="ip-btn ip-btn-sm" onClick={() => runBulk("done")}><Check size={13} /> Done</button>
+            <button className="ip-btn ip-btn-sm" onClick={() => runBulk("done")} title="Mark handled in InboxSatori (your Gmail is not changed)"><Check size={13} /> Done</button>
+            <button className="ip-btn ip-btn-sm" onClick={() => runBulk("trash")} title="Move to Gmail Trash (restorable for 30 days)"><Trash2 size={13} /> Delete</button>
             <select className="ip-select !h-7 !w-auto text-[12px]" value="" onChange={(e) => e.target.value && runBulk("snooze", e.target.value)} aria-label="Snooze selected">
               <option value="">Snooze…</option>
               <option value="later_today">Later today</option>
@@ -182,7 +188,7 @@ export function MailPage() {
           )}
         </div>
         <p className="ip-muted hidden border-t px-3 py-1.5 text-[11px] lg:block ip-line">
-          <span className="ip-kbd">j</span>/<span className="ip-kbd">k</span> move · <span className="ip-kbd">e</span> done · <span className="ip-kbd">s</span> snooze · <span className="ip-kbd">x</span> select · <span className="ip-kbd">r</span> reply · <span className="ip-kbd">/</span> search
+          <span className="ip-kbd">j</span>/<span className="ip-kbd">k</span> move · <span className="ip-kbd">e</span> done · <span className="ip-kbd">#</span> delete · <span className="ip-kbd">s</span> snooze · <span className="ip-kbd">x</span> select · <span className="ip-kbd">r</span> reply · <span className="ip-kbd">/</span> search
         </p>
       </section>
       <section className={`min-w-0 flex-1 ${selectedId ? "flex" : "hidden lg:flex"} flex-col`} aria-label="Message">

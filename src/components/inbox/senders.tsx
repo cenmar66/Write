@@ -1,15 +1,16 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { BellOff, Search, Star, UserCheck, UserX, EyeOff } from "lucide-react";
+import { BellOff, Search, Star, UserCheck, UserX } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import type { SenderRow } from "@/lib/inbox/types";
 import { api, ApiError, useAct } from "./api";
+import { BlackHoleButton } from "./reader";
 import { useScope } from "./shell";
 import { Avatar, Empty, Skeleton, errText, useToast } from "./ui";
 
-const FILTERS = [["", "All"], ["new", "First-time senders"], ["vip", "VIP"], ["newsletters", "Newsletters"], ["screened", "Screened out"], ["blocked", "Hidden"]] as const;
+const FILTERS = [["", "All"], ["new", "First-time senders"], ["vip", "VIP"], ["newsletters", "Newsletters"], ["screened", "Screened out"], ["blocked", "Black Hole"]] as const;
 
 export function SendersPage() {
   const { ws, boot } = useScope();
@@ -32,7 +33,7 @@ export function SendersPage() {
     <div className="ip-scroll h-full">
       <div className="mx-auto max-w-5xl space-y-4 px-4 py-6 md:px-8">
         <h1 className="text-[22px] font-bold tracking-tight">Sender Control Center</h1>
-        <p className="ip-muted text-[13px]">Decide how InboxSatori treats each sender. Hiding or screening never deletes mail and never touches Gmail&apos;s spam folder. InboxSatori never opens unsubscribe links for you.</p>
+        <p className="ip-muted text-[13px]">Decide how InboxSatori treats each sender. The Black Hole archives a sender&apos;s mail out of your inbox, now and in future (undo any time); like screening, it never deletes mail and never touches Gmail&apos;s spam folder. InboxSatori never opens unsubscribe links for you.</p>
         <div className="flex flex-wrap gap-2">
           <div className="relative min-w-52 flex-1">
             <Search size={14} className="ip-muted absolute left-3 top-1/2 -translate-y-1/2" />
@@ -61,7 +62,7 @@ export function SendersPage() {
                     <Toggle on={s.always_priority} onClick={() => change(s, { always_priority: !s.always_priority })} icon={UserCheck} label="Always prioritize" />
                     <Toggle on={s.suppress_notifications} onClick={() => change(s, { suppress_notifications: !s.suppress_notifications })} icon={BellOff} label="Mute" />
                     <Toggle on={s.screening === "screened_out"} onClick={() => change(s, { screening: s.screening === "screened_out" ? "approved" : "screened_out" })} icon={UserX} label="Screen out" />
-                    <Toggle on={s.blocked} onClick={() => change(s, s.blocked ? { blocked: false } : { blocked: true, apply_to_existing: true })} icon={EyeOff} label="Hide" />
+                    <BlackHoleButton id={s.id} on={s.blocked} />
                     <select className="ip-select !h-7 !w-36 text-[12px]" value={s.default_category ?? ""} onChange={(e) => change(s, { default_category: e.target.value || null, apply_to_existing: !!e.target.value })} aria-label="Default category">
                       <option value="">Auto category</option>
                       {cats.map((c) => <option key={c.key} value={c.key}>{c.name}</option>)}

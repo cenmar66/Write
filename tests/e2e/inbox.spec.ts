@@ -15,6 +15,22 @@ async function reset(page: Page, opts: { demo?: boolean; ai?: boolean } = { demo
 }
 const desktopOnly = (name: string) => test.skip(name !== "desktop", "covered on desktop");
 
+// The dev server compiles each page and API route on first use and reloads open pages while
+// it does. Visit everything once up front so the tests below see a settled app.
+test.beforeAll(async ({ browser }) => {
+  test.setTimeout(240_000);
+  const page = await browser.newPage();
+  await page.request.post("/api/inbox/demo");
+  for (const path of ["/inbox", "/inbox/mail?view=all", "/inbox/followups", "/inbox/brief", "/inbox/rules", "/inbox/senders", "/inbox/accounts", "/inbox/settings", "/inbox/analytics", "/inbox/onboarding"]) {
+    await page.goto(path);
+    await page.waitForLoadState("networkidle").catch(() => undefined);
+  }
+  await page.goto("/inbox/mail?view=all");
+  await page.locator("li[data-id]").first().click().catch(() => undefined);
+  await page.waitForLoadState("networkidle").catch(() => undefined);
+  await page.close();
+});
+
 test.describe("InboxSatori", () => {
   test.beforeEach(async ({ page }) => {
     page.on("dialog", (d) => d.accept());
@@ -194,5 +210,76 @@ test.describe("InboxSatori", () => {
     await expect(page.getByText("Why it's here")).toBeVisible();
     await page.getByRole("button", { name: /Priority Inbox/ }).click();
     await expect(page.locator("li[data-id]").first()).toBeVisible();
+  });
+});
+
+test.describe("inboxsatori.com", () => {
+  test("serves InboxSatori at clean addresses with its own icons; Write.ai keeps its own", async ({ request }, info) => {
+    test.skip(info.project.name !== "desktop", "host routing is device-independent");
+    const inbox = { host: "inboxsatori.com" };
+    const home = await request.get("/", { headers: inbox, maxRedirects: 0 });
+    expect(home.status()).toBe(200);
+    expect(await home.text()).toContain("InboxSatori");
+
+    const fav = await request.get("/favicon.ico", { headers: inbox });
+    expect(fav.headers()["content-type"]).toContain("image/png");
+    expect(Buffer.compare(await fav.body(), await (await request.get("/favicon.ico")).body())).not.toBe(0);
+
+    const svg = await (await request.get("/icon.svg", { headers: { host: "www.inboxsatori.com" } })).text();
+    expect(svg).toContain("#24489c");
+    expect(await (await request.get("/icon.svg")).text()).not.toContain("#24489c");
+
+    const apple = await request.get("/icons/apple-touch-icon.png", { headers: inbox });
+    const own = await request.get("/inbox-icons/apple-touch-icon.png");
+    expect(Buffer.compare(await apple.body(), await own.body())).toBe(0);
+
+    const manifest = await (await request.get("/manifest.webmanifest", { headers: inbox })).json();
+    expect(manifest.name).toBe("InboxSatori");
+  });
+});
+
+test.describe("Inbox zero", () => {
+  test.beforeEach(async ({ page }) => {
+    page.on("dialog", (d) => d.accept());
+  });
+
+  test("delete moves to Trash with Undo; archive leaves the inbox", async ({ page }, info) => {
+    test.skip(info.project.name !== "desktop");
+    await page.request.delete("/api/inbox/data", { data: { confirm: "DELETE" } });
+    await page.request.post("/api/inbox/demo");
+    await page.request.patch("/api/inbox/settings", { data: { onboarding: { step: 10 } } });
+    await page.goto("/inbox/mail?view=all");
+    const row = page.locator("li[data-id]").filter({ hasText: "40% off everything" });
+    await row.click();
+    await page.getByRole("button", { name: "Delete", exact: true }).click();
+    await expect(page.getByText("Moved to Trash.")).toBeVisible();
+    await expect(row).toHaveCount(0);
+    await page.getByRole("status").getByRole("button", { name: "Undo" }).click();
+    await expect(row).toHaveCount(1);
+
+    await page.locator("li[data-id]").filter({ hasText: "Your receipt for Tuesday" }).click();
+    await page.getByRole("button", { name: "Archive", exact: true }).click();
+    await expect(page.getByText("Archived in Gmail.")).toBeVisible();
+    const msgs = await (await page.request.get("/api/inbox/messages?ws=all&view=all&q=receipt")).json();
+    expect(msgs.messages[0].in_inbox).toBe(false);
+  });
+
+  test("Black Hole a sender: their mail leaves the inbox; bringing them back restores it", async ({ page }, info) => {
+    test.skip(info.project.name !== "desktop");
+    await page.request.delete("/api/inbox/data", { data: { confirm: "DELETE" } });
+    await page.request.post("/api/inbox/demo");
+    await page.request.patch("/api/inbox/settings", { data: { onboarding: { step: 10 } } });
+    await page.goto("/inbox/mail?view=all");
+    await page.locator("li[data-id]").filter({ hasText: "Your daily tech digest" }).click();
+    await page.getByRole("button", { name: "Black Hole sender" }).click();
+    await expect(page.getByText(/Sent to the Black Hole\. 1 message\(s\) done, 1 archived out of Gmail/)).toBeVisible();
+    let m = (await (await page.request.get("/api/inbox/messages?ws=all&view=all&q=tech%20digest")).json()).messages[0];
+    expect(m.in_inbox).toBe(false);
+    expect(m.done_at).toBeTruthy();
+    await page.getByRole("button", { name: /In Black Hole — bring back/ }).click();
+    await expect(page.getByText(/Back from the Black Hole: 1 message/)).toBeVisible();
+    m = (await (await page.request.get("/api/inbox/messages?ws=all&view=all&q=tech%20digest")).json()).messages[0];
+    expect(m.in_inbox).toBe(true);
+    expect(m.done_at).toBeNull();
   });
 });

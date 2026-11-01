@@ -8,7 +8,7 @@ import type { Db } from "../db";
 export interface Capabilities {
   read: boolean;
   search: boolean;
-  modify: boolean; // labels, archive, read state (never delete)
+  modify: boolean; // labels, archive, read state, move to Trash (user-initiated only; never permanent delete)
   send: boolean;
 }
 
@@ -30,6 +30,9 @@ export interface MailProvider {
   getMessages(acc: AccountRow, ids: string[], opts: { format: "full" | "metadata" }): Promise<NormalizedMessage[]>;
   search(acc: AccountRow, query: string, max: number): Promise<string[]>;
   modify(acc: AccountRow, providerMessageId: string, change: { add?: string[]; remove?: string[] }): Promise<void>;
+  /** Moves to the provider's Trash (recoverable; Gmail empties it after 30 days). Only ever called for an explicit user request. */
+  trash(acc: AccountRow, providerMessageId: string): Promise<void>;
+  untrash(acc: AccountRow, providerMessageId: string): Promise<void>;
   ensureLabel(acc: AccountRow, name: string): Promise<string>;
   send(acc: AccountRow, raw: string, threadId: string | null): Promise<{ id: string; threadId: string }>;
   revoke(acc: AccountRow): Promise<void>;

@@ -268,6 +268,7 @@ export function validateRule(input: unknown): { ok: true; rule: Omit<Rule, "id">
 /** Starter rules the onboarding offers (user reviews each one before it's created). */
 export const RULE_TEMPLATES: Omit<Rule, "id">[] = [
   { name: "VIPs are always important", enabled: true, priority: 10, match: "all", conditions: [{ field: "sender_vip", op: "is_true" }], actions: [{ kind: "set_importance", value: "high" }], stop_processing: false },
+  { name: "Low priority → out of my inbox (inbox zero)", enabled: true, priority: 40, match: "all", conditions: [{ field: "importance", op: "equals", value: "low" }, { field: "sender_vip", op: "is_false" }], actions: [{ kind: "gmail_archive" }, { kind: "mark_done" }], stop_processing: false },
   { name: "Newsletters → Read Later", enabled: true, priority: 50, match: "all", conditions: [{ field: "msg_type", op: "equals", value: "newsletter" }], actions: [{ kind: "set_category", value: "read_later" }], stop_processing: false },
   { name: "Remind me if approval requests go unanswered", enabled: true, priority: 60, match: "all", conditions: [{ field: "text", op: "contains", value: ["approve", "approval", "sign off"] }], actions: [{ kind: "track_reply", value: "3" }], stop_processing: false },
   { name: "Suggest a task for explicit deadlines", enabled: true, priority: 70, match: "all", conditions: [{ field: "time_sensitivity", op: "in", value: ["immediate", "today", "this_week"] }, { field: "action", op: "in", value: ["task_required", "review_needed"] }], actions: [{ kind: "suggest_task" }], stop_processing: false },

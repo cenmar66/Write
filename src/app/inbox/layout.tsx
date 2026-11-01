@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   description: "Your inbox should work for you, not the other way around.",
   manifest: "/inbox/manifest.webmanifest",
   appleWebApp: { capable: true, title: "InboxSatori", statusBarStyle: "default" },
-  icons: { apple: "/inbox-icons/apple-touch-icon.png", icon: "/inbox-icons/icon.svg" },
+  icons: { apple: "/inbox-icons/apple-touch-icon.png" }, // tab icon: ./icon.svg (file convention)
 };
 
 export const viewport: Viewport = {

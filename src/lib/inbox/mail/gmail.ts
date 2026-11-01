@@ -1,7 +1,7 @@
 // Gmail adapter (official Gmail REST API, OAuth 2.0). Server-only.
 // Least privilege, added incrementally:
 //   read   → gmail.readonly  (sync, read, search)          [restricted scope]
-//   modify → gmail.modify    (labels, archive, read state) [restricted scope] — never used to delete
+//   modify → gmail.modify    (labels, archive, read state, Trash on explicit request) [restricted scope] — never permanent delete
 //   send   → gmail.send      (send after explicit confirmation) [sensitive scope]
 // Tokens are AES-256-GCM encrypted, stored in ip_provider_tokens (service role only),
 // refreshed here, and revoked with Google on disconnect.
@@ -270,8 +270,17 @@ export function gmailProvider(deps: ProviderDeps): MailProvider {
     },
     async modify(acc, id, change) {
       if (!capabilitiesFromScopes(acc.scopes).modify) throw new ProviderError("InboxSatori doesn't have permission to organize this mailbox.", "permission");
-      if ([...(change.add ?? []), ...(change.remove ?? [])].some((l) => l === "TRASH" || l === "SPAM")) throw new ProviderError("InboxSatori never trashes or spams messages.", "permission");
+      // Trash has its own explicit, user-only path (trash()); spam is never touched.
+      if ([...(change.add ?? []), ...(change.remove ?? [])].some((l) => l === "TRASH" || l === "SPAM")) throw new ProviderError("Labels can't be used to trash or spam messages.", "permission");
       await gapi(admin(), acc.id, `messages/${id}/modify`, { method: "POST", body: JSON.stringify({ addLabelIds: change.add ?? [], removeLabelIds: change.remove ?? [] }) });
+    },
+    async trash(acc, id) {
+      if (!capabilitiesFromScopes(acc.scopes).modify) throw new ProviderError("Deleting needs the Organize permission for this mailbox. Grant it in Connected Accounts.", "permission");
+      await gapi(admin(), acc.id, `messages/${id}/trash`, { method: "POST" }); // recoverable; never messages.delete
+    },
+    async untrash(acc, id) {
+      if (!capabilitiesFromScopes(acc.scopes).modify) throw new ProviderError("InboxSatori doesn't have permission to organize this mailbox.", "permission");
+      await gapi(admin(), acc.id, `messages/${id}/untrash`, { method: "POST" });
     },
     async ensureLabel(acc, name) {
       const clean = `InboxSatori/${name.replace(/[^\w &-]/g, "").slice(0, 40)}`;

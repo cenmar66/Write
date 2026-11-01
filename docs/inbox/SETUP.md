@@ -28,9 +28,20 @@ Development only (ignored in production builds): `INBOX_LOCAL_DEMO=1` (in-memory
 3. **Credentials → your Web OAuth client → Authorized redirect URIs**: add `https://YOUR-DOMAIN/api/inbox/gmail/callback` (and `http://localhost:3000/api/inbox/gmail/callback` for local testing).
 4. **Audience**: for owner-only use, add your Gmail address as a test user. Note: in *Testing* status, refresh tokens for these scopes expire after 7 days (you'll see “Reconnect needed” weekly). Publishing the app to *Production* without verification avoids the weekly expiry for personal use (Google shows an “unverified app” warning; 100-user cap). Public launch requires verification + a CASA security assessment — see [SECURITY.md](SECURITY.md).
 
-## 4. Background jobs
+## 4. Background jobs (Supabase runs them every 10 minutes)
 
-`vercel.json` schedules `/api/cron/inbox` every 10 minutes (sync each account, due briefings, retention pruning). Sub-daily cron schedules need a Vercel Pro plan. Without `CRON_SECRET` nothing runs in the background; “Sync now” and “Brief me now” still work.
+Vercel's Hobby plan only allows daily crons, so Supabase calls InboxSatori instead (built-in `pg_cron` + `pg_net`, no extra service):
+
+1. Supabase → **SQL Editor** → run `supabase/migrations/0013_inbox_scheduler.sql`. It turns on the two extensions and schedules the job `inboxsatori-sync`.
+2. In the same editor, run this once with **your** `CRON_SECRET` value from Vercel (it's stored encrypted in Supabase Vault; never paste it anywhere else):
+   ```sql
+   select vault.create_secret('PASTE-YOUR-CRON_SECRET-HERE', 'inbox_cron_secret');
+   ```
+3. Check after ~10 minutes: `select status_code, created from net._http_response order by created desc limit 3;` should show `200`. The Operations page in InboxSatori shows sync jobs too.
+
+To call a different address (e.g. your Write.ai domain): `select vault.create_secret('https://YOUR-DOMAIN/api/cron/inbox', 'inbox_cron_url');`. To stop it: `select cron.unschedule('inboxsatori-sync');`. If you rotate `CRON_SECRET` in Vercel, update the Vault secret too (Supabase → Project Settings → Vault).
+
+Without this, nothing runs in the background; “Sync now” and “Brief me now” still work.
 
 ## 5. Its own domain: inboxsatori.com
 

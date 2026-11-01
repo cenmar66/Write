@@ -120,9 +120,22 @@ describe("token lifecycle", () => {
     handler = () => json(200, {});
     const p = gmailProvider({ admin: db });
     await expect(p.modify(acc, "m1", { remove: ["INBOX"] })).rejects.toThrow(/permission/);
-    await expect(p.modify({ ...acc, scopes: "https://www.googleapis.com/auth/gmail.modify" }, "m1", { add: ["TRASH"] })).rejects.toThrow(/never/);
+    await expect(p.modify({ ...acc, scopes: "https://www.googleapis.com/auth/gmail.modify" }, "m1", { add: ["TRASH"] })).rejects.toThrow(/can.t be used to trash or spam/);
     await expect(p.send(acc, "raw", null)).rejects.toThrow(/Sending isn't enabled/);
     expect(calls).toHaveLength(0);
+  });
+
+  it("moves to Trash (never permanent delete) only with the Organize permission", async () => {
+    token({ access_token_enc: encrypt("AT"), refresh_token_enc: encrypt("RT"), expires_at: new Date(Date.now() + 3_600_000).toISOString() });
+    handler = () => json(200, {});
+    const p = gmailProvider({ admin: db });
+    await expect(p.trash(acc, "m1")).rejects.toThrow(/Organize permission/);
+    expect(calls).toHaveLength(0);
+    const organized = { ...acc, scopes: "https://www.googleapis.com/auth/gmail.modify" };
+    await p.trash(organized, "m1");
+    await p.untrash(organized, "m1");
+    expect(calls).toEqual(["POST https://gmail.googleapis.com/gmail/v1/users/me/messages/m1/trash", "POST https://gmail.googleapis.com/gmail/v1/users/me/messages/m1/untrash"]);
+    expect(calls.some((c) => c.includes("DELETE") || /messages\/m1$/.test(c))).toBe(false);
   });
 
   it("revokes with Google on disconnect", async () => {

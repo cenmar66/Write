@@ -1,14 +1,14 @@
 "use client";
 
-import { AlarmClock, Check, CheckSquare, Clock, ExternalLink, FileText, Paperclip, Reply, ShieldAlert, Sparkles, Star, UserX, X } from "lucide-react";
+import { AlarmClock, Archive, Check, CheckSquare, CircleDot, Clock, ExternalLink, FileText, Paperclip, Reply, ShieldAlert, Sparkles, Star, Trash2, UserX, X } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ACTIONS, IMPORTANCE, MSG_TYPES } from "@/lib/inbox/types";
-import { api, useAct, useMessage, type MessageDetail } from "./api";
+import { api, ApiError, useAct, useMessage, type MessageDetail } from "./api";
 import { Composer } from "./composer";
 import { useScope } from "./shell";
 import { FollowupDialog, TaskDialog } from "./task-dialog";
-import { Avatar, CategoryChip, dueLabel, ImportanceChip, Skeleton, Spinner, errText, timeLabel, useToast } from "./ui";
+import { Avatar, CategoryChip, ImportanceChip, type MailboxResult, Skeleton, Spinner, dueLabel, errText, reportMailboxResult, timeLabel, useToast } from "./ui";
 
 const label = (s: string) => s.replace(/_/g, " ");
 
@@ -20,6 +20,7 @@ export function MessageReader({ id, onDone }: { id: string; onDone: () => void }
   const [composer, setComposer] = useState<string | null>(null);
   const [taskOpen, setTaskOpen] = useState(params.get("task") === "1");
   const [fuOpen, setFuOpen] = useState(false);
+  const delRef = useRef<() => void>(() => undefined);
   const patch = useAct((b: Record<string, unknown>) => api(`/messages/${id}`, { method: "PATCH", json: b }));
   const bulk = useAct((b: Record<string, unknown>) => api(`/messages`, { method: "POST", json: { ids: [id], ...b } }));
 
@@ -27,6 +28,7 @@ export function MessageReader({ id, onDone }: { id: string; onDone: () => void }
     const onKey = (e: KeyboardEvent) => {
       if (/INPUT|TEXTAREA|SELECT/.test((e.target as HTMLElement).tagName) || e.metaKey || e.ctrlKey || document.querySelector("dialog[open]")) return;
       if (e.key === "r") setComposer("reply");
+      if (e.key === "#") delRef.current();
       if (e.key === "t") setTaskOpen(true);
     };
     window.addEventListener("keydown", onKey);
@@ -38,6 +40,11 @@ export function MessageReader({ id, onDone }: { id: string; onDone: () => void }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q.data?.message.id]);
 
+  useEffect(() => {
+    const target = id; // the message on screen when # was pressed
+    delRef.current = () => bulk.mutate({ action: "trash", ids: [id] }, { onSuccess: (r) => { if (reportMailboxResult(toast, r as MailboxResult, { text: "Moved to Trash.", tone: "ok", action: { label: "Undo", run: () => bulk.mutate({ action: "untrash", ids: [target] }) } })) onDone(); } });
+  });
+
   if (q.isLoading) return <Skeleton rows={8} />;
   if (q.error || !q.data) return <p className="p-6" style={{ color: "var(--ip-crit)" }}>{q.error?.message ?? "Not found."}</p>;
   const d = q.data;
@@ -45,14 +52,33 @@ export function MessageReader({ id, onDone }: { id: string; onDone: () => void }
   const tz = boot.prefs.timezone;
   const external = m.from_email.split("@")[1] !== d.account.email.split("@")[1];
   const suspicious = m.signals?.suspicious ?? [];
-  const done = () =>
-    bulk.mutate({ action: "done" }, {
+  const done = () => {
+    const target = id; // undo must act on this message even after the view moves on
+    bulk.mutate({ action: "done", ids: [id] }, {
       onSuccess: () => {
-        toast({ text: "Marked done.", tone: "ok", action: { label: "Undo", run: () => bulk.mutate({ action: "undone" }) } });
+        toast({ text: "Marked done.", tone: "ok", action: { label: "Undo", run: () => bulk.mutate({ action: "undone", ids: [target] }) } });
         onDone();
       },
     });
-  const snooze = (value: string) => bulk.mutate({ action: "snooze", value }, { onSuccess: () => { toast({ text: "Snoozed.", tone: "ok" }); onDone(); }, onError: (e) => toast({ text: errText(e), tone: "error" }) });
+  };
+  const archive = () =>
+    bulk.mutate({ action: "archive", ids: [id] }, {
+      onSuccess: (r) => {
+        if (reportMailboxResult(toast, r as MailboxResult, { text: "Archived in Gmail.", tone: "ok" })) onDone();
+      },
+      onError: (e) => toast({ text: errText(e), tone: "error" }),
+    });
+  // Delete = move to Gmail Trash (recoverable for 30 days), with Undo.
+  const del = () => {
+    const target = id; // undo must act on this message even after the view moves on
+    bulk.mutate({ action: "trash", ids: [id] }, {
+      onSuccess: (r) => {
+        if (reportMailboxResult(toast, r as MailboxResult, { text: "Moved to Trash.", tone: "ok", action: { label: "Undo", run: () => bulk.mutate({ action: "untrash", ids: [target] }) } })) onDone();
+      },
+      onError: (e) => toast({ text: errText(e), tone: "error" }),
+    });
+  };
+  const snooze = (value: string) => bulk.mutate({ action: "snooze", value, ids: [id] }, { onSuccess: () => { toast({ text: "Snoozed.", tone: "ok" }); onDone(); }, onError: (e) => toast({ text: errText(e), tone: "error" }) });
 
   return (
     <div className="ip-scroll flex-1">
@@ -60,7 +86,9 @@ export function MessageReader({ id, onDone }: { id: string; onDone: () => void }
         <article className="min-w-0 space-y-4">
           <div className="flex flex-wrap items-center gap-1.5">
             <button className="ip-btn ip-btn-sm" onClick={() => setComposer("reply")}><Reply size={13} /> Reply</button>
-            <button className="ip-btn ip-btn-sm" onClick={done}><Check size={13} /> Done</button>
+            <button className="ip-btn ip-btn-sm" onClick={done} title="Mark handled in InboxSatori (your Gmail is not changed) — shortcut e"><Check size={13} /> Done</button>
+            <button className="ip-btn ip-btn-sm" onClick={archive} title="Archive in Gmail: leaves your inbox, stays searchable"><Archive size={13} /> Archive</button>
+            <button className="ip-btn ip-btn-sm" onClick={del} title="Move to Gmail Trash (restorable for 30 days) — shortcut #"><Trash2 size={13} /> Delete</button>
             <select className="ip-select !h-7 !w-auto text-[12px]" value="" onChange={(e) => e.target.value && snooze(e.target.value)} aria-label="Snooze">
               <option value="">Snooze…</option>
               <option value="later_today">Later today</option>
@@ -337,6 +365,26 @@ function WhyHere({ d }: { d: MessageDetail }) {
   );
 }
 
+/** Sends a sender to the Black Hole (or brings them back), confirming first. */
+export function BlackHoleButton({ id, on }: { id: string; on: boolean }) {
+  const toast = useToast();
+  const act = useAct((b: Record<string, unknown>) => api<{ archived: number; restored: number; affected: number }>(`/senders/${id}`, { method: "PATCH", json: b }));
+  const run = () =>
+    act.mutate(on ? { blocked: false } : { blocked: true }, {
+      onSuccess: (r) => toast({ text: on ? `Back from the Black Hole${r.restored ? `: ${r.restored} message(s) returned to your inbox` : ""}.` : "Sent to the Black Hole.", tone: "ok" }),
+      onError: (e) => {
+        if (e instanceof ApiError && e.status === 409 && confirm(e.message))
+          act.mutate({ blocked: true, confirm: true }, { onSuccess: (r) => toast({ text: `Sent to the Black Hole. ${r.affected} message(s) done${r.archived ? `, ${r.archived} archived out of Gmail` : ""}; future mail goes straight there.`, tone: "ok", action: { label: "Undo", run: () => act.mutate({ blocked: false }) } }) });
+        else if (!(e instanceof ApiError && e.status === 409)) toast({ text: errText(e), tone: "error" });
+      },
+    });
+  return (
+    <button className="ip-btn ip-btn-sm" onClick={run} aria-pressed={on} title="Everything from this sender skips your inbox from now on (archived, never deleted)">
+      <CircleDot size={12} /> {on ? "In Black Hole — bring back" : "Black Hole sender"}
+    </button>
+  );
+}
+
 function SenderControls({ d }: { d: MessageDetail }) {
   const s = d.sender;
   const toast = useToast();
@@ -349,6 +397,7 @@ function SenderControls({ d }: { d: MessageDetail }) {
       <div className="mt-2 flex flex-wrap gap-1.5">
         <button className="ip-btn ip-btn-sm" onClick={() => upd.mutate({ is_vip: !s.is_vip })}><Star size={12} fill={s.is_vip ? "currentColor" : "none"} /> {s.is_vip ? "VIP" : "Mark VIP"}</button>
         <button className="ip-btn ip-btn-sm" onClick={() => upd.mutate({ screening: s.screening === "screened_out" ? "approved" : "screened_out" })}><UserX size={12} /> {s.screening === "screened_out" ? "Un-screen" : "Screen out"}</button>
+        <BlackHoleButton id={s.id} on={s.blocked} />
       </div>
     </Panel>
   );

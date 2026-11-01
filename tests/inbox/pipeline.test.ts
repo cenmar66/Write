@@ -104,6 +104,18 @@ describe("sync pipeline (demo mailbox)", () => {
     expect(demoMessages(acc.id).find((m) => m.subject.startsWith("40% off"))!.inInbox).toBe(false);
   });
 
+  it("Black Hole: a sender's new mail is marked done and archived out of the inbox, with undo", async () => {
+    await db.from("ip_senders").insert({ workspace_id: acc.workspace_id, email: "deals@shopmore.test", domain: "shopmore.test", blocked: true });
+    await syncAccount(db, db, acc, prefs, { now: NOW });
+    const m = bySubject("40% off");
+    expect(m.done_at).toBeTruthy();
+    expect(m.in_inbox).toBe(false);
+    expect(demoMessages(acc.id).find((x) => x.subject.startsWith("40% off"))!.inInbox).toBe(false);
+    const ex = rows("ip_rule_executions").find((e) => e.message_id === m.id && e.rule_name === "Black Hole")!;
+    expect(ex.undo).toEqual({ add: ["INBOX"] });
+    expect(bySubject("Q4 plan").done_at).toBeNull(); // other senders untouched
+  });
+
   it("disconnecting an account deletes everything fetched from it", async () => {
     await syncAccount(db, db, acc, prefs, { now: NOW });
     await db.from("ip_accounts").delete().eq("id", acc.id);

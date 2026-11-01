@@ -42,12 +42,20 @@ Updated: 2026-11-01 (renamed InboxPilot → InboxSatori; inboxsatori.com support
 |---|---|
 | `npm run typecheck` | ✅ clean |
 | `npm run lint` | ✅ clean (whole repo) |
-| `npm test` (Vitest, whole repo) | ✅ 126 passed, of which 67 are InboxSatori (parse, classify, deadlines, rules, follow-ups, safety, send guard, briefing, analytics, time, search, Gmail OAuth/tokens with mocked Google, sync pipeline, jobs, AI-can't-command, memory-DB fidelity) |
+| `npm test` (Vitest, whole repo) | ✅ 194 passed (73 InboxSatori: parse, classify, deadlines, rules incl. inbox-zero template and no-trash guarantee, follow-ups, safety, send guard, briefing, analytics, time, search, Gmail OAuth/tokens/trash with mocked Google, sync pipeline, Black Hole, jobs, AI-can't-command, memory-DB fidelity, inboxsatori.com routing) |
 | `npm run test:sql` (real Postgres) | ✅ InboxSatori: tenant isolation, token lockout, dedupe, append-only audit, entitlement self-grant blocked, job claim/retry/dead-letter, disconnect cascade, delete-my-data |
-| Playwright InboxSatori (desktop + iPhone, Chromium) | ✅ 14 passed |
+| Playwright InboxSatori (desktop + iPhone, Chromium) | ✅ 17 passed (incl. Delete + Undo, Archive, Black Hole, inboxsatori.com icons) |
 | Full Playwright suite (all specs, 4 device profiles) | ✅ 46 passed, 0 failed, 106 skipped by design |
 | `next build` | ✅ |
 | `npm audit --omit=dev --audit-level=high` | ✅ 0 vulnerabilities |
+
+## Changes 2026-11-01 (owner requests)
+- **Delete** (message view, bulk bar, `#`): moves to Gmail Trash (restorable 30 days); confirmation for more than one; Undo. User-only: rules/AI/assistant can't trash. Safety rule in CLAUDE.md updated accordingly.
+- **Black Hole** per sender: existing mail (after confirmation) and all future mail is marked done and archived out of the Gmail inbox, each with an undo record; “bring back” restores it.
+- **Archive** button in the message view; rule template “Low priority → out of my inbox (inbox zero)”.
+- Mailbox actions on a read-only account now explain why and offer **Grant permission** (was: “no permission to organize”).
+- Fixed: Undo in the message view could act on the next message after the view moved on.
+- InboxSatori icon set (ensō + envelope); inboxsatori.com serves its own favicon, app icons and manifest.
 
 ## Open issues / known limits
 - Not verified against live Gmail, live Claude/OpenAI, real Safari/iOS, or real microphones.

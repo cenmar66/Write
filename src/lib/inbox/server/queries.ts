@@ -6,7 +6,7 @@ import type { RuleMessage } from "../rules";
 import type { AccountRow, ClassificationRow, MessageRow } from "../types";
 import { myWorkspaces } from "./workspace";
 
-export const LIST_COLUMNS = "id,workspace_id,account_id,thread_id,provider_thread_id,from_email,from_name,to_addrs,cc_addrs,subject,snippet,received_at,is_unread,is_starred,is_sent,in_inbox,has_attachments,category,importance,priority_score,snoozed_until,snooze_until_reply,done_at,signals,list_unsubscribe";
+export const LIST_COLUMNS = "id,workspace_id,label_ids,account_id,thread_id,provider_thread_id,from_email,from_name,to_addrs,cc_addrs,subject,snippet,received_at,is_unread,is_starred,is_sent,in_inbox,has_attachments,category,importance,priority_score,snoozed_until,snooze_until_reply,done_at,signals,list_unsubscribe";
 
 export type View = "home" | "priority" | "attention" | "all" | "sent" | "snoozed" | "done" | `category:${string}`;
 
@@ -63,7 +63,8 @@ export async function listMessages(db: Db, wsIds: string[], opts: { view: View; 
   q = v === "priority" ? q.order("priority_score", { ascending: false }).order("received_at", { ascending: false }) : q.order("received_at", { ascending: false });
   const { data, error } = await q.limit(Math.min(opts.limit ?? 50, 200));
   if (error) throw new Error(error.message);
-  let rows = (data ?? []) as MessageRow[];
+  // Messages in the mailbox's Trash never show up in lists.
+  let rows = ((data ?? []) as MessageRow[]).filter((m) => !(m.label_ids ?? []).includes("TRASH"));
   // Filters PostgREST can't express on jsonb arrays are applied here (bounded result set).
   if (f.to) rows = rows.filter((m) => [...(m.to_addrs ?? []), ...(m.cc_addrs ?? [])].some((a) => a.email.includes(f.to!)));
   if (f.domain) rows = rows.filter((m) => m.from_email.endsWith(`@${f.domain}`) || m.from_email.endsWith(`.${f.domain}`));

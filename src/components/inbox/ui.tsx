@@ -134,7 +134,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastCtx.Provider value={push}>
       {children}
-      <div className="pointer-events-none fixed inset-x-0 bottom-20 z-50 flex flex-col items-center gap-2 px-4 md:bottom-6" role="status" aria-live="polite">
+      <div className="pointer-events-none fixed inset-x-0 bottom-20 z-[100] flex flex-col items-center gap-2 px-4 md:bottom-6" role="status" aria-live="polite">
         {list.map((t) => (
           <div key={t.id} className="ip-card ip-fade-in pointer-events-auto flex max-w-md items-center gap-3 px-4 py-2.5 text-[13px]" style={t.tone === "error" ? { borderColor: "var(--ip-crit)", color: "var(--ip-crit)" } : undefined}>
             <span>{t.text}</span>
@@ -152,4 +152,36 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 
 export function errText(e: unknown) {
   return e instanceof Error ? e.message : "Something went wrong.";
+}
+
+export interface MailboxResult {
+  ok?: boolean;
+  done?: number;
+  failures?: string[];
+  needsPermission?: { accountId: string; email: string }[];
+}
+
+/**
+ * Shared feedback for actions that change the mailbox (archive, mark read, delete).
+ * Read-only accounts get a clear explanation and a one-click "Grant permission".
+ * Returns true when everything went through.
+ */
+export function reportMailboxResult(toast: ReturnType<typeof useToast>, r: MailboxResult, ok: Omit<Toast, "id">): boolean {
+  const need = r.needsPermission?.[0];
+  if (need) {
+    toast({
+      text: `To change your Gmail (archive, mark read, delete), InboxSatori needs the Organize permission for ${need.email}. Nothing was changed.`,
+      tone: "error",
+      // Full navigation on purpose: this route redirects to Google's permission screen.
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+      action: { label: "Grant permission", run: () => window.location.assign(`/api/inbox/gmail/connect?account=${need.accountId}&level=modify`) },
+    });
+    return false;
+  }
+  if (r.failures?.length) {
+    toast({ text: `Some changes failed: ${r.failures[0]}`, tone: "error" });
+    return false;
+  }
+  toast(ok);
+  return true;
 }

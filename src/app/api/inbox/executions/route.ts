@@ -68,8 +68,14 @@ export async function POST(request: Request) {
     }
     if (b.op === "undo") {
       if (!["applied", "approved"].includes(ex.status) || !ex.undo) throw new HttpError(409, "Nothing to undo.");
-      const u = ex.undo as { add?: string[]; remove?: string[]; done_at?: null; snoozed_until?: null };
-      if (u.add || u.remove) {
+      const u = ex.undo as { add?: string[]; remove?: string[]; done_at?: null; snoozed_until?: null; untrash?: boolean };
+      if (u.untrash) {
+        await provider.untrash(acc as AccountRow, m.provider_message_id);
+        const labels = new Set<string>((m.label_ids as string[]) ?? []);
+        labels.delete("TRASH");
+        labels.add("INBOX");
+        await ctx.db.from("ip_messages").update({ label_ids: [...labels], in_inbox: true, done_at: null }).eq("id", m.id);
+      } else if (u.add || u.remove) {
         await provider.modify(acc as AccountRow, m.provider_message_id, { add: u.add, remove: u.remove });
         if (u.add?.includes("INBOX")) await ctx.db.from("ip_messages").update({ in_inbox: true, done_at: null }).eq("id", m.id);
         if (u.add?.includes("UNREAD")) await ctx.db.from("ip_messages").update({ is_unread: true }).eq("id", m.id);

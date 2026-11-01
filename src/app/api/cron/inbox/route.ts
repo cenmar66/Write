@@ -13,7 +13,7 @@ function authorized(header: string | null) {
 }
 
 /**
- * InboxSatori scheduler (Vercel Cron, every 10 minutes — see vercel.json).
+ * InboxSatori scheduler: Supabase pg_cron calls this every 10 minutes (migration 0013, docs/inbox/SETUP.md §4).
  * Enqueues syncs and due briefings, then drains the durable job queue.
  */
 export async function GET(request: Request) {

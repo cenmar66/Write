@@ -63,7 +63,7 @@ export async function processNewMessages(db: Db, admin: Db | null, acc: AccountR
       await db.from("ip_messages").update({ category: c.category, importance: c.importance, priority_score: c.priority_score }).eq("id", m.id);
     }
     await executePlan(db, provider, acc, m, plan, prefs);
-    if (sender?.blocked) await db.from("ip_messages").update({ done_at: now.toISOString() }).eq("id", m.id);
+    if (sender?.blocked && !m.is_sent) await blackHole(db, provider, acc, m, now);
   }
 
   // Once I've replied, the earlier incoming messages in that thread are handled.
@@ -123,6 +123,24 @@ async function updateSenders(db: Db, acc: AccountRow, msgs: MessageRow[], me: Se
     };
   });
   await db.from("ip_senders").upsert(upserts, { onConflict: "workspace_id,email" });
+}
+
+/**
+ * Black Hole: the user sent this sender away. Their mail is marked done in InboxSatori and,
+ * when the account has the Organize permission, archived out of the Gmail inbox (never
+ * trashed), with an undo record. Returns whether the mailbox was changed.
+ */
+export async function blackHole(db: Db, provider: Awaited<ReturnType<typeof providerFor>>, acc: AccountRow, m: Pick<MessageRow, "id" | "workspace_id" | "provider_message_id" | "in_inbox">, now = new Date()): Promise<boolean> {
+  await db.from("ip_messages").update({ done_at: now.toISOString() }).eq("id", m.id).is("done_at", null);
+  if (!m.in_inbox || !provider.capabilities(acc).modify) return false;
+  try {
+    await provider.modify(acc, m.provider_message_id, { remove: ["INBOX"] });
+    await db.from("ip_messages").update({ in_inbox: false }).eq("id", m.id);
+    await db.from("ip_rule_executions").insert({ workspace_id: m.workspace_id, rule_id: null, rule_name: "Black Hole", message_id: m.id, action: { kind: "gmail_archive", value: "black_hole" }, status: "applied", provider_applied: true, undo: { add: ["INBOX"] } });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /** Records every planned action; applies app-level ones and (Automatic mode only) provider ones. */
