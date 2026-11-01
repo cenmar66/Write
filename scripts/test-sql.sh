@@ -24,3 +24,7 @@ PSQL=(psql -X -q -h "$DIR" -p "$PORT" -U postgres -d postgres -v ON_ERROR_STOP=1
 "${PSQL[@]}" -f "$ROOT/supabase/migrations/0012_inboxsatori.sql"
 "${PSQL[@]}" -f "$ROOT/supabase/migrations/0012_inboxsatori.sql"  # must be re-runnable
 "${PSQL[@]}" -f "$ROOT/supabase/tests/inbox.test.sql"
+# Scheduler: on plain Postgres it must skip quietly (twice), then work against stand-ins.
+"${PSQL[@]}" -f "$ROOT/supabase/migrations/0013_inbox_scheduler.sql"
+"${PSQL[@]}" -f "$ROOT/supabase/migrations/0013_inbox_scheduler.sql"
+(cd "$ROOT" && "${PSQL[@]}" -f "supabase/tests/inbox-scheduler.test.sql")

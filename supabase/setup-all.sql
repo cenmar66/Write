@@ -1,4 +1,4 @@
--- Write.ai: the whole database in one go (updates 0001 to 0012; 0010 is The Daily Canvas, 0011 is PromptSatori, 0012 is InboxSatori).
+-- Write.ai: the whole database in one go (updates 0001 to 0013; 0010 is The Daily Canvas, 0011 is PromptSatori, 0012 is InboxSatori, 0013 its background sync).
 -- Safe to run any number of times: it only adds what's missing and never deletes your data.
 -- Paste all of it into Supabase > SQL Editor > New query, then click Run.
 
@@ -1739,3 +1739,51 @@ create or replace function public.satori_credit_balance()
 returns integer language sql stable security invoker set search_path = '' as $$
   select coalesce(sum(delta), 0)::integer from public.satori_credit_ledger where user_id = auth.uid();
 $$;
+
+-- 0013: InboxSatori background sync (pg_cron + pg_net) -----------------------------
+
+do $$
+begin
+  create extension if not exists pg_cron;
+  create extension if not exists pg_net;
+exception when others then
+  raise notice 'pg_cron/pg_net unavailable here (%); InboxSatori scheduler not installed.', sqlerrm;
+end $$;
+
+-- Fires one request (pg_net is asynchronous: the job returns at once; the app does the work).
+create or replace function public.ip_run_inbox_cron()
+returns bigint language plpgsql security definer set search_path = '' as $$
+declare
+  secret text;
+  target text;
+begin
+  select decrypted_secret into secret from vault.decrypted_secrets where name = 'inbox_cron_secret' limit 1;
+  if secret is null or secret = '' then
+    raise notice 'InboxSatori scheduler: add the inbox_cron_secret to Vault first (docs/inbox/SETUP.md §4).';
+    return null;
+  end if;
+  select coalesce(
+    (select decrypted_secret from vault.decrypted_secrets where name = 'inbox_cron_url' limit 1),
+    'https://inboxsatori.com/api/cron/inbox'
+  ) into target;
+  return net.http_get(
+    url := target,
+    headers := jsonb_build_object('Authorization', 'Bearer ' || secret),
+    timeout_milliseconds := 60000
+  );
+end;
+$$;
+-- Only the database itself (pg_cron runs as postgres) may trigger it.
+revoke all on function public.ip_run_inbox_cron() from public;
+do $$ begin
+  revoke all on function public.ip_run_inbox_cron() from anon, authenticated;
+exception when undefined_object then null;
+end $$;
+
+-- (Re)schedule by name, so re-running this file just updates the job.
+do $$
+begin
+  if exists (select 1 from pg_namespace where nspname = 'cron') then
+    perform cron.schedule('inboxsatori-sync', '*/10 * * * *', 'select public.ip_run_inbox_cron()');
+  end if;
+end $$;

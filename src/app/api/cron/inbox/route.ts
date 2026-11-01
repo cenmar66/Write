@@ -13,7 +13,7 @@ function authorized(header: string | null) {
 }
 
 /**
- * InboxSatori scheduler: call every 10 minutes from an external scheduler (see docs/inbox/SETUP.md §4).
+ * InboxSatori scheduler: Supabase pg_cron calls this every 10 minutes (migration 0013, docs/inbox/SETUP.md §4).
  * Enqueues syncs and due briefings, then drains the durable job queue.
  */
 export async function GET(request: Request) {
