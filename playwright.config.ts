@@ -27,7 +27,7 @@ export default defineConfig({
     timeout: 180_000,
     reuseExistingServer: true,
     // Local-only dev switches (ignored in production builds): the planner without sign-in,
-    // and InboxPilot's in-memory demo mode with the simulated AI provider.
+    // and InboxSatori's in-memory demo mode with the simulated AI provider.
     env: { NEXT_PUBLIC_CANVAS_LOCAL_ONLY: "1", INBOX_LOCAL_DEMO: "1", INBOX_SIMULATED_AI: "1" },
   },
 });

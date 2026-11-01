@@ -11,7 +11,7 @@ import { Dialog, Spinner, ago, errText, useToast } from "./ui";
 const GMAIL_ERRORS: Record<string, string> = {
   expired: "The connection attempt expired or didn't match this browser. Please try again.",
   access_denied: "You cancelled the Google permission screen.",
-  read_permission_not_granted: "InboxPilot needs at least read access to Gmail. Tick the Gmail box on Google's screen.",
+  read_permission_not_granted: "InboxSatori needs at least read access to Gmail. Tick the Gmail box on Google's screen.",
   different_account: "Please choose the same Google account you're adding permissions to.",
   no_email: "Google didn't share the account's email address.",
   failed: "Google sign-in failed. Check the server configuration and try again.",
@@ -34,7 +34,7 @@ export function AccountsPage() {
           <button className="ip-btn ml-auto" onClick={() => setNewWs(true)}><Plus size={14} /> New workspace</button>
         </div>
         {err && <p className="ip-card p-3 text-[13px]" style={{ color: "var(--ip-crit)" }}>{GMAIL_ERRORS[err] ?? `Gmail connection failed (${err}).`}</p>}
-        {params.get("gmail") === "connected" && <p className="ip-card p-3 text-[13px]" style={{ color: "var(--ip-low)" }}>Gmail connected. Press “Sync now” to start the first import (InboxPilot also syncs in the background every 10 minutes).</p>}
+        {params.get("gmail") === "connected" && <p className="ip-card p-3 text-[13px]" style={{ color: "var(--ip-low)" }}>Gmail connected. Press “Sync now” to start the first import (InboxSatori also syncs in the background every 10 minutes).</p>}
         {!boot.server.gmail && <p className="ip-card p-3 text-[13px]" style={{ background: "var(--ip-warn-soft)", color: "var(--ip-warn)" }}>Gmail isn&apos;t available on this server yet: {boot.server.gmailReason} See docs/inbox/SETUP.md.</p>}
 
         {boot.workspaces.map((w) => {
@@ -80,12 +80,12 @@ export function AccountsPage() {
         )}
 
         <section className="ip-card p-4 text-[13px]">
-          <h2 className="flex items-center gap-1.5 font-semibold"><ShieldCheck size={16} style={{ color: "var(--ip-teal)" }} /> What InboxPilot can access</h2>
+          <h2 className="flex items-center gap-1.5 font-semibold"><ShieldCheck size={16} style={{ color: "var(--ip-teal)" }} /> What InboxSatori can access</h2>
           <ul className="ip-muted mt-2 list-disc space-y-1 pl-5">
             <li><b>Read</b> (gmail.readonly): sync, read and search your mail. Required.</li>
-            <li><b>Organize</b> (gmail.modify, optional): labels, archive and read state, only when you approve or an Automatic rule you confirmed runs. InboxPilot never deletes mail and never moves anything to spam or trash.</li>
+            <li><b>Organize</b> (gmail.modify, optional): labels, archive and read state, only when you approve or an Automatic rule you confirmed runs. InboxSatori never deletes mail and never moves anything to spam or trash.</li>
             <li><b>Send</b> (gmail.send, optional): only after you review the exact message and press Send.</li>
-            <li>Tokens are encrypted on the server and never sent to your browser. Disconnecting revokes access with Google and deletes everything InboxPilot stored from that account.</li>
+            <li>Tokens are encrypted on the server and never sent to your browser. Disconnecting revokes access with Google and deletes everything InboxSatori stored from that account.</li>
           </ul>
         </section>
       </div>
@@ -127,7 +127,7 @@ function AccountRow({ a }: { a: Account }) {
           ) : (
             <button className="ip-btn ip-btn-sm" onClick={sync} disabled={busy}><RefreshCw size={13} className={busy ? "animate-spin" : ""} /> Sync now</button>
           )}
-          <button className="ip-btn ip-btn-sm ip-btn-danger" onClick={() => confirm(`Disconnect ${a.email}?\n\nInboxPilot will revoke its Google access and permanently delete every message, classification, task and follow-up it stored from this account. Your mailbox itself is not changed.`) && disconnect.mutate(undefined)}>Disconnect</button>
+          <button className="ip-btn ip-btn-sm ip-btn-danger" onClick={() => confirm(`Disconnect ${a.email}?\n\nInboxSatori will revoke its Google access and permanently delete every message, classification, task and follow-up it stored from this account. Your mailbox itself is not changed.`) && disconnect.mutate(undefined)}>Disconnect</button>
         </div>
       </div>
       {a.last_error && <p className="text-[12px]" style={{ color: "var(--ip-crit)" }}>{a.last_error}</p>}

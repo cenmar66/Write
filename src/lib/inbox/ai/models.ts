@@ -1,4 +1,4 @@
-// Model routing and cost table for InboxPilot. Prices are USD per million tokens,
+// Model routing and cost table for InboxSatori. Prices are USD per million tokens,
 // first-party API list prices as of 2026-10 (update here when they change).
 
 export type Tier = "fast" | "balanced" | "best";

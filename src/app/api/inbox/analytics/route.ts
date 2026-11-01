@@ -42,7 +42,7 @@ export async function GET(request: Request) {
       draftsCreated: (drafts as { count: number | null }).count ?? 0,
     });
     if (u.searchParams.get("format") === "csv") {
-      return new Response(toCsv(result.daily), { headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="inboxpilot-analytics-${from.toISOString().slice(0, 10)}-${to.toISOString().slice(0, 10)}.csv"` } });
+      return new Response(toCsv(result.daily), { headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="inboxsatori-analytics-${from.toISOString().slice(0, 10)}-${to.toISOString().slice(0, 10)}.csv"` } });
     }
     return result;
   });

@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import { Suspense } from "react";
 import { Wordmark } from "@/components/logo";
 import { explainAuthError } from "@/lib/auth-errors";
+import { isInboxHost } from "@/lib/inbox-host";
 import { isSatoriHost } from "@/lib/satori-host";
 import { runSetupCheck } from "@/lib/setup-check";
 import { SatoriMark } from "@/components/satori/shell";
@@ -57,9 +58,27 @@ async function SetupCheck({ searchParams }: { searchParams: SearchParams }) {
   );
 }
 
-/** Write.ai's welcome, or PromptSatori's on its own domain. */
+/** Write.ai's welcome, or PromptSatori's / InboxSatori's on their own domains. */
 async function Hero() {
   const h = await headers();
+  if (isInboxHost(h.get("x-forwarded-host") ?? h.get("host"))) {
+    return (
+      <>
+        <DocumentTitle title="Sign in · InboxSatori" />
+        <div className="mb-10 flex items-center justify-center gap-3">
+          {/* eslint-disable-next-line @next/next/no-img-element -- tiny static SVG mark */}
+          <img src="/inbox-icons/icon.svg" alt="" width={40} height={40} />
+          <span className="font-display text-3xl tracking-tight">InboxSatori</span>
+        </div>
+        <h1 className="text-center font-display text-5xl leading-[1.05] tracking-tight sm:text-6xl">
+          Your inbox,
+          <br />
+          <span className="text-gradient italic">working for you.</span>
+        </h1>
+        <p className="mx-auto mt-5 max-w-xs text-center text-muted">What matters first, what can wait, who&apos;s waiting on you. Welcome back.</p>
+      </>
+    );
+  }
   if (isSatoriHost(h.get("x-forwarded-host") ?? h.get("host"))) {
     return (
       <>

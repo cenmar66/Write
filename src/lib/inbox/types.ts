@@ -1,4 +1,4 @@
-// Shared InboxPilot types. Row shapes mirror supabase/migrations/0011_inboxpilot.sql.
+// Shared InboxSatori types. Row shapes mirror supabase/migrations/0012_inboxsatori.sql.
 
 export type AutomationMode = "observe" | "assisted" | "automatic";
 export type AiContentMode = "metadata" | "snippet" | "full";

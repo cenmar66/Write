@@ -1,4 +1,4 @@
-// InboxPilot end-to-end tests. They run against the dev server in local demo mode
+// InboxSatori end-to-end tests. They run against the dev server in local demo mode
 // (INBOX_LOCAL_DEMO=1: in-memory data, fake owner) with the simulated AI provider
 // (INBOX_SIMULATED_AI=1), using the synthetic demo mailbox. No Google, Supabase or AI
 // accounts are involved. Real Gmail behaviour is covered by mocked unit tests and the
@@ -15,7 +15,7 @@ async function reset(page: Page, opts: { demo?: boolean; ai?: boolean } = { demo
 }
 const desktopOnly = (name: string) => test.skip(name !== "desktop", "covered on desktop");
 
-test.describe("InboxPilot", () => {
+test.describe("InboxSatori", () => {
   test.beforeEach(async ({ page }) => {
     page.on("dialog", (d) => d.accept());
   });

@@ -43,7 +43,7 @@ export interface Rule {
 export const ACTION_CATALOG: Record<ActionKind, { label: string; scope: "app" | "provider"; reversible: boolean; destructive: boolean; needsValue?: "importance" | "category" | "days" | "label" }> = {
   set_importance: { label: "Set importance", scope: "app", reversible: true, destructive: false, needsValue: "importance" },
   set_category: { label: "Move to category", scope: "app", reversible: true, destructive: false, needsValue: "category" },
-  mark_done: { label: "Mark done in InboxPilot", scope: "app", reversible: true, destructive: false },
+  mark_done: { label: "Mark done in InboxSatori", scope: "app", reversible: true, destructive: false },
   snooze_days: { label: "Snooze for N days", scope: "app", reversible: true, destructive: false, needsValue: "days" },
   suppress_notifications: { label: "Don't notify me", scope: "app", reversible: true, destructive: false },
   suggest_task: { label: "Suggest a task", scope: "app", reversible: true, destructive: false },
@@ -133,7 +133,7 @@ export function planActions(rules: Rule[], m: RuleMessage, mode: AutomationMode,
       if (meta.scope === "provider") {
         if (!opts.canModifyProvider) {
           decision = mode === "observe" ? "suggest" : "blocked";
-          reason = "InboxPilot doesn't have permission to change this mailbox.";
+          reason = "InboxSatori doesn't have permission to change this mailbox.";
           if (decision === "suggest") reason = "Observe mode: shown as a suggestion only.";
         } else if (mode === "observe") {
           decision = "suggest";

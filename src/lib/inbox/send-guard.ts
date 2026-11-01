@@ -17,7 +17,7 @@ export interface Outgoing {
 }
 
 function secret() {
-  return process.env.ENCRYPTION_KEY || (process.env.NODE_ENV !== "production" ? "dev-only-inboxpilot-confirm" : "");
+  return process.env.ENCRYPTION_KEY || (process.env.NODE_ENV !== "production" ? "dev-only-inboxsatori-confirm" : "");
 }
 
 /** A token the review screen shows/returns; it's only valid for this exact message. */

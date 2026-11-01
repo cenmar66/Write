@@ -1,4 +1,4 @@
-/* InboxPilot design tokens. Calm neutrals, muted blue/teal accents; colour carries meaning. */
+/* InboxSatori design tokens. Calm neutrals, muted blue/teal accents; colour carries meaning. */
 /* In the components layer so Tailwind utilities (md:hidden, lg:flex, …) win over these. */
 @layer components {
 .ip-root {

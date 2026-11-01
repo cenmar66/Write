@@ -3,7 +3,7 @@ import { audit, body, handle, HttpError, myWorkspaces } from "@/lib/inbox/server
 
 const TABLES = ["ip_accounts", "ip_messages", "ip_classifications", "ip_classification_feedback", "ip_senders", "ip_categories", "ip_rules", "ip_rule_executions", "ip_tasks", "ip_followups", "ip_reminders", "ip_drafts", "ip_audit_events", "ip_ai_usage"];
 
-/** Export everything InboxPilot holds for you (JSON). Tokens are never exported. */
+/** Export everything InboxSatori holds for you (JSON). Tokens are never exported. */
 export async function GET() {
   return handle(async (ctx) => {
     const ws = await myWorkspaces(ctx);
@@ -17,11 +17,11 @@ export async function GET() {
     const { data: briefings } = await ctx.db.from("ip_briefings").select("*").eq("user_id", ctx.userId);
     Object.assign(out, { preferences: prefs, briefings });
     await audit(ctx.db, null, "user", "data.export");
-    return new Response(JSON.stringify(out, null, 2), { headers: { "Content-Type": "application/json", "Content-Disposition": `attachment; filename="inboxpilot-export-${new Date().toISOString().slice(0, 10)}.json"`, "Cache-Control": "no-store" } });
+    return new Response(JSON.stringify(out, null, 2), { headers: { "Content-Type": "application/json", "Content-Disposition": `attachment; filename="inboxsatori-export-${new Date().toISOString().slice(0, 10)}.json"`, "Cache-Control": "no-store" } });
   });
 }
 
-/** Permanently deletes all InboxPilot data you own, after revoking mailbox access. */
+/** Permanently deletes all InboxSatori data you own, after revoking mailbox access. */
 export async function DELETE(request: Request) {
   return handle(async (ctx) => {
     const b = await body<{ confirm?: string }>(request);

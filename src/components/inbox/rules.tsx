@@ -46,7 +46,7 @@ export function RulesPage() {
         </div>
         <p className="ip-muted text-[13px]">
           Rules are deterministic: the same email always gets the same result, and your rules always beat AI suggestions. Automation mode: <b>{mode === "observe" ? "Observe only" : mode === "assisted" ? "Assisted" : "Automatic"}</b>
-          {mode === "observe" ? " — rules organize mail inside InboxPilot; mailbox changes are only suggested." : mode === "assisted" ? " — mailbox changes wait for your approval." : " — confirmed, reversible mailbox changes run automatically."}
+          {mode === "observe" ? " — rules organize mail inside InboxSatori; mailbox changes are only suggested." : mode === "assisted" ? " — mailbox changes wait for your approval." : " — confirmed, reversible mailbox changes run automatically."}
         </p>
         <div className="flex gap-1" role="tablist">
           <button role="tab" className="ip-tab" aria-selected={tab === "rules"} onClick={() => setTab("rules")}>Rules</button>

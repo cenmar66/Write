@@ -1,4 +1,4 @@
-// Workspace access, preferences and small shared helpers for InboxPilot routes.
+// Workspace access, preferences and small shared helpers for InboxSatori routes.
 
 import type { Db, InboxCtx } from "../db";
 import { SYSTEM_CATEGORIES } from "../classify";
@@ -81,7 +81,7 @@ export async function handle<T>(fn: (ctx: InboxCtx) => Promise<T>): Promise<Resp
     return out instanceof Response ? out : Response.json(out, { headers: { "Cache-Control": "no-store" } });
   } catch (e) {
     if (e instanceof HttpError) return Response.json({ error: e.message }, { status: e.status });
-    console.error("InboxPilot route failed", e);
+    console.error("InboxSatori route failed", e);
     return Response.json({ error: e instanceof Error ? e.message : "Something went wrong." }, { status: 500 });
   }
 }

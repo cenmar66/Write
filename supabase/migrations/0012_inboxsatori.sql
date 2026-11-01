@@ -1,4 +1,4 @@
--- InboxPilot AI: an email command center that lives next to Write.ai at /inbox.
+-- InboxSatori: an email command center that lives next to Write.ai at /inbox.
 set client_min_messages = warning;
 -- Safe to run more than once. Never deletes data.
 --
@@ -160,7 +160,7 @@ create table if not exists public.ip_messages (
   priority_score integer not null default 0,
   snoozed_until timestamptz,
   snooze_until_reply boolean not null default false,
-  done_at timestamptz,                   -- handled in InboxPilot (doesn't touch Gmail)
+  done_at timestamptz,                   -- handled in InboxSatori (doesn't touch Gmail)
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (account_id, provider_message_id)
@@ -216,7 +216,7 @@ create table if not exists public.ip_senders (
   suppress_notifications boolean not null default false,
   screening text not null default 'unknown' check (screening in ('unknown', 'approved', 'screened_out')),
   default_category text,
-  blocked boolean not null default false,  -- InboxPilot hides; never deletes, never touches Gmail spam
+  blocked boolean not null default false,  -- InboxSatori hides; never deletes, never touches Gmail spam
   received_count integer not null default 0,
   replied_count integer not null default 0,
   sent_to_count integer not null default 0,
@@ -549,7 +549,7 @@ grant execute on function public.ip_is_member(uuid), public.ip_is_admin(uuid) to
 revoke all on public.ip_provider_tokens from anon, authenticated;
 
 -- ---------------------------------------------------------------- deletion
--- Deletes every InboxPilot row the caller owns (workspaces they own cascade everything).
+-- Deletes every InboxSatori row the caller owns (workspaces they own cascade everything).
 create or replace function public.ip_delete_my_data()
 returns void language plpgsql security invoker set search_path = '' as $$
 begin

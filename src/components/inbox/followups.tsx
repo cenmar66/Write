@@ -99,7 +99,7 @@ export function FollowupsPage() {
             <Skeleton rows={6} />
           ) : !items.length ? (
             <Empty icon={CheckSquare} title={doneTab ? "Nothing completed yet" : "All clear"}>
-              {tab === "they_owe" ? "When you ask someone for something and they don't answer, it shows up here." : "Create tasks from any email, or let InboxPilot detect requests and promises."}
+              {tab === "they_owe" ? "When you ask someone for something and they don't answer, it shows up here." : "Create tasks from any email, or let InboxSatori detect requests and promises."}
             </Empty>
           ) : (
             <table className="w-full text-[13px]">

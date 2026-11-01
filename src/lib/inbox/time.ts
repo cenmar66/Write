@@ -44,7 +44,7 @@ export function inFocus(focus: { enabled: boolean; windows: { days: number[]; st
   return focus.windows.some((w) => w.days.includes(p.wd) && hm >= w.start && hm < w.end);
 }
 
-/** Should a new message notify the user right now? Focus mode affects only InboxPilot notifications. */
+/** Should a new message notify the user right now? Focus mode affects only InboxSatori notifications. */
 export function shouldNotify(m: { importance: string; vip: boolean; suppressed: boolean }, focus: Parameters<typeof inFocus>[0] & { allow_vip: boolean; allow_critical: boolean }, tz: string, now = new Date()) {
   if (m.suppressed) return false;
   if (!inFocus(focus, tz, now)) return m.importance === "critical" || m.importance === "high";

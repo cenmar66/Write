@@ -59,7 +59,7 @@ export function HomePage() {
         {noAccounts && (
           <div className="ip-card flex flex-wrap items-center gap-3 p-4">
             <MailWarning size={18} style={{ color: "var(--ip-accent)" }} />
-            <p className="flex-1">No mailbox connected yet. Connect Gmail, or try InboxPilot with the clearly-labelled demo mailbox.</p>
+            <p className="flex-1">No mailbox connected yet. Connect Gmail, or try InboxSatori with the clearly-labelled demo mailbox.</p>
             <Link href="/inbox/accounts" className="ip-btn ip-btn-primary">Connect an account</Link>
           </div>
         )}

@@ -32,7 +32,7 @@ export function MessageReader({ id, onDone }: { id: string; onDone: () => void }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
-  // Opening a message marks it read inside InboxPilot (and in Gmail only if allowed).
+  // Opening a message marks it read inside InboxSatori (and in Gmail only if allowed).
   useEffect(() => {
     if (q.data?.message.is_unread) patch.mutate({ read: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -71,7 +71,7 @@ export function MessageReader({ id, onDone }: { id: string; onDone: () => void }
             <button className="ip-btn ip-btn-sm" onClick={() => patch.mutate({ snooze: "until_reply", snooze_until_reply: true }, { onSuccess: () => { toast({ text: "Hidden until someone replies (max 30 days).", tone: "ok" }); onDone(); } })} title="Hide until a reply arrives in this conversation">
               <AlarmClock size={13} /> Until reply
             </button>
-            <select className="ip-select !h-7 !w-auto text-[12px]" value={m.category ?? ""} onChange={(e) => patch.mutate({ correct: { field: "category", value: e.target.value } }, { onSuccess: () => toast({ text: "Moved. InboxPilot will remember this for similar mail.", tone: "ok" }) })} aria-label="Category">
+            <select className="ip-select !h-7 !w-auto text-[12px]" value={m.category ?? ""} onChange={(e) => patch.mutate({ correct: { field: "category", value: e.target.value } }, { onSuccess: () => toast({ text: "Moved. InboxSatori will remember this for similar mail.", tone: "ok" }) })} aria-label="Category">
               {[...new Map(boot.categories.filter((c) => c.workspace_id === m.workspace_id && !c.hidden).map((c) => [c.key, c])).values()].map((c) => (
                 <option key={c.key} value={c.key}>{c.name}</option>
               ))}
@@ -103,7 +103,7 @@ export function MessageReader({ id, onDone }: { id: string; onDone: () => void }
           )}
           {m.c?.injection_flag && (
             <div className="rounded-xl border p-3 text-[13px] ip-line" style={{ background: "var(--ip-warn-soft)", color: "var(--ip-warn)" }} role="note">
-              This message contains text that tries to give instructions to AI tools. InboxPilot treats email content as plain data: it can&apos;t make the AI send, forward or delete anything.
+              This message contains text that tries to give instructions to AI tools. InboxSatori treats email content as plain data: it can&apos;t make the AI send, forward or delete anything.
             </div>
           )}
 

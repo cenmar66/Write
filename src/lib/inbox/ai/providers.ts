@@ -1,4 +1,4 @@
-// Provider adapters for InboxPilot's AI calls. Each returns schema-validated JSON plus
+// Provider adapters for InboxSatori's AI calls. Each returns schema-validated JSON plus
 // token usage. Nothing here has tools: the model can only answer.
 
 import Anthropic from "@anthropic-ai/sdk";

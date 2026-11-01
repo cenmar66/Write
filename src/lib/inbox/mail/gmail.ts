@@ -169,7 +169,7 @@ async function gapi<T>(admin: Db, accountId: string, path: string, init: Request
     if (r.status === 429 || r.status >= 500 || (r.status === 403 && /rateLimit|userRateLimit/i.test(await r.clone().text()))) {
       const ra = Number(r.headers.get("retry-after"));
       const wait = Number.isFinite(ra) && ra > 0 ? ra * 1000 : 500 * 2 ** attempt + Math.random() * 250;
-      if (attempt === 3) throw new ProviderError("Gmail is rate-limiting requests. InboxPilot will retry later.", "rate_limit", wait);
+      if (attempt === 3) throw new ProviderError("Gmail is rate-limiting requests. InboxSatori will retry later.", "rate_limit", wait);
       await sleep(Math.min(wait, 8000));
       continue;
     }
@@ -269,12 +269,12 @@ export function gmailProvider(deps: ProviderDeps): MailProvider {
       return (r.messages ?? []).map((m) => m.id);
     },
     async modify(acc, id, change) {
-      if (!capabilitiesFromScopes(acc.scopes).modify) throw new ProviderError("InboxPilot doesn't have permission to organize this mailbox.", "permission");
-      if ([...(change.add ?? []), ...(change.remove ?? [])].some((l) => l === "TRASH" || l === "SPAM")) throw new ProviderError("InboxPilot never trashes or spams messages.", "permission");
+      if (!capabilitiesFromScopes(acc.scopes).modify) throw new ProviderError("InboxSatori doesn't have permission to organize this mailbox.", "permission");
+      if ([...(change.add ?? []), ...(change.remove ?? [])].some((l) => l === "TRASH" || l === "SPAM")) throw new ProviderError("InboxSatori never trashes or spams messages.", "permission");
       await gapi(admin(), acc.id, `messages/${id}/modify`, { method: "POST", body: JSON.stringify({ addLabelIds: change.add ?? [], removeLabelIds: change.remove ?? [] }) });
     },
     async ensureLabel(acc, name) {
-      const clean = `InboxPilot/${name.replace(/[^\w &-]/g, "").slice(0, 40)}`;
+      const clean = `InboxSatori/${name.replace(/[^\w &-]/g, "").slice(0, 40)}`;
       const list = await gapi<{ labels?: { id: string; name: string }[] }>(admin(), acc.id, "labels");
       const hit = list.labels?.find((l) => l.name === clean);
       if (hit) return hit.id;

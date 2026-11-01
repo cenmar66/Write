@@ -43,7 +43,7 @@ export async function PATCH(request: Request, { params }: Ctx) {
       if (t.external_refs?.canvas) return { ok: true, canvas: t.external_refs.canvas, already: true };
       const id = randomUUID();
       const today = new Date().toISOString().slice(0, 10);
-      const { error } = await ctx.db.from("canvas_tasks").insert({ id, section: "work", title: t.title, notes: `${t.description}\n\nFrom InboxPilot${t.source_ref ? `: ${t.source_ref.subject}` : ""}`.trim(), priority: t.priority === "urgent" ? 3 : t.priority === "high" ? 2 : 0, due_date: t.due_date, origin_date: today, source: "inboxpilot" });
+      const { error } = await ctx.db.from("canvas_tasks").insert({ id, section: "work", title: t.title, notes: `${t.description}\n\nFrom InboxSatori${t.source_ref ? `: ${t.source_ref.subject}` : ""}`.trim(), priority: t.priority === "urgent" ? 3 : t.priority === "high" ? 2 : 0, due_date: t.due_date, origin_date: today, source: "inboxsatori" });
       if (error) throw new HttpError(502, `Couldn't add it to The Daily Canvas: ${error.message}`);
       patch.external_refs = { ...(t.external_refs ?? {}), canvas: id };
     }

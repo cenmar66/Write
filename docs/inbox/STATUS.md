@@ -1,6 +1,6 @@
-# InboxPilot — status
+# InboxSatori — status
 
-Updated: 2026-10-31. Branch: `claude/modest-mayer-s6njs0`.
+Updated: 2026-11-01 (renamed InboxPilot → InboxSatori; inboxsatori.com support; merged main with PromptSatori). Branch: `claude/modest-mayer-s6njs0`.
 
 **Current phase:** Phases 1–5 built; Phase 6 mostly built; Phase 7 designed, partly scaffolded. Everything below is tested against synthetic data and a mocked Google API. **Nothing has run against a live Gmail account yet** (no OAuth client/credentials were available in the build environment).
 
@@ -42,9 +42,9 @@ Updated: 2026-10-31. Branch: `claude/modest-mayer-s6njs0`.
 |---|---|
 | `npm run typecheck` | ✅ clean |
 | `npm run lint` | ✅ clean (whole repo) |
-| `npm test` (Vitest, whole repo) | ✅ 126 passed, of which 67 are InboxPilot (parse, classify, deadlines, rules, follow-ups, safety, send guard, briefing, analytics, time, search, Gmail OAuth/tokens with mocked Google, sync pipeline, jobs, AI-can't-command, memory-DB fidelity) |
-| `npm run test:sql` (real Postgres) | ✅ InboxPilot: tenant isolation, token lockout, dedupe, append-only audit, entitlement self-grant blocked, job claim/retry/dead-letter, disconnect cascade, delete-my-data |
-| Playwright InboxPilot (desktop + iPhone, Chromium) | ✅ 14 passed |
+| `npm test` (Vitest, whole repo) | ✅ 126 passed, of which 67 are InboxSatori (parse, classify, deadlines, rules, follow-ups, safety, send guard, briefing, analytics, time, search, Gmail OAuth/tokens with mocked Google, sync pipeline, jobs, AI-can't-command, memory-DB fidelity) |
+| `npm run test:sql` (real Postgres) | ✅ InboxSatori: tenant isolation, token lockout, dedupe, append-only audit, entitlement self-grant blocked, job claim/retry/dead-letter, disconnect cascade, delete-my-data |
+| Playwright InboxSatori (desktop + iPhone, Chromium) | ✅ 14 passed |
 | Full Playwright suite (all specs, 4 device profiles) | ✅ 46 passed, 0 failed, 106 skipped by design |
 | `next build` | ✅ |
 | `npm audit --omit=dev --audit-level=high` | ✅ 0 vulnerabilities |
@@ -59,7 +59,7 @@ Updated: 2026-10-31. Branch: `claude/modest-mayer-s6njs0`.
 - Local demo mode keeps data in server memory; it resets on restart.
 
 ## Pending external dependencies (need you)
-1. Run `supabase/migrations/0011_inboxpilot.sql`.
+1. Run `supabase/migrations/0012_inboxsatori.sql`.
 2. Google Cloud: enable Gmail API, add scopes and the redirect URI `https://YOUR-DOMAIN/api/inbox/gmail/callback` (SETUP.md §3).
 3. Vercel env: `SUPABASE_SECRET_KEY`, `CRON_SECRET` (plus existing `ENCRYPTION_KEY`, `GOOGLE_CLIENT_ID/SECRET`, `ANTHROPIC_API_KEY`).
 4. Decide: keep the OAuth app in Testing (weekly reconnect) or publish unverified for personal use.

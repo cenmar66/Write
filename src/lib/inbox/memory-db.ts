@@ -1,4 +1,4 @@
-// In-memory stand-in for the parts of supabase-js InboxPilot uses. Used for:
+// In-memory stand-in for the parts of supabase-js InboxSatori uses. Used for:
 //  * local demo mode (INBOX_LOCAL_DEMO=1, development only, never in production builds)
 //  * integration tests of the sync → classify → rules → follow-ups → briefing pipeline.
 // It mirrors the SQL schema's defaults, unique keys and cascades closely enough for

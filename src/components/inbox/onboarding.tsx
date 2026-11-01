@@ -56,7 +56,7 @@ function Wizard({ d }: { d: Bootstrap }) {
         return (
           <>
             <h1 className="text-[24px] font-bold tracking-tight">Your inbox should work for you.</h1>
-            <p className="ip-muted">InboxPilot sorts what matters from what can wait, tracks who&apos;s waiting on whom, and drafts replies you approve. It starts in <b>Observe</b> mode: nothing in your mailbox changes until you say so.</p>
+            <p className="ip-muted">InboxSatori sorts what matters from what can wait, tracks who&apos;s waiting on whom, and drafts replies you approve. It starts in <b>Observe</b> mode: nothing in your mailbox changes until you say so.</p>
             <p className="ip-muted text-[13px]">Signed in as {d?.user.email}.</p>
             <Next onClick={() => go(1)} />
           </>
@@ -105,7 +105,7 @@ function Wizard({ d }: { d: Bootstrap }) {
       case "Permissions":
         return (
           <>
-            <h2 className="flex items-center gap-2 text-[19px] font-semibold"><ShieldCheck size={20} style={{ color: "var(--ip-teal)" }} /> What InboxPilot does with access</h2>
+            <h2 className="flex items-center gap-2 text-[19px] font-semibold"><ShieldCheck size={20} style={{ color: "var(--ip-teal)" }} /> What InboxSatori does with access</h2>
             <ul className="space-y-2 text-[13.5px]">
               <li>• <b>Reads</b> your mail to classify it, track conversations and build briefings. Message text is kept for 14 days by default (adjustable, or not at all).</li>
               <li>• <b>Never changes your mailbox</b> in Observe mode. Organizing (archive, labels) needs an extra permission and your approval.</li>
@@ -134,7 +134,7 @@ function Wizard({ d }: { d: Bootstrap }) {
         return (
           <>
             <h2 className="text-[19px] font-semibold">How organized do you like it?</h2>
-            <p className="ip-muted text-[13px]">InboxPilot uses virtual categories on top of your inbox; it doesn&apos;t create Gmail folders.</p>
+            <p className="ip-muted text-[13px]">InboxSatori uses virtual categories on top of your inbox; it doesn&apos;t create Gmail folders.</p>
             {([["minimal", "Minimal", "Priority, Needs attention and Everything else"], ["balanced", "Balanced (recommended)", "Adds Newsletters, Notifications, Receipts, Read Later"], ["detailed", "Detailed", "All categories, including Personal and To Do"]] as const).map(([k, l, s]) => (
               <label key={k} className="flex gap-3 rounded-xl border p-3 ip-line" style={style === k ? { borderColor: "var(--ip-accent)" } : undefined}>
                 <input type="radio" checked={style === k} onChange={() => setStyle(k)} />
@@ -155,7 +155,7 @@ function Wizard({ d }: { d: Bootstrap }) {
         return (
           <>
             <h2 className="text-[19px] font-semibold">AI permissions</h2>
-            <p className="ip-muted text-[13px]">InboxPilot works without AI (rules-based sorting, tracking and briefings). Turning AI on adds summaries, better handling of unclear messages, drafting and the assistant.</p>
+            <p className="ip-muted text-[13px]">InboxSatori works without AI (rules-based sorting, tracking and briefings). Turning AI on adds summaries, better handling of unclear messages, drafting and the assistant.</p>
             <label className="flex gap-3 text-[13.5px]"><input type="checkbox" checked={ai.ai_external} onChange={(e) => setAi({ ...ai, ai_external: e.target.checked })} /> <span>Allow AI processing with {d?.server.ai.provider ?? "the configured AI provider"}<span className="ip-muted block text-[12.5px]">Only the parts you allow below are sent, only when needed. Email content is treated as data, never as instructions.</span></span></label>
             <select className="ip-select" value={ai.ai_content} onChange={(e) => setAi({ ...ai, ai_content: e.target.value as "metadata" })} disabled={!ai.ai_external}>
               <option value="metadata">Headers only (sender, subject, date)</option>
@@ -209,7 +209,7 @@ function Wizard({ d }: { d: Bootstrap }) {
         return (
           <>
             <h2 className="text-[19px] font-semibold">Recommended rules</h2>
-            <p className="ip-muted text-[13px]">These organize mail inside InboxPilot only. The number shows how many recent messages each would affect. Untick anything you don&apos;t want.</p>
+            <p className="ip-muted text-[13px]">These organize mail inside InboxSatori only. The number shows how many recent messages each would affect. Untick anything you don&apos;t want.</p>
             {templates.map((t, i) => (
               <label key={t.rule.name} className="flex items-center gap-3 rounded-xl border p-3 text-[13.5px] ip-line">
                 <input type="checkbox" checked={t.on} onChange={(e) => setTemplates((ts) => ts.map((x, j) => (j === i ? { ...x, on: e.target.checked } : x)))} />
@@ -227,7 +227,7 @@ function Wizard({ d }: { d: Bootstrap }) {
         return (
           <>
             <h2 className="text-[22px] font-bold">You&apos;re set.</h2>
-            <p className="ip-muted">Your dashboard shows what needs attention, who&apos;s waiting on you, and what can wait. Correct any classification and InboxPilot learns, within this workspace only.</p>
+            <p className="ip-muted">Your dashboard shows what needs attention, who&apos;s waiting on you, and what can wait. Correct any classification and InboxSatori learns, within this workspace only.</p>
             <button className="ip-btn ip-btn-primary w-fit" onClick={() => { void qc.invalidateQueries(); router.push("/inbox"); }}>Open my dashboard <ArrowRight size={15} /></button>
           </>
         );
@@ -237,7 +237,7 @@ function Wizard({ d }: { d: Bootstrap }) {
   return (
     <div className="ip-scroll h-full">
       <div className="mx-auto flex max-w-xl flex-col gap-4 px-5 py-8">
-        <div className="flex items-center gap-2"><Logo size={26} /><span className="font-bold">InboxPilot</span><span className="ip-muted ml-auto text-[12px]">Step {step + 1} of {STEPS.length}</span></div>
+        <div className="flex items-center gap-2"><Logo size={26} /><span className="font-bold">InboxSatori</span><span className="ip-muted ml-auto text-[12px]">Step {step + 1} of {STEPS.length}</span></div>
         <div className="h-1 overflow-hidden rounded-full" style={{ background: "var(--ip-line)" }}><div className="h-full transition-all" style={{ width: `${((step + 1) / STEPS.length) * 100}%`, background: "var(--ip-accent)" }} /></div>
         <div className="ip-card ip-fade-in flex flex-col gap-3 p-5" key={step}>{body()}</div>
       </div>

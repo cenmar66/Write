@@ -1,4 +1,4 @@
--- Write.ai: the whole database in one go (updates 0001 to 0011; 0010 is The Daily Canvas, 0011 is PromptSatori + InboxPilot).
+-- Write.ai: the whole database in one go (updates 0001 to 0012; 0010 is The Daily Canvas, 0011 is PromptSatori, 0012 is InboxSatori).
 -- Safe to run any number of times: it only adds what's missing and never deletes your data.
 -- Paste all of it into Supabase > SQL Editor > New query, then click Run.
 
@@ -747,7 +747,7 @@ begin
   end loop;
 end $$;
 
--- 0011: InboxPilot AI ------------------------------------------------------------
+-- 0012: InboxSatori ---------------------------------------------------------------
 -- Safe to run more than once. Never deletes data.
 --
 -- Design notes (full write-up: docs/inbox/DATABASE.md)
@@ -908,7 +908,7 @@ create table if not exists public.ip_messages (
   priority_score integer not null default 0,
   snoozed_until timestamptz,
   snooze_until_reply boolean not null default false,
-  done_at timestamptz,                   -- handled in InboxPilot (doesn't touch Gmail)
+  done_at timestamptz,                   -- handled in InboxSatori (doesn't touch Gmail)
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (account_id, provider_message_id)
@@ -964,7 +964,7 @@ create table if not exists public.ip_senders (
   suppress_notifications boolean not null default false,
   screening text not null default 'unknown' check (screening in ('unknown', 'approved', 'screened_out')),
   default_category text,
-  blocked boolean not null default false,  -- InboxPilot hides; never deletes, never touches Gmail spam
+  blocked boolean not null default false,  -- InboxSatori hides; never deletes, never touches Gmail spam
   received_count integer not null default 0,
   replied_count integer not null default 0,
   sent_to_count integer not null default 0,
@@ -1297,7 +1297,7 @@ grant execute on function public.ip_is_member(uuid), public.ip_is_admin(uuid) to
 revoke all on public.ip_provider_tokens from anon, authenticated;
 
 -- ---------------------------------------------------------------- deletion
--- Deletes every InboxPilot row the caller owns (workspaces they own cascade everything).
+-- Deletes every InboxSatori row the caller owns (workspaces they own cascade everything).
 create or replace function public.ip_delete_my_data()
 returns void language plpgsql security invoker set search_path = '' as $$
 begin

@@ -46,7 +46,7 @@ export async function POST(request: Request) {
     if (b.op === "approve") {
       if (ex.status !== "suggested") throw new HttpError(409, "Already handled.");
       let undo: Record<string, unknown> | null = null;
-      if (action.kind.startsWith("gmail_") && !provider.capabilities(acc as AccountRow).modify) throw new HttpError(403, "InboxPilot doesn't have permission to organize this mailbox. Grant it in Connected Accounts.");
+      if (action.kind.startsWith("gmail_") && !provider.capabilities(acc as AccountRow).modify) throw new HttpError(403, "InboxSatori doesn't have permission to organize this mailbox. Grant it in Connected Accounts.");
       if (action.kind === "gmail_archive") {
         await provider.modify(acc as AccountRow, m.provider_message_id, { remove: ["INBOX"] });
         await ctx.db.from("ip_messages").update({ in_inbox: false }).eq("id", m.id);

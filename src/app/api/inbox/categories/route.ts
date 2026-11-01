@@ -1,6 +1,6 @@
 import { audit, body, handle, HttpError, requireWorkspace } from "@/lib/inbox/server/workspace";
 
-/** Custom virtual categories (InboxPilot only; nothing is created in Gmail). */
+/** Custom virtual categories (InboxSatori only; nothing is created in Gmail). */
 export async function POST(request: Request) {
   return handle(async (ctx) => {
     const b = await body<{ ws?: string; name?: string; icon?: string }>(request);

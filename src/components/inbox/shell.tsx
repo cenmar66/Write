@@ -89,9 +89,9 @@ function Frame({ children }: { children: React.ReactNode }) {
     return (
       <div className="grid h-full place-items-center p-6 text-center">
         <div>
-          <p className="font-semibold">InboxPilot couldn&apos;t load.</p>
+          <p className="font-semibold">InboxSatori couldn&apos;t load.</p>
           <p className="ip-muted mt-1 text-[13px]">{boot.error.message}</p>
-          <p className="ip-muted mt-3 text-[12px]">If this is a new install, run supabase/migrations/0011_inboxpilot.sql (see docs/inbox/SETUP.md).</p>
+          <p className="ip-muted mt-3 text-[12px]">If this is a new install, run supabase/migrations/0012_inboxsatori.sql (see docs/inbox/SETUP.md).</p>
         </div>
       </div>
     );
@@ -149,11 +149,11 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
       <nav
         className={`fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r transition-transform md:static md:translate-x-0 ip-line ${open ? "translate-x-0" : "-translate-x-full"}`}
         style={{ background: "var(--ip-surface)" }}
-        aria-label="InboxPilot"
+        aria-label="InboxSatori"
       >
         <div className="flex items-center gap-2 px-4 pt-[max(16px,env(safe-area-inset-top))] pb-3">
           <Logo />
-          <span className="text-[16px] font-bold tracking-tight">InboxPilot</span>
+          <span className="text-[16px] font-bold tracking-tight">InboxSatori</span>
           <button className="ip-btn ip-btn-ghost ip-btn-sm ml-auto md:hidden" onClick={onClose} aria-label="Close menu">
             <X size={16} />
           </button>

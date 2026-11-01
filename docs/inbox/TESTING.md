@@ -7,7 +7,7 @@ npm run typecheck && npm run lint
 npm test                       # Vitest (unit + integration)
 npm run test:sql               # migrations on real Postgres + RLS/behaviour tests
 npx playwright test tests/e2e/inbox.spec.ts --project=desktop --project=iphone
-npm run test:e2e               # everything (Daily Canvas + InboxPilot, 4 device profiles)
+npm run test:e2e               # everything (Daily Canvas + InboxSatori, 4 device profiles)
 ```
 
 End-to-end tests start `next dev` with `INBOX_LOCAL_DEMO=1 INBOX_SIMULATED_AI=1` (in-memory data, simulated AI, demo mailbox) — no Google, Supabase or AI account is touched. Don't edit `.env*` files while they run: Next reloads every page when env files change.
@@ -17,8 +17,8 @@ End-to-end tests start `next dev` with `INBOX_LOCAL_DEMO=1 INBOX_SIMULATED_AI=1`
 | Suite | Result |
 |---|---|
 | Typecheck, lint (whole repo) | clean |
-| Vitest, whole repo | 126 passed (67 InboxPilot) |
-| SQL tests (Postgres 16) | passed (Daily Canvas + InboxPilot) |
+| Vitest, whole repo | 126 passed (67 InboxSatori) |
+| SQL tests (Postgres 16) | passed (Daily Canvas + InboxSatori) |
 | Playwright, all specs, 4 profiles | 46 passed, 0 failed, 106 skipped by design (device-specific tests) |
 | `next build` | passed |
 

@@ -22,7 +22,7 @@ export function SendersPage() {
     upd.mutate({ id: s.id, body }, {
       onSuccess: () => toast({ text: "Saved.", tone: "ok" }),
       onError: (e) => {
-        if (e instanceof ApiError && e.status === 409 && confirm(e.message)) upd.mutate({ id: s.id, body: { ...body, confirm: true } }, { onSuccess: (r) => toast({ text: `Done. ${r.affected} message(s) re-filed in InboxPilot.`, tone: "ok" }) });
+        if (e instanceof ApiError && e.status === 409 && confirm(e.message)) upd.mutate({ id: s.id, body: { ...body, confirm: true } }, { onSuccess: (r) => toast({ text: `Done. ${r.affected} message(s) re-filed in InboxSatori.`, tone: "ok" }) });
         else if (!(e instanceof ApiError && e.status === 409)) toast({ text: errText(e), tone: "error" });
       },
     });
@@ -32,7 +32,7 @@ export function SendersPage() {
     <div className="ip-scroll h-full">
       <div className="mx-auto max-w-5xl space-y-4 px-4 py-6 md:px-8">
         <h1 className="text-[22px] font-bold tracking-tight">Sender Control Center</h1>
-        <p className="ip-muted text-[13px]">Decide how InboxPilot treats each sender. Hiding or screening never deletes mail and never touches Gmail&apos;s spam folder. InboxPilot never opens unsubscribe links for you.</p>
+        <p className="ip-muted text-[13px]">Decide how InboxSatori treats each sender. Hiding or screening never deletes mail and never touches Gmail&apos;s spam folder. InboxSatori never opens unsubscribe links for you.</p>
         <div className="flex flex-wrap gap-2">
           <div className="relative min-w-52 flex-1">
             <Search size={14} className="ip-muted absolute left-3 top-1/2 -translate-y-1/2" />

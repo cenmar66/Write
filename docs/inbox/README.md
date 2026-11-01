@@ -1,8 +1,8 @@
-# InboxPilot AI
+# InboxSatori
 
 **“Your inbox should work for you, not the other way around.”**
 
-InboxPilot is an email command center that lives inside Write.ai at **`/inbox`**. It sorts what matters from what can wait, tracks who owes whom a reply, turns emails into tasks, writes a grounded daily briefing, and drafts replies that you review before anything is sent.
+InboxSatori is an email command center with its own home at **inboxsatori.com** (it also opens at `/inbox` on your Write.ai address). It sorts what matters from what can wait, tracks who owes whom a reply, turns emails into tasks, writes a grounded daily briefing, and drafts replies that you review before anything is sent.
 
 It starts in **Observe** mode: nothing in your mailbox changes until you say so.
 
@@ -28,7 +28,7 @@ Open `http://localhost:3000/inbox`, go through onboarding and choose **Use the d
 
 ## Use it for real
 
-1. Run `supabase/migrations/0011_inboxpilot.sql` in Supabase (or the whole `supabase/setup-all.sql`).
+1. Run `supabase/migrations/0012_inboxsatori.sql` in Supabase (or the whole `supabase/setup-all.sql`).
 2. Set the environment variables in [SETUP.md](SETUP.md) (`GOOGLE_CLIENT_ID/SECRET`, `ENCRYPTION_KEY`, `SUPABASE_SECRET_KEY`, `CRON_SECRET`, `ANTHROPIC_API_KEY`).
 3. Add the Gmail redirect URI and scopes to your Google OAuth client.
 4. Deploy, open `/inbox`, follow onboarding, connect Gmail.

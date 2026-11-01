@@ -4,7 +4,7 @@ Everything Write.ai already needs (Supabase URL/key, `ALLOWED_EMAIL`, `ANTHROPIC
 
 ## 1. Database
 
-Supabase → SQL Editor → run `supabase/migrations/0011_inboxpilot.sql` (or paste all of `supabase/setup-all.sql`; it's safe to re-run).
+Supabase → SQL Editor → run `supabase/migrations/0012_inboxsatori.sql` (or paste all of `supabase/setup-all.sql`; it's safe to re-run).
 
 ## 2. Environment variables (Vercel → Settings → Environment Variables)
 
@@ -32,7 +32,16 @@ Development only (ignored in production builds): `INBOX_LOCAL_DEMO=1` (in-memory
 
 `vercel.json` schedules `/api/cron/inbox` every 10 minutes (sync each account, due briefings, retention pruning). Sub-daily cron schedules need a Vercel Pro plan. Without `CRON_SECRET` nothing runs in the background; “Sync now” and “Brief me now” still work.
 
-## 5. First run
+## 5. Its own domain: inboxsatori.com
+
+InboxSatori runs from the same code and deployment as Write.ai. On **inboxsatori.com** the whole site is InboxSatori: `/` is the dashboard, short addresses work (`/mail`, `/brief`, `/followups`), the sign-in page carries InboxSatori's name, and Write.ai's pages never appear. (Override the domain list with `INBOX_HOSTS` if needed.)
+
+1. **Vercel** → your Write.ai project → **Settings → Domains** → add `inboxsatori.com` and `www.inboxsatori.com`, then set the DNS records Vercel shows at your registrar.
+2. **Supabase** → **Authentication → URL Configuration → Redirect URLs** → add `https://inboxsatori.com/auth/callback` (and the `www.` version).
+3. **Google Cloud** → OAuth client → **Authorized redirect URIs** → add `https://inboxsatori.com/api/inbox/gmail/callback`. If you'll ever sign in with Google on this domain, also make sure the Supabase callback is listed (it already is for Write.ai).
+4. Connect Gmail **from the domain you'll use**: the OAuth redirect follows the address in your browser.
+
+## 6. First run
 
 Deploy → open `/inbox` → onboarding: workspace → Connect Gmail → permissions → VIPs → organization style → AI permissions → briefing time → initial analysis → recommended rules → dashboard.
 

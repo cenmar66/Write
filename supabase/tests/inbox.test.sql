@@ -1,4 +1,4 @@
--- Behaviour tests for 0011_inboxpilot.sql. Run with: npm run test:sql
+-- Behaviour tests for 0012_inboxsatori.sql. Run with: npm run test:sql
 \set ON_ERROR_STOP 1
 insert into auth.users values ('a1111111-1111-1111-1111-111111111111', 'alice@example.com'),
                               ('b2222222-2222-2222-2222-222222222222', 'bob@example.com')

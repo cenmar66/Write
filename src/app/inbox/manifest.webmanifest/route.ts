@@ -1,9 +1,9 @@
-// InboxPilot installs as its own app (PWA), scoped to /inbox.
+// InboxSatori installs as its own app (PWA), scoped to /inbox.
 export function GET() {
   const manifest = {
     id: "/inbox",
-    name: "InboxPilot",
-    short_name: "InboxPilot",
+    name: "InboxSatori",
+    short_name: "InboxSatori",
     description: "Your inbox should work for you, not the other way around.",
     start_url: "/inbox",
     scope: "/inbox",

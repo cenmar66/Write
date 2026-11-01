@@ -1,4 +1,4 @@
-// Request context for InboxPilot server code: who is signed in, and which database
+// Request context for InboxSatori server code: who is signed in, and which database
 // handle to use. Production: the user's Supabase session (row-level security applies)
 // plus a service-role handle used ONLY for encrypted provider tokens and the scheduler.
 // Local demo (development only): an in-memory database with a fake owner.

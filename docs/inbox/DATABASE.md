@@ -1,6 +1,6 @@
 # Database
 
-Migration: `supabase/migrations/0011_inboxpilot.sql` (also appended to `supabase/setup-all.sql`). Re-runnable, never deletes data. Tested by `npm run test:sql` (applied twice, then behaviour tests).
+Migration: `supabase/migrations/0012_inboxsatori.sql` (also appended to `supabase/setup-all.sql`). Re-runnable, never deletes data. Tested by `npm run test:sql` (applied twice, then behaviour tests).
 
 ## Tenancy
 

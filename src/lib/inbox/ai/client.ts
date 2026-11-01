@@ -1,4 +1,4 @@
-// The one door every InboxPilot AI call goes through:
+// The one door every InboxSatori call goes through:
 //  1. consent: the user must have allowed external AI processing,
 //  2. quota: monthly request cap per user,
 //  3. routing: cheapest adequate model for the feature,
@@ -97,7 +97,7 @@ export async function aiJson<T>(
     await record({ input: out.inputTokens, output: out.outputTokens, cached: false, ok: true, modelId: out.model });
     return { ok: true, data: out.data as T, model: out.model, cached: false };
   } catch (e) {
-    console.error(`InboxPilot AI ${feature} failed`, e);
+    console.error(`InboxSatori ${feature} failed`, e);
     await record({ input: 0, output: 0, cached: false, ok: false, modelId: model.id });
     return { ok: false, reason: describeAiError(e) };
   }

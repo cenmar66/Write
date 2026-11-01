@@ -2,7 +2,7 @@ import { audit, body, handle, HttpError, requireWorkspace } from "@/lib/inbox/se
 
 /**
  * Sender policies: VIP, always prioritize, notifications, newsletter group, default
- * category, screening, block (hide in InboxPilot only — never deletes, never touches
+ * category, screening, block (hide in InboxSatori only — never deletes, never touches
  * Gmail spam). "apply_to_existing" re-files past mail and needs confirmation.
  */
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -25,7 +25,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (b.apply_to_existing && (b.default_category || b.blocked)) {
       const { count } = await ctx.db.from("ip_messages").select("id", { count: "exact", head: true }).eq("workspace_id", s.workspace_id).eq("from_email", s.email).eq("is_sent", false);
       affected = count ?? 0;
-      if (!b.confirm) return Response.json({ needsConfirmation: `This will re-file ${affected} existing message(s) from ${s.email} inside InboxPilot. Your mailbox isn't changed.`, affected }, { status: 409 });
+      if (!b.confirm) return Response.json({ needsConfirmation: `This will re-file ${affected} existing message(s) from ${s.email} inside InboxSatori. Your mailbox isn't changed.`, affected }, { status: 409 });
       const mp: Record<string, unknown> = {};
       if (b.default_category) mp.category = b.default_category;
       if (b.blocked) mp.done_at = new Date().toISOString();

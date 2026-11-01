@@ -1,4 +1,4 @@
-// DEMO MAILBOX — synthetic messages for trying InboxPilot without connecting Gmail.
+// DEMO MAILBOX — synthetic messages for trying InboxSatori without connecting Gmail.
 // Every address uses the reserved .test domain, every workspace holding a demo account
 // is flagged is_demo and labelled "Demo data" in the UI, and nothing here touches the
 // network: "sending" from a demo account only records the message locally.

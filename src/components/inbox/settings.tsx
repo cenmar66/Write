@@ -34,7 +34,7 @@ export function SettingsPage() {
         </div>
 
         <Section id="privacy" title="Privacy & AI">
-          <Toggle checked={p.ai_external} onChange={(v) => put({ ai_external: v })} label="Allow AI processing with an external provider" hint="Off: InboxPilot still classifies, tracks follow-ups and builds briefings with on-server rules. On: uncertain messages, summaries, drafts and the assistant may be sent to the AI provider below. Providers' API terms say API data isn't used to train their models; InboxPilot never trains shared models on your mail." />
+          <Toggle checked={p.ai_external} onChange={(v) => put({ ai_external: v })} label="Allow AI processing with an external provider" hint="Off: InboxSatori still classifies, tracks follow-ups and builds briefings with on-server rules. On: uncertain messages, summaries, drafts and the assistant may be sent to the AI provider below. Providers' API terms say API data isn't used to train their models; InboxSatori never trains shared models on your mail." />
           <Row label="What the AI may read (default)">
             <select className="ip-select" value={p.ai_content} onChange={(e) => put({ ai_content: e.target.value as Preferences["ai_content"] })}>
               <option value="metadata">Headers only: sender, subject, date (metadata-first)</option>
@@ -64,7 +64,7 @@ export function SettingsPage() {
               <option value={90}>90 days</option>
             </select>
           </Row>
-          <p className="ip-muted text-[12px]">Headers and Gmail&apos;s preview are kept so the inbox works; full text is deleted after this period. “Don&apos;t store” plus “Headers only” above is metadata-first mode: InboxPilot then syncs headers only.</p>
+          <p className="ip-muted text-[12px]">Headers and Gmail&apos;s preview are kept so the inbox works; full text is deleted after this period. “Don&apos;t store” plus “Headers only” above is metadata-first mode: InboxSatori then syncs headers only.</p>
         </Section>
 
         <Section id="automation" title="Automation mode">
@@ -96,7 +96,7 @@ export function SettingsPage() {
         </Section>
 
         <Section id="focus" title="Focus mode">
-          <Toggle checked={p.focus.enabled} onChange={(v) => put({ focus: { ...p.focus, enabled: v } })} label="Protect focus hours" hint="During these hours InboxPilot only highlights VIP or critical mail. Your email provider keeps delivering normally." />
+          <Toggle checked={p.focus.enabled} onChange={(v) => put({ focus: { ...p.focus, enabled: v } })} label="Protect focus hours" hint="During these hours InboxSatori only highlights VIP or critical mail. Your email provider keeps delivering normally." />
           {(p.focus.windows.length ? p.focus.windows : [{ days: [1, 2, 3, 4, 5], start: "09:00", end: "12:00" }]).map((w, i) => (
             <div key={i} className="flex flex-wrap items-center gap-2 text-[12.5px]">
               {DAYS.map((d, di) => (
@@ -170,7 +170,7 @@ function Categories() {
   if (!wsId) return null;
   return (
     <Section id="categories" title={`Categories · ${boot.workspaces.find((w) => w.id === wsId)?.name}`}>
-      <p className="ip-muted text-[12.5px]">Virtual folders inside InboxPilot. Your Gmail labels and filters are left as they are.</p>
+      <p className="ip-muted text-[12.5px]">Virtual folders inside InboxSatori. Your Gmail labels and filters are left as they are.</p>
       <ul className="space-y-1.5">
         {cats.map((c) => (
           <li key={c.id} className="flex items-center gap-2 text-[13px]">
@@ -209,17 +209,17 @@ function DataControls() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
-  const del = useAct(() => api("/data", { method: "DELETE", json: { confirm: text } }), { onSuccess: () => { toast({ text: "All InboxPilot data deleted.", tone: "ok" }); router.push("/inbox/onboarding"); } });
+  const del = useAct(() => api("/data", { method: "DELETE", json: { confirm: text } }), { onSuccess: () => { toast({ text: "All InboxSatori data deleted.", tone: "ok" }); router.push("/inbox/onboarding"); } });
   return (
     <Section id="data" title="Your data">
       <div className="flex flex-wrap gap-2">
         <a className="ip-btn" href="/api/inbox/data"><Download size={14} /> Export everything (JSON)</a>
-        <button className="ip-btn ip-btn-danger" onClick={() => setOpen(true)}><Trash2 size={14} /> Delete all InboxPilot data</button>
+        <button className="ip-btn ip-btn-danger" onClick={() => setOpen(true)}><Trash2 size={14} /> Delete all InboxSatori data</button>
       </div>
-      <p className="ip-muted text-[12px]">Export includes messages InboxPilot stored, classifications, rules, tasks, follow-ups, drafts, audit log and AI usage. Tokens are never exported.</p>
-      <Dialog open={open} onClose={() => setOpen(false)} title="Delete all InboxPilot data">
+      <p className="ip-muted text-[12px]">Export includes messages InboxSatori stored, classifications, rules, tasks, follow-ups, drafts, audit log and AI usage. Tokens are never exported.</p>
+      <Dialog open={open} onClose={() => setOpen(false)} title="Delete all InboxSatori data">
         <form className="space-y-3 text-[13px]" onSubmit={(e) => { e.preventDefault(); del.mutate(undefined, { onError: (err) => toast({ text: errText(err), tone: "error" }) }); }}>
-          <p>This revokes InboxPilot&apos;s access to every connected mailbox and permanently deletes all workspaces, stored messages, rules, tasks, follow-ups, briefings, drafts and settings. Your actual mailboxes aren&apos;t touched. Write.ai and The Daily Canvas aren&apos;t affected.</p>
+          <p>This revokes InboxSatori&apos;s access to every connected mailbox and permanently deletes all workspaces, stored messages, rules, tasks, follow-ups, briefings, drafts and settings. Your actual mailboxes aren&apos;t touched. Write.ai and The Daily Canvas aren&apos;t affected.</p>
           <input className="ip-input" placeholder="Type DELETE" value={text} onChange={(e) => setText(e.target.value)} />
           <div className="flex justify-end gap-2"><button type="button" className="ip-btn" onClick={() => setOpen(false)}>Cancel</button><button className="ip-btn ip-btn-danger" disabled={text !== "DELETE"}>Delete permanently</button></div>
         </form>

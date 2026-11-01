@@ -161,7 +161,7 @@ export function MailPage() {
             <p className="p-4" style={{ color: "var(--ip-crit)" }}>{list.error.message}</p>
           ) : !rows.length ? (
             <Empty icon={Search} title={q ? "No matches in stored mail" : view === "priority" ? "No priority mail right now" : "Nothing here"}>
-              {q ? "InboxPilot searched the mail it has stored." : boot.accounts.length ? "New mail is classified as it arrives." : "Connect an account to get started."}
+              {q ? "InboxSatori searched the mail it has stored." : boot.accounts.length ? "New mail is classified as it arrives." : "Connect an account to get started."}
               {q && boot.accounts.some((a) => a.provider === "gmail") && (
                 <button className="ip-btn ip-btn-sm mt-3" onClick={deepSearch} disabled={deep}>
                   {deep ? <Spinner size={13} /> : <Search size={13} />} Search Gmail too

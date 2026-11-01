@@ -56,7 +56,7 @@ export async function GET(_request: Request, { params }: Ctx) {
 }
 
 /**
- * Updates InboxPilot's own state for a message: correct the classification (feedback),
+ * Updates InboxSatori's own state for a message: correct the classification (feedback),
  * move category, snooze, done, read. Corrections teach future classification for this
  * sender, inside this workspace only.
  */
@@ -98,7 +98,7 @@ export async function PATCH(request: Request, { params }: Ctx) {
     }
     if (b.done !== undefined) await ctx.db.from("ip_messages").update({ done_at: b.done ? new Date().toISOString() : null }).eq("id", m.id);
     if (b.read !== undefined) {
-      // Mirrors read state to the mailbox only when allowed; otherwise it's tracked in InboxPilot.
+      // Mirrors read state to the mailbox only when allowed; otherwise it's tracked in InboxSatori.
       const { data: acc } = await ctx.db.from("ip_accounts").select("*").eq("id", m.account_id).single();
       const p = await providerFor(acc as AccountRow, { admin: ctx.admin });
       let mirrored = false;

@@ -7,7 +7,7 @@ const PUBLIC_PATHS = ["/login", "/auth", "/manifest.webmanifest", "/canvas/manif
 // Dev/test only: lets The Daily Canvas run on this device without signing in (data stays in
 // the browser). Ignored in production builds, whatever the variable says.
 const CANVAS_LOCAL_ONLY = process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_CANVAS_LOCAL_ONLY === "1";
-// Dev/test only: InboxPilot's local demo mode (in-memory data, fake owner). Never in production.
+// Dev/test only: InboxSatori's local demo mode (in-memory data, fake owner). Never in production.
 const INBOX_LOCAL_DEMO = process.env.NODE_ENV !== "production" && process.env.INBOX_LOCAL_DEMO === "1";
 // Same idea for PromptSatori: local demo/test mode with in-memory data. Never in production.
 const SATORI_LOCAL_ONLY = process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_SATORI_LOCAL_ONLY === "1";
@@ -68,7 +68,7 @@ export async function updateSession(request: NextRequest, rewriteTo: string | nu
     }
     for (const app of ["/canvas", "/satori", "/inbox"]) {
           if (path.startsWith(app)) {
-                    // Come back to the planner / PromptSatori / InboxPilot after signing in.
+                    // Come back to the planner / PromptSatori / InboxSatori after signing in.
                     const url = request.nextUrl.clone();
                     url.pathname = "/login";
                     url.search = `?next=${app}`;

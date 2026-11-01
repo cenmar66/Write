@@ -27,7 +27,7 @@
 \* From Google's published scope list as known at build time; this session couldn't reach developers.google.com to re-check. **Verify in Google Cloud Console → OAuth consent screen → Data access before launch.**
 
 ### Google API Services User Data Policy / Limited Use
-- Data from Gmail is used only to provide user-facing features in InboxPilot; not sold, not used for ads, not used to train generalized AI models; humans don't read it (except with consent, for security, or legal reasons).
+- Data from Gmail is used only to provide user-facing features in InboxSatori; not sold, not used for ads, not used to train generalized AI models; humans don't read it (except with consent, for security, or legal reasons).
 - AI processing by a third-party provider is opt-in (`ai_external`), limited to the content level the user picks, and disclosed in Settings and onboarding.
 - **Before public launch** (anyone other than the owner): restricted scopes require **app verification** and an annual **independent security assessment (CASA)** by a Google-approved assessor; publish a privacy policy that discloses Limited Use compliance and the AI processing.
 - **Owner-only use today**: keep the consent screen in Testing with the owner as test user, *or* publish to Production unverified (shows the “unverified app” screen; 100-user cap). Testing-mode refresh tokens for such scopes **expire after 7 days**, so you'd reconnect weekly; publishing (still unverified, for personal use) avoids that. Confirm current rules in the console.
@@ -50,14 +50,14 @@
 - ✅ Header-injection guard in the RFC 5322 builder (tested).
 - ✅ HTML email converted to text server-side (scripts/styles/hidden blocks dropped); React escapes everything rendered. Remote images and links in mail aren't rendered as HTML.
 - ✅ CSV export neutralizes spreadsheet formulas.
-- ✅ InboxPilot never opens unsubscribe links and never moves mail to spam/trash.
+- ✅ InboxSatori never opens unsubscribe links and never moves mail to spam/trash.
 - ✅ Suspicious-sender warnings (display-name spoofing, reply-to mismatch, brand names from free-mail domains, DMARC failure).
 
 ## Abuse protection & operations
 - ✅ Per-user rate limits on sync, AI, send, search, assistant (per instance, best effort) + Supabase limits.
 - ✅ Monthly AI request cap per user.
 - ✅ Cron endpoint requires `CRON_SECRET` (constant-time compare).
-- 🟡 CI (`.github/workflows/ci.yml`): typecheck, lint, unit + SQL tests, production build, InboxPilot e2e, `npm audit` (high/critical; 0 found at build time) and a gitleaks secret scan. Added in this change; its first run on GitHub hasn't been observed yet. Also enable GitHub secret scanning + Dependabot in the repo settings.
+- 🟡 CI (`.github/workflows/ci.yml`): typecheck, lint, unit + SQL tests, production build, InboxSatori e2e, `npm audit` (high/critical; 0 found at build time) and a gitleaks secret scan. Added in this change; its first run on GitHub hasn't been observed yet. Also enable GitHub secret scanning + Dependabot in the repo settings.
 - ⏳ Global (cross-instance) rate limiting (e.g. Upstash) for multi-user launch.
 
 ## Not claimed

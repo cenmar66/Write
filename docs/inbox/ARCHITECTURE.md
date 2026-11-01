@@ -12,7 +12,7 @@
 | **Hand-made SVG charts** | Two chart types; avoids a chart library. |
 | **Gmail via REST + `fetch`** | No `googleapis` dependency; the same approach The Daily Canvas uses. |
 | **AI through one gateway (`lib/inbox/ai/client.ts`)** | Consent, quotas, model routing, caching and cost accounting in one place; Anthropic via the official SDK, OpenAI via its REST API (configured by env). Every call returns `{ok:false}` instead of throwing, so features fall back to deterministic versions. |
-| **In-memory database for local demo + integration tests** | `memory-db.ts` implements the subset of supabase-js InboxPilot uses, mirroring defaults, unique keys and cascades. Lets every API route and the Playwright suite run with no Supabase project. RLS itself is tested in SQL. |
+| **In-memory database for local demo + integration tests** | `memory-db.ts` implements the subset of supabase-js InboxSatori uses, mirroring defaults, unique keys and cascades. Lets every API route and the Playwright suite run with no Supabase project. RLS itself is tested in SQL. |
 | **Owner-only deployment, multi-tenant data model** | Write.ai only admits `ALLOWED_EMAIL`. Workspaces/memberships/RLS are fully multi-tenant so opening sign-ups later is a configuration + billing step, not a rewrite. |
 
 ## Domain boundaries (code map)
@@ -45,7 +45,7 @@ src/app/api/inbox/       route handlers (thin: auth → validate → lib)
 src/app/api/cron/inbox/  scheduler entry point (CRON_SECRET)
 src/app/inbox/           pages (client-rendered), layout, PWA manifest
 src/components/inbox/    UI
-supabase/migrations/0011_inboxpilot.sql
+supabase/migrations/0012_inboxsatori.sql
 ```
 
 ## Data flow
