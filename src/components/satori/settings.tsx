@@ -133,7 +133,12 @@ export function SettingsPage() {
                 <li key={p.id} className="flex flex-wrap items-center gap-2">
                   <span className={`ps-badge ${p.configured ? (p.isMock ? "ps-badge-warn" : "ps-badge-ok") : ""}`}>{p.configured ? (p.isMock ? "test only" : "connected") : "not configured"}</span>
                   <span className="font-medium">{p.label}</span>
-                  {p.configured && <span className="text-xs ps-muted">{p.models.length} models</span>}
+                  {p.configured && <span className="text-xs ps-muted">{p.models.map((m) => m.id).join(", ")}</span>}
+                  {!p.configured && !!p.missing?.length && (
+                    <span className="text-xs ps-muted">
+                      Missing in Vercel: {p.missing.map((m) => <code key={m} className="ps-mono mr-1">{m}</code>)}
+                    </span>
+                  )}
                 </li>
               ))}
             </ul>

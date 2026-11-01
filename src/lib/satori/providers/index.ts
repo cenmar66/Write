@@ -47,6 +47,12 @@ export function resolveProvider(pref: { provider?: string | null; model?: string
 }
 
 /** Public, secret-free description for the browser. */
-export function providerStatus(): { id: ProviderId; label: string; configured: boolean; isMock: boolean; models: { id: string; label: string }[] }[] {
-  return allProviders().map((p) => ({ id: p.id, label: p.label, configured: p.configured(), isMock: !!p.isMock, models: p.configured() ? p.models() : [] }));
+export function providerStatus(): { id: ProviderId; label: string; configured: boolean; isMock: boolean; models: { id: string; label: string }[]; missing: string[] }[] {
+  return allProviders().map((p) => ({ id: p.id, label: p.label, configured: p.configured(), isMock: !!p.isMock, models: p.configured() ? p.models() : [], missing: missingSettings(p.id) }));
+}
+
+/** Names (never values) of the environment variables a provider still needs. */
+export function missingSettings(id: ProviderId): string[] {
+  const needs: Record<ProviderId, string[]> = { anthropic: ["ANTHROPIC_API_KEY"], openai: ["OPENAI_API_KEY", "OPENAI_MODELS"], gemini: ["GEMINI_API_KEY", "GEMINI_MODELS"], mock: [] };
+  return needs[id].filter((name) => !(process.env[name] ?? "").split(",").some((v) => v.trim()));
 }
