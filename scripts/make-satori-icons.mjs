@@ -1,4 +1,5 @@
 // Generates PromptSatori app icons. Run: node scripts/make-satori-icons.mjs
+import { writeFileSync } from "node:fs";
 import sharp from "sharp";
 
 // Deep teal tile with a cream ring, horizon line and two legs (a seated figure / torii-like mark).
@@ -20,4 +21,10 @@ for (const [name, size, pad] of [
 ]) {
   await sharp(Buffer.from(svg(pad))).resize(size, size).png().toFile(`public/satori-icons/${name}`);
 }
+// Browser-tab icons: a rounded tile reads better at 16-48px.
+const tab = svg(40).replace('<rect width="512" height="512" fill="#0f6e66"/>', '<rect width="512" height="512" rx="112" fill="#0f6e66"/>');
+await sharp(Buffer.from(tab)).resize(48, 48).png().toFile("public/satori-icons/favicon-48.png");
+writeFileSync("public/satori-icons/icon.svg", tab.trim() + "\n");
+// Next.js file convention: PromptSatori pages get this icon instead of Write.ai's.
+writeFileSync("src/app/satori/icon.svg", tab.trim() + "\n");
 console.log("PromptSatori icons written.");
