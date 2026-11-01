@@ -2,7 +2,7 @@
 
 ## Background jobs
 
-`/api/cron/inbox` (Vercel Cron, every 10 min, `Authorization: Bearer $CRON_SECRET`):
+`/api/cron/inbox` (called every 10 min by an external scheduler — Vercel Hobby allows only daily crons — with `Authorization: Bearer $CRON_SECRET`; see SETUP.md §4):
 
 1. **scheduleTick** enqueues, idempotently (keyed by account + 10-minute slot): one `sync` job per active account; a `briefing` job per user whose morning/midday/evening time has passed today (in their time zone) and hasn't run; an hourly `prune` job (expired message bodies).
 2. **drain** claims ready jobs with `ip_claim_jobs` (`FOR UPDATE SKIP LOCKED`, 4-minute lease) and runs them for up to 45 s. Success → `done`. Failure → retry with backoff 30 s, 2 min, 8 min, 32 min… → `dead` after 5 attempts (visible on the Operations page).

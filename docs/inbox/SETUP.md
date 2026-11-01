@@ -30,7 +30,7 @@ Development only (ignored in production builds): `INBOX_LOCAL_DEMO=1` (in-memory
 
 ## 4. Background jobs
 
-`vercel.json` schedules `/api/cron/inbox` every 10 minutes (sync each account, due briefings, retention pruning). Sub-daily cron schedules need a Vercel Pro plan. Without `CRON_SECRET` nothing runs in the background; “Sync now” and “Brief me now” still work.
+Background sync, scheduled briefings and retention pruning run when something calls `/api/cron/inbox` with `Authorization: Bearer $CRON_SECRET`. Vercel's Hobby plan only allows daily cron jobs, so `vercel.json` doesn't schedule it. Use an external scheduler instead, every 10 minutes (e.g. cron-job.org or a Supabase `pg_cron` + `pg_net` job) calling `https://inboxsatori.com/api/cron/inbox` with that header. Without it, nothing runs in the background; “Sync now” and “Brief me now” still work.
 
 ## 5. Its own domain: inboxsatori.com
 
