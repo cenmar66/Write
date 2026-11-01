@@ -2,7 +2,10 @@ import { headers } from "next/headers";
 import { Suspense } from "react";
 import { Wordmark } from "@/components/logo";
 import { explainAuthError } from "@/lib/auth-errors";
+import { isSatoriHost } from "@/lib/satori-host";
 import { runSetupCheck } from "@/lib/setup-check";
+import { SatoriMark } from "@/components/satori/shell";
+import { DocumentTitle } from "./document-title";
 import { LoginForm } from "./login-form";
 
 type SearchParams = Promise<{ error?: string; detail?: string; check?: string }>;
@@ -54,22 +57,48 @@ async function SetupCheck({ searchParams }: { searchParams: SearchParams }) {
   );
 }
 
+/** Write.ai's welcome, or PromptSatori's on its own domain. */
+async function Hero() {
+  const h = await headers();
+  if (isSatoriHost(h.get("x-forwarded-host") ?? h.get("host"))) {
+    return (
+      <>
+        <DocumentTitle title="Sign in · PromptSatori" />
+        <div className="mb-10 flex items-center justify-center gap-3">
+          <SatoriMark size={40} />
+          <span className="font-display text-3xl tracking-tight">PromptSatori</span>
+        </div>
+        <h1 className="text-center font-display text-5xl leading-[1.05] tracking-tight sm:text-6xl">
+          Say what you want.
+          <br />
+          <span className="text-gradient italic">Get the perfect prompt.</span>
+        </h1>
+        <p className="mx-auto mt-5 max-w-xs text-center text-muted">Describe it, refine it, keep it. Welcome back.</p>
+      </>
+    );
+  }
+  return (
+    <>
+      <div className="mb-10 flex justify-center">
+        <Wordmark />
+      </div>
+      <h1 className="text-center font-display text-5xl leading-[1.05] tracking-tight sm:text-6xl">
+        Your words,
+        <br />
+        <span className="text-gradient italic">without limits.</span>
+      </h1>
+      <p className="mx-auto mt-5 max-w-xs text-center text-muted">Write, speak, and publish from anywhere. Welcome back.</p>
+    </>
+  );
+}
+
 export default function LoginPage({ searchParams }: { searchParams: SearchParams }) {
   return (
     <main className="flex min-h-dvh flex-col items-center justify-center px-5 py-12">
       <div className="w-full max-w-md animate-rise">
-        <div className="mb-10 flex justify-center">
-          <Wordmark />
-        </div>
-
-        <h1 className="text-center font-display text-5xl leading-[1.05] tracking-tight sm:text-6xl">
-          Your words,
-          <br />
-          <span className="text-gradient italic">without limits.</span>
-        </h1>
-        <p className="mx-auto mt-5 max-w-xs text-center text-muted">
-          Write, speak, and publish from anywhere. Welcome back.
-        </p>
+        <Suspense fallback={<div className="h-56" aria-hidden />}>
+          <Hero />
+        </Suspense>
 
         <div className="glass mt-10 rounded-3xl p-6 sm:p-8">
           <Suspense fallback={<LoginForm />}>

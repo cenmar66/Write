@@ -1,0 +1,174 @@
+/* PromptSatori: editorial studio look. Warm white / soft charcoal, deep teal accent.
+   Everything is scoped to .ps-root so the rest of Write.ai is untouched. */
+
+/* In Tailwind's components layer so utility classes (w-auto, pl-9, …) can override. */
+@layer components {
+  .ps-root {
+    --ps-bg: #f8f6f1;
+    --ps-surface: #fffdf9;
+    --ps-surface-2: #f2efe8;
+    --ps-line: #e4dfd4;
+    --ps-line-strong: #d3ccbe;
+    --ps-ink: #1d1f1e;
+    --ps-ink-2: #4a4d4a;
+    --ps-ink-3: #6f716c;
+    --ps-accent: #0f6e66;
+    --ps-accent-ink: #0b4f49;
+    --ps-accent-bg: #e3f1ee;
+    --ps-on-accent: #ffffff;
+    --ps-warn: #8a4b0b;
+    --ps-warn-bg: #fdf0dc;
+    --ps-danger: #a1271f;
+    --ps-danger-bg: #fbe7e4;
+    --ps-ok: #23663a;
+    --ps-ok-bg: #e2f2e6;
+    --ps-shadow: 0 1px 2px rgba(29, 31, 30, 0.04), 0 4px 16px rgba(29, 31, 30, 0.04);
+    --ps-radius: 14px;
+    --ps-text: 15px;
+    background: var(--ps-bg);
+    color: var(--ps-ink);
+    min-height: 100dvh;
+    font-family: var(--font-inter), system-ui, sans-serif;
+    position: relative;
+    isolation: isolate;
+  }
+
+  .dark .ps-root {
+    --ps-bg: #171918;
+    --ps-surface: #1f2221;
+    --ps-surface-2: #262a28;
+    --ps-line: #323734;
+    --ps-line-strong: #434a46;
+    --ps-ink: #ebece8;
+    --ps-ink-2: #c1c4bd;
+    --ps-ink-3: #9a9e97;
+    --ps-accent: #4fc4b6;
+    --ps-accent-ink: #9ae6dc;
+    --ps-accent-bg: #173431;
+    --ps-on-accent: #0c1d1b;
+    --ps-warn: #f2c46d;
+    --ps-warn-bg: #3a2c12;
+    --ps-danger: #f3a097;
+    --ps-danger-bg: #3b1d1a;
+    --ps-ok: #93d7a6;
+    --ps-ok-bg: #18301f;
+    --ps-shadow: none;
+  }
+
+  /* User-selectable accents (AA contrast on both themes). */
+  .ps-root[data-accent="indigo"] { --ps-accent: #3b46b8; --ps-accent-ink: #2a3290; --ps-accent-bg: #e8eafb; }
+  .ps-root[data-accent="plum"] { --ps-accent: #86307a; --ps-accent-ink: #66225d; --ps-accent-bg: #f6e6f3; }
+  .ps-root[data-accent="amber"] { --ps-accent: #8c5200; --ps-accent-ink: #6b3e00; --ps-accent-bg: #fbeed8; }
+  .ps-root[data-accent="slate"] { --ps-accent: #3f5566; --ps-accent-ink: #2e404d; --ps-accent-bg: #e7edf1; }
+  .ps-root[data-accent="forest"] { --ps-accent: #2f6b2f; --ps-accent-ink: #225122; --ps-accent-bg: #e5f1e3; }
+  .dark .ps-root[data-accent="indigo"] { --ps-accent: #9aa3ff; --ps-accent-ink: #c4c9ff; --ps-accent-bg: #23264a; }
+  .dark .ps-root[data-accent="plum"] { --ps-accent: #e59bd8; --ps-accent-ink: #f3c8eb; --ps-accent-bg: #3a1f36; }
+  .dark .ps-root[data-accent="amber"] { --ps-accent: #f2b85c; --ps-accent-ink: #f9d79e; --ps-accent-bg: #3a2a12; }
+  .dark .ps-root[data-accent="slate"] { --ps-accent: #a9c0d1; --ps-accent-ink: #cddbe6; --ps-accent-bg: #253039; }
+  .dark .ps-root[data-accent="forest"] { --ps-accent: #97d38f; --ps-accent-ink: #c1e8bb; --ps-accent-bg: #1d321b; }
+
+  .ps-root[data-size="sm"] { --ps-text: 14px; }
+  .ps-root[data-size="lg"] { --ps-text: 17.5px; }
+
+  /* Hide Write.ai's background decoration inside PromptSatori. */
+  .ps-root ~ .aurora, .ps-root ~ .grain { display: none; }
+
+  .ps-serif { font-family: var(--font-fraunces), Georgia, serif; font-variation-settings: "opsz" 72, "SOFT" 30; letter-spacing: -0.015em; }
+
+  .ps-card {
+    background: var(--ps-surface);
+    border: 1px solid var(--ps-line);
+    border-radius: var(--ps-radius);
+    box-shadow: var(--ps-shadow);
+  }
+  .ps-muted { color: var(--ps-ink-3); }
+  .ps-soft { color: var(--ps-ink-2); }
+  .ps-line { border-color: var(--ps-line); }
+  .ps-surface-2 { background: var(--ps-surface-2); }
+  .ps-accent-text { color: var(--ps-accent); }
+  .ps-accent-bg { background: var(--ps-accent-bg); color: var(--ps-accent-ink); }
+
+  .ps-btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 0.45rem;
+    min-height: 2.5rem; padding: 0 0.95rem; border-radius: 999px;
+    border: 1px solid var(--ps-line-strong); background: var(--ps-surface); color: var(--ps-ink);
+    font-size: 0.875rem; font-weight: 550; line-height: 1;
+    transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s;
+    -webkit-tap-highlight-color: transparent; white-space: nowrap;
+  }
+  .ps-btn:hover:not(:disabled) { border-color: var(--ps-accent); color: var(--ps-accent-ink); }
+  .dark .ps-btn:hover:not(:disabled) { color: var(--ps-accent-ink); }
+  .ps-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .ps-btn-primary { background: var(--ps-accent); border-color: var(--ps-accent); color: var(--ps-on-accent); }
+  .ps-btn-primary:hover:not(:disabled) { color: var(--ps-on-accent); filter: brightness(1.07); }
+  .ps-btn-ghost { border-color: transparent; background: transparent; }
+  .ps-btn-ghost:hover:not(:disabled) { background: var(--ps-surface-2); border-color: transparent; }
+  .ps-btn-danger { color: var(--ps-danger); }
+  .ps-btn-danger:hover:not(:disabled) { border-color: var(--ps-danger); color: var(--ps-danger); }
+  .ps-btn-sm { min-height: 2rem; padding: 0 0.7rem; font-size: 0.8125rem; }
+  .ps-btn-icon { width: 2.5rem; padding: 0; }
+  .ps-btn-icon.ps-btn-sm { width: 2rem; }
+
+  .ps-input, .ps-textarea, .ps-select {
+    width: 100%; background: var(--ps-surface); color: var(--ps-ink);
+    border: 1px solid var(--ps-line-strong); border-radius: 10px; padding: 0.6rem 0.75rem; font-size: 0.9375rem;
+  }
+  .ps-textarea { line-height: 1.55; resize: vertical; }
+  .ps-input::placeholder, .ps-textarea::placeholder { color: var(--ps-ink-3); }
+  .ps-select { appearance: none; padding-right: 2rem; background-image: linear-gradient(45deg, transparent 50%, var(--ps-ink-3) 50%), linear-gradient(135deg, var(--ps-ink-3) 50%, transparent 50%); background-position: calc(100% - 16px) 55%, calc(100% - 11px) 55%; background-size: 5px 5px; background-repeat: no-repeat; }
+
+  .ps-root :focus-visible { outline: 2px solid var(--ps-accent); outline-offset: 2px; }
+  .ps-input:focus, .ps-textarea:focus, .ps-select:focus { outline: none; border-color: var(--ps-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ps-accent) 18%, transparent); }
+
+  .ps-chip {
+    display: inline-flex; align-items: center; gap: 0.35rem; min-height: 2.125rem; padding: 0 0.8rem; border-radius: 999px;
+    border: 1px solid var(--ps-line); background: var(--ps-surface); font-size: 0.8125rem; font-weight: 520; color: var(--ps-ink-2);
+    transition: border-color 0.15s, color 0.15s, background 0.15s;
+  }
+  .ps-chip:hover:not(:disabled) { border-color: var(--ps-accent); color: var(--ps-accent-ink); }
+  .ps-chip[aria-pressed="true"], .ps-chip[aria-selected="true"], .ps-chip[aria-checked="true"] { background: var(--ps-accent-bg); border-color: color-mix(in srgb, var(--ps-accent) 45%, transparent); color: var(--ps-accent-ink); }
+  .ps-chip:disabled { opacity: 0.5; }
+
+  .ps-badge { display: inline-flex; align-items: center; gap: 0.3rem; border-radius: 999px; padding: 0.15rem 0.55rem; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.01em; background: var(--ps-surface-2); color: var(--ps-ink-2); border: 1px solid var(--ps-line); }
+  .ps-badge-accent { background: var(--ps-accent-bg); color: var(--ps-accent-ink); border-color: transparent; }
+  .ps-badge-warn { background: var(--ps-warn-bg); color: var(--ps-warn); border-color: transparent; }
+  .ps-badge-danger { background: var(--ps-danger-bg); color: var(--ps-danger); border-color: transparent; }
+  .ps-badge-ok { background: var(--ps-ok-bg); color: var(--ps-ok); border-color: transparent; }
+
+  .ps-eyebrow { font-size: 0.6875rem; letter-spacing: 0.14em; text-transform: uppercase; font-weight: 650; color: var(--ps-ink-3); }
+
+  .ps-prompt-text { font-size: var(--ps-text); line-height: 1.65; white-space: pre-wrap; word-break: break-word; font-family: var(--font-inter), system-ui, sans-serif; }
+  .ps-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+  .ps-nav-item { display: flex; align-items: center; gap: 0.7rem; padding: 0.55rem 0.75rem; border-radius: 10px; font-size: 0.9375rem; color: var(--ps-ink-2); transition: background 0.15s, color 0.15s; }
+  .ps-nav-item:hover { background: var(--ps-surface-2); color: var(--ps-ink); }
+  .ps-nav-item[aria-current="page"] { background: var(--ps-accent-bg); color: var(--ps-accent-ink); font-weight: 600; }
+
+  .ps-bar { background: color-mix(in srgb, var(--ps-surface) 92%, transparent); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+
+  .ps-diff-added { background: var(--ps-ok-bg); color: var(--ps-ok); border-radius: 3px; text-decoration: none; }
+  .ps-diff-removed { background: var(--ps-danger-bg); color: var(--ps-danger); border-radius: 3px; text-decoration: line-through; }
+
+  .ps-skeleton { background: linear-gradient(90deg, var(--ps-surface-2), var(--ps-line), var(--ps-surface-2)); background-size: 200% 100%; animation: ps-shimmer 1.6s ease-in-out infinite; border-radius: 8px; }
+  @keyframes ps-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+  .ps-fade-in { animation: ps-fade 0.25s ease-out both; }
+  @keyframes ps-fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  .ps-pulse { animation: ps-pulse 1.2s ease-in-out infinite; }
+  @keyframes ps-pulse { 50% { opacity: 0.45; } }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ps-root *, .ps-root *::before, .ps-root *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+  }
+
+  .ps-safe-bottom { padding-bottom: max(0.5rem, env(safe-area-inset-bottom)); }
+  .ps-safe-top { padding-top: max(0.75rem, env(safe-area-inset-top)); }
+
+  .ps-scroll-x { overflow-x: auto; scrollbar-width: none; }
+  .ps-scroll-x::-webkit-scrollbar { display: none; }
+
+  .sr-only-focusable:not(:focus) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+  @media print {
+    .ps-root nav, .ps-root [data-chrome] { display: none !important; }
+  }
+}
