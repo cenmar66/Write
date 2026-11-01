@@ -44,7 +44,7 @@ Updated: 2026-11-01 (renamed InboxPilot → InboxSatori; inboxsatori.com support
 | `npm run lint` | ✅ clean (whole repo) |
 | `npm test` (Vitest, whole repo) | ✅ 190 passed (after merging main), of which 69 are InboxSatori (parse, classify, deadlines, rules, follow-ups, safety, send guard, briefing, analytics, time, search, Gmail OAuth/tokens with mocked Google, sync pipeline, jobs, AI-can't-command, memory-DB fidelity, inboxsatori.com routing) |
 | `npm run test:sql` (real Postgres) | ✅ InboxSatori: tenant isolation, token lockout, dedupe, append-only audit, entitlement self-grant blocked, job claim/retry/dead-letter, disconnect cascade, delete-my-data |
-| Playwright InboxSatori (desktop + iPhone, Chromium) | ✅ 14 passed |
+| Playwright InboxSatori (desktop + iPhone, Chromium) | ✅ 15 passed (incl. inboxsatori.com routing + icons) |
 | Full Playwright suite (all specs, 4 device profiles) | ✅ 46 passed, 0 failed, 106 skipped by design |
 | `next build` | ✅ |
 | `npm audit --omit=dev --audit-level=high` | ✅ 0 vulnerabilities |

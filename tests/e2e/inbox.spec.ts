@@ -196,3 +196,28 @@ test.describe("InboxSatori", () => {
     await expect(page.locator("li[data-id]").first()).toBeVisible();
   });
 });
+
+test.describe("inboxsatori.com", () => {
+  test("serves InboxSatori at clean addresses with its own icons; Write.ai keeps its own", async ({ request }, info) => {
+    test.skip(info.project.name !== "desktop", "host routing is device-independent");
+    const inbox = { host: "inboxsatori.com" };
+    const home = await request.get("/", { headers: inbox, maxRedirects: 0 });
+    expect(home.status()).toBe(200);
+    expect(await home.text()).toContain("InboxSatori");
+
+    const fav = await request.get("/favicon.ico", { headers: inbox });
+    expect(fav.headers()["content-type"]).toContain("image/png");
+    expect(Buffer.compare(await fav.body(), await (await request.get("/favicon.ico")).body())).not.toBe(0);
+
+    const svg = await (await request.get("/icon.svg", { headers: { host: "www.inboxsatori.com" } })).text();
+    expect(svg).toContain("#24489c");
+    expect(await (await request.get("/icon.svg")).text()).not.toContain("#24489c");
+
+    const apple = await request.get("/icons/apple-touch-icon.png", { headers: inbox });
+    const own = await request.get("/inbox-icons/apple-touch-icon.png");
+    expect(Buffer.compare(await apple.body(), await own.body())).toBe(0);
+
+    const manifest = await (await request.get("/manifest.webmanifest", { headers: inbox })).json();
+    expect(manifest.name).toBe("InboxSatori");
+  });
+});

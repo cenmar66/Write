@@ -10,11 +10,11 @@ export function GET() {
     display: "standalone",
     orientation: "any",
     background_color: "#f5f6f8",
-    theme_color: "#ffffff",
+    theme_color: "#24489c",
     icons: [
       { src: "/inbox-icons/icon-192.png", sizes: "192x192", type: "image/png" },
       { src: "/inbox-icons/icon-512.png", sizes: "512x512", type: "image/png" },
-      { src: "/inbox-icons/icon-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+      { src: "/inbox-icons/icon-maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
       { src: "/inbox-icons/icon.svg", sizes: "any", type: "image/svg+xml" },
     ],
     shortcuts: [
