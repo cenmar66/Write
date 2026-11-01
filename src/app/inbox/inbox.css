@@ -177,6 +177,7 @@
 .ip-dialog::backdrop { background: rgba(15, 18, 24, 0.35); backdrop-filter: blur(2px); }
 
 .ip-kbd { font-size: 11px; padding: 1px 5px; border: 1px solid var(--ip-line); border-radius: 5px; color: var(--ip-muted); background: var(--ip-surface-2); }
+.ip-html-body { display: block; width: 100%; border: 0; border-radius: 10px; background: #fff; }
 .ip-body-text { white-space: pre-wrap; word-break: break-word; font-size: 14px; line-height: 1.6; color: var(--ip-ink); }
 .ip-focus-ring:focus-visible, .ip-root a:focus-visible, .ip-root button:focus-visible { outline: 2px solid var(--ip-accent); outline-offset: 2px; }
 

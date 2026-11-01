@@ -51,7 +51,7 @@ export async function POST(request: Request) {
     const b = await body<{ ids?: string[]; action?: string; value?: string; confirm?: boolean }>(request);
     const ids = (b.ids ?? []).filter(isUuid).slice(0, 200); // the app sends large selections in chunks of 100
     if (!ids.length) throw new HttpError(400, "Select some messages.");
-    const { data } = await ctx.db.from("ip_messages").select("id,workspace_id,account_id,provider_message_id,thread_id").in("id", ids);
+    const { data } = await ctx.db.from("ip_messages").select("id,workspace_id,account_id,provider_message_id,thread_id,label_ids").in("id", ids);
     const msgs = (data ?? []) as MessageRow[];
     const wsIds = await scopeWorkspaces(ctx, "all");
     if (msgs.some((m) => !wsIds.includes(m.workspace_id))) throw new HttpError(403, "Not allowed.");
@@ -85,20 +85,18 @@ export async function POST(request: Request) {
         const failures: string[] = [];
         // Accounts connected with read-only access: the UI offers a one-click "Grant permission".
         const needsPermission = new Map<string, string>();
-        for (const m of msgs) {
-          const acc = (accs ?? []).find((a) => a.id === m.account_id) as AccountRow;
-          const p = await providerFor(acc, { admin: ctx.admin });
-          if (!p.capabilities(acc).modify) {
-            needsPermission.set(acc.id, acc.email);
-            continue;
-          }
+        const providers = await providersFor(accs as AccountRow[], ctx.admin);
+        // Several mailbox calls at once (Gmail allows it); one failure doesn't stop the rest.
+        await mapLimit(msgs, 8, async (m) => {
+          const { acc, p } = providers.get(m.account_id)!;
+          if (!p.capabilities(acc).modify) return void needsPermission.set(acc.id, acc.email);
           try {
             await p.modify(acc, m.provider_message_id, b.action === "archive" ? { remove: ["INBOX"] } : { remove: ["UNREAD"] });
             await ctx.db.from("ip_messages").update(b.action === "archive" ? { in_inbox: false, done_at: now.toISOString() } : { is_unread: false }).eq("id", m.id);
           } catch (e) {
             failures.push(e instanceof Error ? e.message : String(e));
           }
-        }
+        });
         await audit(ctx.db, msgs[0].workspace_id, "user", `mail.${b.action}`, null, { count: ids.length, failures: failures.length });
         return { ok: failures.length === 0 && !needsPermission.size, failures: [...new Set(failures)], needsPermission: [...needsPermission].map(([accountId, email]) => ({ accountId, email })) };
       }
@@ -112,16 +110,14 @@ export async function POST(request: Request) {
         // Accounts connected with read-only access: the UI offers a one-click "Grant permission".
         const needsPermission = new Map<string, string>();
         let done = 0;
-        for (const m of msgs) {
-          const acc = (accs ?? []).find((a) => a.id === m.account_id) as AccountRow;
-          const p = await providerFor(acc, { admin: ctx.admin });
-          if (!p.capabilities(acc).modify) {
-            needsPermission.set(acc.id, acc.email);
-            continue;
-          }
+        const providers = await providersFor(accs as AccountRow[], ctx.admin);
+        const executions: Record<string, unknown>[] = [];
+        // Several mailbox calls at once (Gmail allows it); one failure doesn't stop the rest.
+        await mapLimit(msgs, 8, async (m) => {
+          const { acc, p } = providers.get(m.account_id)!;
+          if (!p.capabilities(acc).modify) return void needsPermission.set(acc.id, acc.email);
           try {
-            const { data: cur } = await ctx.db.from("ip_messages").select("label_ids").eq("id", m.id).single();
-            const labels = new Set<string>((cur?.label_ids as string[]) ?? []);
+            const labels = new Set<string>((m.label_ids as string[]) ?? []);
             if (b.action === "trash") {
               await p.trash(acc, m.provider_message_id);
               labels.delete("INBOX");
@@ -133,12 +129,13 @@ export async function POST(request: Request) {
               labels.add("INBOX");
               await ctx.db.from("ip_messages").update({ label_ids: [...labels], in_inbox: true, done_at: null }).eq("id", m.id);
             }
-            await ctx.db.from("ip_rule_executions").insert({ workspace_id: m.workspace_id, rule_id: null, rule_name: "You", message_id: m.id, action: { kind: b.action, value: null, at: now.toISOString() }, status: "applied", provider_applied: true, undo: b.action === "trash" ? { untrash: true } : null });
+            executions.push({ workspace_id: m.workspace_id, rule_id: null, rule_name: "You", message_id: m.id, action: { kind: b.action, value: null, at: now.toISOString() }, status: "applied", provider_applied: true, undo: b.action === "trash" ? { untrash: true } : null });
             done++;
           } catch (e) {
             failures.push(e instanceof Error ? e.message : String(e));
           }
-        }
+        });
+        if (executions.length) await ctx.db.from("ip_rule_executions").insert(executions);
         await audit(ctx.db, msgs[0].workspace_id, "user", `mail.${b.action}`, null, { count: done, failures: failures.length });
         return { ok: failures.length === 0 && !needsPermission.size, done, failures: [...new Set(failures)], needsPermission: [...needsPermission].map(([accountId, email]) => ({ accountId, email })) };
       }
@@ -148,4 +145,18 @@ export async function POST(request: Request) {
     await audit(ctx.db, msgs[0].workspace_id, "user", `mail.${b.action}`, null, { count: ids.length, value: b.value ?? null });
     return { ok: true };
   });
+}
+
+/** One provider per account (not per message). */
+async function providersFor(accs: AccountRow[], admin: Parameters<typeof providerFor>[1]["admin"]) {
+  const out = new Map<string, { acc: AccountRow; p: Awaited<ReturnType<typeof providerFor>> }>();
+  for (const acc of accs ?? []) out.set(acc.id, { acc, p: await providerFor(acc, { admin }) });
+  return out;
+}
+
+async function mapLimit<T>(items: T[], limit: number, fn: (t: T) => Promise<void>) {
+  let next = 0;
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (next < items.length) await fn(items[next++]);
+  }));
 }

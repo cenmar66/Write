@@ -4,7 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, Archive, ArrowLeft, Check, ChevronLeft, ChevronRight, Clock, Filter, RefreshCw, Search, ShieldAlert, Star, Trash2 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { api, ApiError, useAct, useMessagePage, type ListMessage } from "./api";
+import { api, hideFromLists, useAct, useMessagePage, type ListMessage } from "./api";
 import { MessageReader } from "./reader";
 import { useScope } from "./shell";
 import { Avatar, CategoryChip, Empty, ImportanceChip, type MailboxResult, Skeleton, Spinner, errText, reportMailboxResult, timeLabel, useToast } from "./ui";
@@ -63,18 +63,27 @@ export function MailPage() {
       else toast({ text: "Done.", tone: "ok" });
     },
   });
+  // These take messages out of the current list, so the list updates before Gmail answers.
+  const leaves = (action: string) => ["trash", "archive", "done", "snooze"].includes(action);
+  const failed = (e: Error) => {
+    toast({ text: errText(e), tone: "error" });
+    qc.invalidateQueries(); // brings hidden messages back
+  };
   const runBulk = (action: string, value?: string, ids = [...checked]) => {
     if (!ids.length) return;
     if (ids.length > 100) return void runLarge(action, value, ids);
-    bulk.mutate(
-      { action, value, ids },
-      {
-        onError: (e) => {
-          if (e instanceof ApiError && e.status === 409 && confirm(`${e.message}`)) bulk.mutate({ action, value, ids, confirm: true });
-          else if (!(e instanceof ApiError && e.status === 409)) toast({ text: errText(e), tone: "error" });
-        },
-      },
-    );
+    const go = (confirmed: boolean) => {
+      if (leaves(action)) {
+        if (selectedId && ids.includes(selectedId)) open(null);
+        hideFromLists(qc, ids);
+      }
+      bulk.mutate({ action, value, ids, ...(confirmed ? { confirm: true } : {}) }, { onError: failed });
+    };
+    // Mailbox changes on several messages ask first (the server insists on it too).
+    const asks = ids.length > 1 && ["trash", "archive", "mark_read"].includes(action);
+    if (!asks) return go(false);
+    const msg = action === "trash" ? `Delete ${ids.length} messages? They go to your Gmail Trash, where you can restore them for 30 days.` : `This will ${action === "archive" ? "archive" : "mark as read"} ${ids.length} messages in your mailbox. Continue?`;
+    if (confirm(msg)) go(true);
   };
 
   /** Large selections ("Select all N"): one confirmation, then batches of 100. */
@@ -82,6 +91,7 @@ export function MailPage() {
     const verb = { done: "Mark done", trash: "Move to Trash", archive: "Archive in Gmail", mark_read: "Mark read", snooze: "Snooze", category: "Move", undone: "Restore" }[action] ?? action;
     if (!confirm(`${verb}: ${ids.length} messages?${action === "trash" ? " They go to your Gmail Trash, where you can restore them for 30 days." : ""}`)) return;
     setBulkBusy(`${verb}… 0 of ${ids.length}`);
+    if (leaves(action)) hideFromLists(qc, ids);
     const sum: MailboxResult = { done: 0, failures: [], needsPermission: [] };
     try {
       for (let i = 0; i < ids.length; i += 100) {

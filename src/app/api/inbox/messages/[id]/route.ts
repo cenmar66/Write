@@ -1,4 +1,5 @@
-import { providerFor } from "@/lib/inbox/mail/provider";
+import { sanitizeEmailHtml, type InlineImage } from "@/lib/inbox/html";
+import { providerFor, type MailProvider } from "@/lib/inbox/mail/provider";
 import { enrich } from "@/lib/inbox/server/queries";
 import { audit, body, handle, HttpError, loadPrefs, requireWorkspace } from "@/lib/inbox/server/workspace";
 import { snoozeUntil, type SnoozePreset } from "@/lib/inbox/time";
@@ -13,6 +14,18 @@ async function load(ctx: Parameters<Parameters<typeof handle>[0]>[0], id: string
   return data as MessageRow;
 }
 
+/** Images embedded in the message (signature logos etc.), within sensible size limits. */
+async function inlineImages(p: MailProvider, acc: AccountRow, msgId: string, parts: NonNullable<import("@/lib/inbox/types").NormalizedMessage["inlineImages"]>): Promise<InlineImage[]> {
+  const wanted = parts.filter((x) => x.size <= 2_000_000).slice(0, 12);
+  const out = await Promise.all(
+    wanted.map(async (x) => {
+      const data = x.data ? x.data.replace(/-/g, "+").replace(/_/g, "/") : x.attachmentId && p.attachment ? await p.attachment(acc, msgId, x.attachmentId).catch(() => "") : "";
+      return data ? { cid: x.cid, mimeType: x.mimeType, data } : null;
+    }),
+  );
+  return out.filter((x): x is InlineImage => !!x);
+}
+
 /** Message + thread + intelligence. Fetches the body from the provider when it isn't stored. */
 export async function GET(_request: Request, { params }: Ctx) {
   return handle(async (ctx) => {
@@ -21,13 +34,18 @@ export async function GET(_request: Request, { params }: Ctx) {
     const provider = await providerFor(acc as AccountRow, { admin: ctx.admin });
     let body = m.body_text;
     let bodySource: "stored" | "provider" | "unavailable" = body ? "stored" : "unavailable";
-    if (!body && provider.capabilities(acc as AccountRow).read) {
+    let html: string | null = null;
+    // The formatted (HTML) version is fetched fresh each time it's opened and never stored.
+    if (provider.capabilities(acc as AccountRow).read) {
       try {
         const [full] = await provider.getMessages(acc as AccountRow, [m.provider_message_id], { format: "full" });
-        body = full?.bodyText ?? null;
-        bodySource = body ? "provider" : "unavailable"; // shown, not stored (retention setting)
+        if (!body) {
+          body = full?.bodyText ?? null;
+          bodySource = body ? "provider" : "unavailable"; // shown, not stored (retention setting)
+        }
+        if (full?.bodyHtml) html = sanitizeEmailHtml(full.bodyHtml, await inlineImages(provider, acc as AccountRow, m.provider_message_id, full.inlineImages ?? []));
       } catch {
-        bodySource = "unavailable";
+        // Fall back to the stored text.
       }
     }
     const [{ data: cls }, { data: thread }, { data: fus }, { data: tasks }, { data: sugg }, { data: sender }, { data: drafts }] = await Promise.all([
@@ -41,7 +59,7 @@ export async function GET(_request: Request, { params }: Ctx) {
     ]);
     const [enriched] = await enrich(ctx.db, [m]);
     return {
-      message: { ...enriched, body_text: body, body_source: bodySource, rfc_message_id: m.rfc_message_id, reply_to: m.reply_to, attachments: m.attachments, list_unsubscribe: m.list_unsubscribe },
+      message: { ...enriched, body_text: body, body_html: html, body_source: bodySource, rfc_message_id: m.rfc_message_id, reply_to: m.reply_to, attachments: m.attachments, list_unsubscribe: m.list_unsubscribe },
       classification: cls,
       thread: thread ?? [],
       followups: fus ?? [],

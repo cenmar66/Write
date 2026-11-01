@@ -53,6 +53,10 @@ export interface NormalizedMessage {
   subject: string;
   snippet: string;
   bodyText: string | null;
+  /** HTML version, only fetched when a message is opened (never stored, never sent to AI). */
+  bodyHtml?: string | null;
+  /** Images embedded in the message (cid:), referenced from bodyHtml. */
+  inlineImages?: { cid: string; mimeType: string; attachmentId?: string; data?: string; size: number }[];
   receivedAt: string; // ISO
   labelIds: string[];
   isUnread: boolean;

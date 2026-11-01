@@ -42,9 +42,9 @@ Updated: 2026-11-01 (renamed InboxPilot → InboxSatori; inboxsatori.com support
 |---|---|
 | `npm run typecheck` | ✅ clean |
 | `npm run lint` | ✅ clean (whole repo) |
-| `npm test` (Vitest, whole repo) | ✅ 195 passed (74 InboxSatori: list paging, parse, classify, deadlines, rules incl. inbox-zero template and no-trash guarantee, follow-ups, safety, send guard, briefing, analytics, time, search, Gmail OAuth/tokens/trash with mocked Google, sync pipeline, Black Hole, jobs, AI-can't-command, memory-DB fidelity, inboxsatori.com routing) |
+| `npm test` (Vitest, whole repo) | ✅ 198 passed (77 InboxSatori: list paging, email HTML sanitizer + embedded images, parse, classify, deadlines, rules incl. inbox-zero template and no-trash guarantee, follow-ups, safety, send guard, briefing, analytics, time, search, Gmail OAuth/tokens/trash with mocked Google, sync pipeline, Black Hole, jobs, AI-can't-command, memory-DB fidelity, inboxsatori.com routing) |
 | `npm run test:sql` (real Postgres) | ✅ InboxSatori: tenant isolation, token lockout, dedupe, append-only audit, entitlement self-grant blocked, job claim/retry/dead-letter, disconnect cascade, delete-my-data |
-| Playwright InboxSatori (desktop + iPhone, Chromium) | ✅ 18 passed (incl. long-list scroll + Select all + paging, Archive, Black Hole, inboxsatori.com icons) |
+| Playwright InboxSatori (desktop + iPhone, Chromium) | ✅ 19 passed (incl. formatted email in a no-script sandbox, instant delete, long-list scroll + Select all + paging, Archive, Black Hole, inboxsatori.com icons) |
 | Full Playwright suite (all specs, 4 device profiles) | ✅ 46 passed, 0 failed, 106 skipped by design |
 | `next build` | ✅ |
 | `npm audit --omit=dev --audit-level=high` | ✅ 0 vulnerabilities |
@@ -56,6 +56,8 @@ Updated: 2026-11-01 (renamed InboxPilot → InboxSatori; inboxsatori.com support
 - Mailbox actions on a read-only account now explain why and offer **Grant permission** (was: “no permission to organize”).
 - Fixed: Undo in the message view could act on the next message after the view moved on.
 - **Mail lists page 100 at a time**, Gmail-style (“1–100 of 342” with Newer/Older). Select all checks the page; a banner offers “Select all N in this view” (large bulk actions run in batches of 100 after one confirmation). Fixed: long lists ran past the bottom of the window, so the last selected emails couldn’t be scrolled to.
+- **Emails show formatted, with images** (like Gmail), in a sandbox where nothing can run; “Show plain text” switches back. Suspicious messages don't load remote images.
+- **Delete, Archive and Done are instant**: the message leaves the list and the next one opens immediately; Gmail is updated in the background (8 at a time instead of one by one) and the message comes back with an error if that fails.
 - InboxSatori icon set (ensō + envelope); inboxsatori.com serves its own favicon, app icons and manifest.
 
 ## Open issues / known limits

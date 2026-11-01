@@ -22,6 +22,7 @@ interface Seed {
   labels?: string[];
   attachments?: { filename: string; mimeType: string; size: number }[];
   replyTo?: string;
+  html?: string;
 }
 
 const me: Address = { email: DEMO_EMAIL, name: "You" };
@@ -40,7 +41,7 @@ const SEEDS: Seed[] = [
   { id: "d02", thread: "t02", hoursAgo: 4, from: theo, to: [me], subject: "Interested in working together", body: "Hello,\n\nI run operations at Brightpath and we're interested in your consulting services. Could we schedule a call next week to discuss pricing?\n\nBest,\nTheo" },
   { id: "d03", thread: "t03", hoursAgo: 6, from: finance, to: [me], subject: "Invoice #4471 — payment due Nov 15", body: "Your invoice #4471 for $1,240.00 is attached. Payment due November 15.\n\nCloudNest Billing", headers: { "list-unsubscribe": "<mailto:unsub@cloudnest.test>", precedence: "bulk" }, attachments: [{ filename: "invoice-4471.pdf", mimeType: "application/pdf", size: 88_000 }] },
   { id: "d04", thread: "t04", hoursAgo: 7, from: lena, to: [me], subject: "Design review notes", body: "Hey! Notes from today's design review are below. No action needed on your side, just FYI.\n\n• New nav approved\n• Icons next sprint" },
-  { id: "d05", thread: "t05", hoursAgo: 9, from: p("The Weekly Signal", "newsletter@weeklysignal.test"), to: [me], subject: "The Weekly Signal — Issue #212", body: "This week: five ideas on focus, a reading list, and more.", headers: { "list-id": "<weekly.weeklysignal.test>", "list-unsubscribe": "<https://weeklysignal.test/unsub>", precedence: "list" }, labels: ["CATEGORY_UPDATES"] },
+  { id: "d05", thread: "t05", hoursAgo: 9, from: p("The Weekly Signal", "newsletter@weeklysignal.test"), to: [me], subject: "The Weekly Signal — Issue #212", body: "This week: five ideas on focus, a reading list, and more.", html: '<div style="font-family:Georgia,serif;max-width:560px;margin:auto"><img src="cid:masthead@weeklysignal.test" alt="The Weekly Signal masthead" width="560" height="60" style="display:block;width:100%;height:60px;background:#1f3a5f"><h1 style="color:#1f3a5f">This week</h1><p>Five ideas on <b>focus</b>, a reading list, and more.</p><p><a href="https://weeklysignal.test/212">Read online</a></p><script>alert(1)</script></div>', headers: { "list-id": "<weekly.weeklysignal.test>", "list-unsubscribe": "<https://weeklysignal.test/unsub>", precedence: "list" }, labels: ["CATEGORY_UPDATES"] },
   { id: "d06", thread: "t06", hoursAgo: 11, from: p("ShopMore", "deals@shopmore.test"), to: [me], subject: "40% off everything — today only!!!", body: "URGENT: Our biggest sale ends tonight! Shop now.", headers: { "list-unsubscribe": "<https://shopmore.test/u>", precedence: "bulk" }, labels: ["CATEGORY_PROMOTIONS"] },
   { id: "d07", thread: "t07", hoursAgo: 12, from: p("Ride Co", "receipts@rideco.test"), to: [me], subject: "Your receipt for Tuesday's trip", body: "Thank you for your payment. Total: $23.10.", headers: { precedence: "bulk" } },
   { id: "d08", thread: "t08", hoursAgo: 13, from: p("Account Security", "no-reply@accounts.cloudnest.test"), to: [me], subject: "Security alert: new sign-in on Mac", body: "A new sign-in to your account was detected. If this was you, no action is needed." },
@@ -92,6 +93,8 @@ export function demoMessages(accountId: string, nowMs = Date.now()): NormalizedM
       subject: s.subject,
       snippet: s.body.replace(/\s+/g, " ").slice(0, 140),
       bodyText: s.body,
+      bodyHtml: s.html ?? null,
+      inlineImages: s.html?.includes("cid:masthead") ? [{ cid: "masthead@weeklysignal.test", mimeType: "image/png", data: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==", size: 68 }] : [],
       receivedAt: new Date(nowMs - s.hoursAgo * 3_600_000).toISOString(),
       labelIds: labels,
       isUnread: labels.includes("UNREAD"),
