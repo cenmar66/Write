@@ -1,12 +1,15 @@
 import { providerFor } from "@/lib/inbox/mail/provider";
-import { enrich, listMessages, scopeWorkspaces, type View } from "@/lib/inbox/server/queries";
+import { enrich, listMessagesPage, PAGE_SIZE, scopeWorkspaces, type View } from "@/lib/inbox/server/queries";
 import { storeMessages } from "@/lib/inbox/server/sync";
 import { processNewMessages } from "@/lib/inbox/server/process";
 import { audit, body, handle, HttpError, isUuid, loadPrefs, rateLimit } from "@/lib/inbox/server/workspace";
 import { snoozeUntil, type SnoozePreset } from "@/lib/inbox/time";
 import type { AccountRow, MessageRow } from "@/lib/inbox/types";
 
-/** GET ?ws=<id|all>&view=priority|attention|all|sent|snoozed|done|category:<key>&q=&account=&before= */
+/**
+ * GET ?ws=<id|all>&view=priority|attention|all|sent|snoozed|done|category:<key>&q=&account=&page=0
+ * → { messages, total, page, pageSize }. With &ids=1 → { ids, total } (up to 1,000) for "select all".
+ */
 export async function GET(request: Request) {
   return handle(async (ctx) => {
     const u = new URL(request.url);
@@ -14,7 +17,14 @@ export async function GET(request: Request) {
     const view = (u.searchParams.get("view") || "all") as View;
     const q = u.searchParams.get("q")?.slice(0, 500) ?? "";
     const account = u.searchParams.get("account");
-    let rows = await listMessages(ctx.db, wsIds, { view, q, account: isUuid(account) ? account : null, before: u.searchParams.get("before"), limit: Number(u.searchParams.get("limit") ?? 50) });
+    const acct = isUuid(account) ? account : null;
+    const page = Math.max(0, Math.min(1000, Math.floor(Number(u.searchParams.get("page") ?? 0)) || 0));
+    if (u.searchParams.get("ids") === "1") {
+      const all = await listMessagesPage(ctx.db, wsIds, { view, q, account: acct, idsOnly: true, limit: 1000 });
+      return { ids: all.rows.map((r) => r.id), total: all.total };
+    }
+    const size = Math.max(1, Math.min(200, Number(u.searchParams.get("limit") ?? PAGE_SIZE) || PAGE_SIZE));
+    let { rows, total } = await listMessagesPage(ctx.db, wsIds, { view, q, account: acct, before: u.searchParams.get("before"), limit: size, offset: page * size });
 
     // Deep search: also ask Gmail (older mail not stored yet), then store what it finds.
     if (q && u.searchParams.get("deep") === "1") {
@@ -29,9 +39,9 @@ export async function GET(request: Request) {
         const fresh = await storeMessages(ctx.db, acc, msgs, prefs);
         await processNewMessages(ctx.db, ctx.admin, acc, fresh, prefs);
       }
-      rows = await listMessages(ctx.db, wsIds, { view, q, account: isUuid(account) ? account : null, limit: 100 });
+      ({ rows, total } = await listMessagesPage(ctx.db, wsIds, { view, q, account: acct, limit: size, offset: 0 }));
     }
-    return { messages: await enrich(ctx.db, rows) };
+    return { messages: await enrich(ctx.db, rows), total, page, pageSize: size };
   });
 }
 
@@ -39,7 +49,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   return handle(async (ctx) => {
     const b = await body<{ ids?: string[]; action?: string; value?: string; confirm?: boolean }>(request);
-    const ids = (b.ids ?? []).filter(isUuid).slice(0, 500);
+    const ids = (b.ids ?? []).filter(isUuid).slice(0, 200); // the app sends large selections in chunks of 100
     if (!ids.length) throw new HttpError(400, "Select some messages.");
     const { data } = await ctx.db.from("ip_messages").select("id,workspace_id,account_id,provider_message_id,thread_id").in("id", ids);
     const msgs = (data ?? []) as MessageRow[];

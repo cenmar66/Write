@@ -200,3 +200,28 @@ describe("memory database fidelity", () => {
     expect(hi).toEqual([{ priority_score: 65 }]);
   });
 });
+
+describe("message list paging", () => {
+  it("pages Gmail-style with a true total, newest first, never showing Trash", async () => {
+    await setup();
+    await syncAccount(db, db, acc, prefs, { now: NOW });
+    const { listMessagesPage } = await import("@/lib/inbox/server/queries");
+    const all = demoMessages(acc.id).length;
+    const p0 = await listMessagesPage(db, [acc.workspace_id], { view: "all", limit: 10, offset: 0 });
+    const p1 = await listMessagesPage(db, [acc.workspace_id], { view: "all", limit: 10, offset: 10 });
+    const p2 = await listMessagesPage(db, [acc.workspace_id], { view: "all", limit: 10, offset: 20 });
+    expect(p0.total).toBe(all);
+    expect([p0.rows.length, p1.rows.length, p2.rows.length]).toEqual([10, 10, all - 20]);
+    const ids = [...p0.rows, ...p1.rows, ...p2.rows].map((r) => r.id);
+    expect(new Set(ids).size).toBe(all); // no overlaps, nothing skipped
+    expect(p0.rows[0].received_at >= p1.rows[0].received_at).toBe(true);
+
+    await db.from("ip_messages").update({ label_ids: ["TRASH"] }).eq("id", p0.rows[0].id);
+    const after = await listMessagesPage(db, [acc.workspace_id], { view: "all", limit: 10, offset: 0 });
+    expect(after.total).toBe(all - 1);
+    expect(after.rows.some((r) => r.id === p0.rows[0].id)).toBe(false);
+
+    const idsOnly = await listMessagesPage(db, [acc.workspace_id], { view: "all", idsOnly: true, limit: 1000 });
+    expect(idsOnly.rows).toHaveLength(all - 1);
+  });
+});

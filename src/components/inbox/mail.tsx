@@ -1,9 +1,10 @@
 "use client";
 
-import { AlertTriangle, Archive, ArrowLeft, Check, Clock, Filter, RefreshCw, Search, ShieldAlert, Star, Trash2 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { AlertTriangle, Archive, ArrowLeft, Check, ChevronLeft, ChevronRight, Clock, Filter, RefreshCw, Search, ShieldAlert, Star, Trash2 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { api, ApiError, useAct, useMessages, type ListMessage } from "./api";
+import { api, ApiError, useAct, useMessagePage, type ListMessage } from "./api";
 import { MessageReader } from "./reader";
 import { useScope } from "./shell";
 import { Avatar, CategoryChip, Empty, ImportanceChip, type MailboxResult, Skeleton, Spinner, errText, reportMailboxResult, timeLabel, useToast } from "./ui";
@@ -19,14 +20,27 @@ export function MailPage() {
   const selectedId = params.get("m");
   const [account, setAccount] = useState("");
   const [deep, setDeep] = useState(false);
-  const list = useMessages(ws, view, q, account);
+  // Gmail-style pages of 100; the page number lives in the address (?p=) so links reset it.
+  const page = Math.max(0, Math.floor(Number(params.get("p") ?? 0)) || 0);
+  const list = useMessagePage(ws, view, q, account, page);
+  const qc = useQueryClient();
+  const [bulkBusy, setBulkBusy] = useState<string | null>(null);
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const toast = useToast();
   const listRef = useRef<HTMLUListElement>(null);
 
   const catName = (key: string) => boot.categories.find((c) => c.key === key)?.name ?? key.replace(/_/g, " ");
   const title = view.startsWith("category:") ? catName(view.slice(9)) : TITLES[view] ?? "Mail";
-  const rows = useMemo(() => list.data ?? [], [list.data]);
+  const rows = useMemo(() => list.data?.messages ?? [], [list.data]);
+  const total = list.data?.total ?? 0;
+  const pageSize = list.data?.pageSize ?? 100;
+  const first = total ? page * pageSize + 1 : 0;
+  const last = Math.min(total, page * pageSize + rows.length);
+  const goPage = (n: number) => {
+    setChecked(new Set());
+    setParam("p", n > 0 ? String(n) : null);
+    listRef.current?.parentElement?.scrollTo({ top: 0 });
+  };
 
   const setParam = (k: string, v: string | null) => {
     const p = new URLSearchParams(params.toString());
@@ -51,6 +65,7 @@ export function MailPage() {
   });
   const runBulk = (action: string, value?: string, ids = [...checked]) => {
     if (!ids.length) return;
+    if (ids.length > 100) return void runLarge(action, value, ids);
     bulk.mutate(
       { action, value, ids },
       {
@@ -60,6 +75,39 @@ export function MailPage() {
         },
       },
     );
+  };
+
+  /** Large selections ("Select all N"): one confirmation, then batches of 100. */
+  const runLarge = async (action: string, value: string | undefined, ids: string[]) => {
+    const verb = { done: "Mark done", trash: "Move to Trash", archive: "Archive in Gmail", mark_read: "Mark read", snooze: "Snooze", category: "Move", undone: "Restore" }[action] ?? action;
+    if (!confirm(`${verb}: ${ids.length} messages?${action === "trash" ? " They go to your Gmail Trash, where you can restore them for 30 days." : ""}`)) return;
+    setBulkBusy(`${verb}… 0 of ${ids.length}`);
+    const sum: MailboxResult = { done: 0, failures: [], needsPermission: [] };
+    try {
+      for (let i = 0; i < ids.length; i += 100) {
+        const r = await api<MailboxResult>("/messages", { method: "POST", json: { action, value, ids: ids.slice(i, i + 100), confirm: true } });
+        sum.done = (sum.done ?? 0) + (r.done ?? Math.min(100, ids.length - i));
+        sum.failures!.push(...(r.failures ?? []));
+        sum.needsPermission!.push(...(r.needsPermission ?? []));
+        setBulkBusy(`${verb}… ${Math.min(i + 100, ids.length)} of ${ids.length}`);
+        if (r.needsPermission?.length) break; // no point continuing without the permission
+      }
+      setChecked(new Set());
+      reportMailboxResult(toast, sum, { text: `${verb}: ${sum.done} messages.`, tone: "ok" });
+    } catch (e) {
+      toast({ text: errText(e), tone: "error" });
+    }
+    setBulkBusy(null);
+    void qc.invalidateQueries();
+  };
+  const selectEverything = async () => {
+    try {
+      const r = await api<{ ids: string[]; total: number }>(`/messages?${new URLSearchParams({ ws, view, q, ids: "1", ...(account ? { account } : {}) })}`);
+      setChecked(new Set(r.ids));
+      if (r.total > r.ids.length) toast({ text: `Selected the newest ${r.ids.length} of ${r.total} (the most one action handles at once).`, tone: "info" });
+    } catch (e) {
+      toast({ text: errText(e), tone: "error" });
+    }
   };
 
   const toggle = (id: string) =>
@@ -111,12 +159,12 @@ export function MailPage() {
 
   return (
     <div className="flex h-full">
-      <section className={`flex min-w-0 flex-col border-r ip-line ${selectedId ? "hidden lg:flex" : "flex"} w-full lg:w-[440px] lg:flex-none`} style={{ background: "var(--ip-surface)" }} aria-label={title}>
+      <section className={`flex min-h-0 min-w-0 flex-col border-r ip-line ${selectedId ? "hidden lg:flex" : "flex"} w-full lg:w-[440px] lg:flex-none`} style={{ background: "var(--ip-surface)" }} aria-label={title}>
         <div className="flex items-center gap-2 border-b px-3 py-2.5 ip-line">
           <input
             type="checkbox"
             aria-label="Select all"
-            checked={rows.length > 0 && checked.size === rows.length}
+            checked={rows.length > 0 && rows.every((r) => checked.has(r.id))}
             onChange={(e) => setChecked(e.target.checked ? new Set(rows.map((r) => r.id)) : new Set())}
           />
           <h1 className="font-semibold">{q ? `Search: ${q}` : title}</h1>
@@ -126,7 +174,7 @@ export function MailPage() {
               <label className="relative">
                 <span className="sr-only">Account</span>
                 <Filter size={13} className="ip-muted pointer-events-none absolute left-2 top-1/2 -translate-y-1/2" />
-                <select className="ip-select !h-8 !w-36 !pl-6 text-[12px]" value={account} onChange={(e) => setAccount(e.target.value)}>
+                <select className="ip-select !h-8 !w-36 !pl-6 text-[12px]" value={account} onChange={(e) => { setAccount(e.target.value); goPage(0); }}>
                   <option value="">All accounts</option>
                   {accountsInScope.map((a) => (
                     <option key={a.id} value={a.id}>{a.email}</option>
@@ -134,11 +182,41 @@ export function MailPage() {
                 </select>
               </label>
             )}
+            {total > 0 && (
+              <span className="ip-muted whitespace-nowrap text-[12px] tabular-nums" aria-live="polite">
+                {first}–{last} of {total}
+              </span>
+            )}
+            <button className="ip-btn ip-btn-ghost ip-btn-sm" onClick={() => goPage(page - 1)} disabled={page === 0 || list.isFetching} aria-label="Newer">
+              <ChevronLeft size={15} />
+            </button>
+            <button className="ip-btn ip-btn-ghost ip-btn-sm" onClick={() => goPage(page + 1)} disabled={last >= total || list.isFetching} aria-label="Older">
+              <ChevronRight size={15} />
+            </button>
             <button className="ip-btn ip-btn-ghost ip-btn-sm" onClick={() => list.refetch()} aria-label="Refresh">
               <RefreshCw size={14} className={list.isFetching ? "animate-spin" : ""} />
             </button>
           </div>
         </div>
+        {rows.length > 0 && rows.every((r) => checked.has(r.id)) && total > checked.size && (
+          <div className="border-b px-3 py-1.5 text-center text-[12.5px] ip-line" style={{ background: "var(--ip-accent-soft)" }}>
+            All {rows.length} on this page are selected.{" "}
+            <button className="font-semibold underline" onClick={selectEverything}>
+              Select all {total > 1000 ? "1,000 newest" : total} in {q ? "this search" : title}
+            </button>
+          </div>
+        )}
+        {checked.size > 0 && rows.length > 0 && checked.size >= total && total > rows.length && (
+          <div className="border-b px-3 py-1.5 text-center text-[12.5px] ip-line" style={{ background: "var(--ip-accent-soft)" }}>
+            All {checked.size} in {q ? "this search" : title} are selected.{" "}
+            <button className="font-semibold underline" onClick={() => setChecked(new Set())}>Clear selection</button>
+          </div>
+        )}
+        {bulkBusy && (
+          <div className="flex items-center gap-2 border-b px-3 py-1.5 text-[12.5px] ip-line" role="status">
+            <Spinner size={13} /> {bulkBusy}
+          </div>
+        )}
         {checked.size > 0 && (
           <div className="flex flex-wrap items-center gap-1.5 border-b px-3 py-2 ip-line ip-fade-in" style={{ background: "var(--ip-surface-2)" }}>
             <span className="text-[12px] font-medium">{checked.size} selected</span>
@@ -160,7 +238,7 @@ export function MailPage() {
             <button className="ip-btn ip-btn-sm" onClick={() => runBulk("archive")} title="Archive in your mailbox (asks first)"><Archive size={13} /> Archive</button>
           </div>
         )}
-        <div className="ip-scroll flex-1">
+        <div className="ip-scroll min-h-0 flex-1">
           {list.isLoading ? (
             <Skeleton rows={8} />
           ) : list.error ? (
@@ -191,7 +269,7 @@ export function MailPage() {
           <span className="ip-kbd">j</span>/<span className="ip-kbd">k</span> move · <span className="ip-kbd">e</span> done · <span className="ip-kbd">#</span> delete · <span className="ip-kbd">s</span> snooze · <span className="ip-kbd">x</span> select · <span className="ip-kbd">r</span> reply · <span className="ip-kbd">/</span> search
         </p>
       </section>
-      <section className={`min-w-0 flex-1 ${selectedId ? "flex" : "hidden lg:flex"} flex-col`} aria-label="Message">
+      <section className={`min-h-0 min-w-0 flex-1 ${selectedId ? "flex" : "hidden lg:flex"} flex-col`} aria-label="Message">
         {selectedId ? (
           <>
             <button className="ip-btn ip-btn-ghost m-2 w-fit lg:hidden" onClick={() => open(null)}>

@@ -13,7 +13,7 @@ Supabase → SQL Editor → run `supabase/migrations/0012_inboxsatori.sql` (or p
 | `ENCRYPTION_KEY` | yes | 40+ random characters. Encrypts mailbox tokens and signs send confirmations. Already used by Write.ai; never change it after connecting accounts. |
 | `SUPABASE_SECRET_KEY` | yes | Supabase secret (service-role) key. Server-only: reads encrypted tokens and runs the scheduler. |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | for Gmail | Same OAuth client The Daily Canvas uses is fine (add the redirect URI below). |
-| `CRON_SECRET` | for background sync & scheduled briefings | Any long random string; Vercel Cron sends it. |
+| `CRON_SECRET` | for background sync & scheduled briefings | Any long random string; Supabase sends it (§4). |
 | `ANTHROPIC_API_KEY` | for AI features | Already set for Write.ai. |
 | `OPENAI_API_KEY`, `OPENAI_MODEL` (or `OPENAI_MODEL_FAST/BALANCED/BEST`), `OPENAI_PRICE_IN/OUT` | optional | Only if you choose OpenAI in Settings. Prices are USD per million tokens, used for cost tracking. |
 | `INBOX_DEFAULT_PLAN` | optional | `dev` (default: everything on), `personal`, `professional`, `team`: to test plan limits. |

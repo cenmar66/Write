@@ -138,6 +138,15 @@ export function useMessages(ws: string, view: string, q = "", account = "") {
   });
 }
 
+/** One page of a view, Gmail-style: { messages, total, page, pageSize }. */
+export function useMessagePage(ws: string, view: string, q: string, account: string, page: number) {
+  return useQuery({
+    queryKey: [...qk.messages(ws, view, q, account), "page", page],
+    queryFn: () => api<{ messages: ListMessage[]; total: number; page: number; pageSize: number }>(`/messages?${new URLSearchParams({ ws, view, q, page: String(page), ...(account ? { account } : {}) })}`),
+    placeholderData: (prev) => prev, // keep the current page on screen while the next one loads
+  });
+}
+
 export const useMessage = (id: string | null) => useQuery({ queryKey: qk.message(id ?? ""), queryFn: () => api<MessageDetail>(`/messages/${id}`), enabled: !!id });
 
 export const useFollowups = (ws: string, kind = "", status = "open") =>

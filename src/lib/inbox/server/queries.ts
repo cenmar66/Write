@@ -19,11 +19,23 @@ export async function scopeWorkspaces(ctx: Pick<InboxCtx, "db" | "userId">, ws: 
 
 const SAFE = /[^\p{L}\p{N}@._ +-]/gu;
 
+export const PAGE_SIZE = 100;
+
 export async function listMessages(db: Db, wsIds: string[], opts: { view: View; q?: string; account?: string | null; limit?: number; before?: string | null; now?: Date }) {
-  if (!wsIds.length) return [];
+  return (await listMessagesPage(db, wsIds, { ...opts, offset: 0 })).rows;
+}
+
+/**
+ * One page of a view (Gmail-style "1–100 of N"), newest first. `total` counts every
+ * matching message (Trash excluded). `idsOnly` returns just ids, up to 1,000, for
+ * "Select all N in this view".
+ */
+export async function listMessagesPage(db: Db, wsIds: string[], opts: { view: View; q?: string; account?: string | null; limit?: number; offset?: number; before?: string | null; now?: Date; idsOnly?: boolean }): Promise<{ rows: MessageRow[]; total: number }> {
+  if (!wsIds.length) return { rows: [], total: 0 };
   const now = (opts.now ?? new Date()).toISOString();
   const f: SearchFilters = opts.q ? parseQuery(opts.q) : { text: [] };
-  let q = db.from("ip_messages").select(LIST_COLUMNS).in("workspace_id", wsIds);
+  // Messages in the mailbox's Trash never show up in lists.
+  let q = db.from("ip_messages").select(opts.idsOnly ? "id,to_addrs,cc_addrs,from_email" : LIST_COLUMNS, { count: "exact" }).in("workspace_id", wsIds).not("label_ids", "cs", "{TRASH}");
   const v = opts.view;
   const active = () => {
     q = q.is("done_at", null).or(`snoozed_until.is.null,snoozed_until.lte.${now}`);
@@ -61,14 +73,21 @@ export async function listMessages(db: Db, wsIds: string[], opts: { view: View; 
   }
   if (opts.before) q = q.lt("received_at", opts.before);
   q = v === "priority" ? q.order("priority_score", { ascending: false }).order("received_at", { ascending: false }) : q.order("received_at", { ascending: false });
-  const { data, error } = await q.limit(Math.min(opts.limit ?? 50, 200));
+  const size = Math.max(1, Math.min(opts.limit ?? PAGE_SIZE, opts.idsOnly ? 1000 : 200));
+  const offset = Math.max(0, Math.floor(opts.offset ?? 0));
+  const { data, error, count } = await q.range(offset, offset + size - 1);
   if (error) throw new Error(error.message);
-  // Messages in the mailbox's Trash never show up in lists.
-  let rows = ((data ?? []) as MessageRow[]).filter((m) => !(m.label_ids ?? []).includes("TRASH"));
+  let rows = (data ?? []) as unknown as MessageRow[];
+  let total = count ?? rows.length;
   // Filters PostgREST can't express on jsonb arrays are applied here (bounded result set).
-  if (f.to) rows = rows.filter((m) => [...(m.to_addrs ?? []), ...(m.cc_addrs ?? [])].some((a) => a.email.includes(f.to!)));
-  if (f.domain) rows = rows.filter((m) => m.from_email.endsWith(`@${f.domain}`) || m.from_email.endsWith(`.${f.domain}`));
-  return rows;
+  // (With these two the total is approximate: it counts before this filter.)
+  if (f.to || f.domain) {
+    const before = rows.length;
+    if (f.to) rows = rows.filter((m) => [...(m.to_addrs ?? []), ...(m.cc_addrs ?? [])].some((a) => a.email.includes(f.to!)));
+    if (f.domain) rows = rows.filter((m) => m.from_email.endsWith(`@${f.domain}`) || m.from_email.endsWith(`.${f.domain}`));
+    if (total <= before) total = rows.length;
+  }
+  return { rows, total };
 }
 
 export async function enrich(db: Db, rows: MessageRow[]) {
