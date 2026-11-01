@@ -29,6 +29,8 @@ export interface MailProvider {
   listChanges(acc: AccountRow, cursor: string): Promise<Changes>;
   getMessages(acc: AccountRow, ids: string[], opts: { format: "full" | "metadata" }): Promise<NormalizedMessage[]>;
   search(acc: AccountRow, query: string, max: number): Promise<string[]>;
+  /** Bytes of one attachment (used for images embedded in a message), base64. */
+  attachment?(acc: AccountRow, providerMessageId: string, attachmentId: string): Promise<string>;
   modify(acc: AccountRow, providerMessageId: string, change: { add?: string[]; remove?: string[] }): Promise<void>;
   /** Moves to the provider's Trash (recoverable; Gmail empties it after 30 days). Only ever called for an explicit user request. */
   trash(acc: AccountRow, providerMessageId: string): Promise<void>;

@@ -122,14 +122,17 @@ function walkParts(part: GmailPart | undefined, visit: (p: GmailPart) => void) {
 }
 
 /** Picks the best text body: text/plain first, else converted text/html. */
-export function extractBody(payload: GmailPart | undefined): { text: string | null; attachments: Attachment[]; calendar: boolean } {
+export function extractBody(payload: GmailPart | undefined): { text: string | null; html: string | null; inline: NonNullable<NormalizedMessage["inlineImages"]>; attachments: Attachment[]; calendar: boolean } {
   let plain: string | null = null;
   let html: string | null = null;
   let calendar = false;
   const attachments: Attachment[] = [];
+  const inline: NonNullable<NormalizedMessage["inlineImages"]> = [];
   walkParts(payload, (p) => {
     const mime = (p.mimeType ?? "").toLowerCase();
     if (mime === "text/calendar") calendar = true;
+    const cid = p.headers?.find((h) => h.name.toLowerCase() === "content-id")?.value.replace(/^<|>$/g, "").trim();
+    if (cid && mime.startsWith("image/")) inline.push({ cid, mimeType: mime, attachmentId: p.body?.attachmentId, data: p.body?.data, size: p.body?.size ?? 0 });
     if (p.filename) {
       attachments.push({ filename: p.filename, mimeType: p.mimeType ?? "application/octet-stream", size: p.body?.size ?? 0 });
       return;
@@ -139,7 +142,7 @@ export function extractBody(payload: GmailPart | undefined): { text: string | nu
     else if (mime === "text/html" && html === null) html = decodeBase64Url(p.body.data);
   });
   const text = plain ?? (html !== null ? htmlToText(html) : null);
-  return { text, attachments, calendar };
+  return { text, html, inline, attachments, calendar };
 }
 
 export function headerMap(headers: GmailHeader[] | undefined): Map<string, string> {
@@ -203,7 +206,7 @@ export function normalizeGmail(msg: GmailMessage, accountEmail: string): Normali
   const from = parseAddress(headers.get("from") ?? "") ?? { email: "", name: "" };
   from.name = decodeMimeWords(from.name);
   const labelIds = msg.labelIds ?? [];
-  const { text, attachments, calendar } = extractBody(msg.payload);
+  const { text, html, inline, attachments, calendar } = extractBody(msg.payload);
   const subject = decodeMimeWords(headers.get("subject") ?? "").trim();
   const replyTo = headers.get("reply-to") ?? null;
   const internal = Number(msg.internalDate);
@@ -222,6 +225,8 @@ export function normalizeGmail(msg: GmailMessage, accountEmail: string): Normali
     subject,
     snippet: decodeEntities(msg.snippet ?? ""),
     bodyText: text,
+    bodyHtml: html,
+    inlineImages: inline,
     receivedAt,
     labelIds,
     isUnread: labelIds.includes("UNREAD"),

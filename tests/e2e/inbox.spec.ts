@@ -252,8 +252,8 @@ test.describe("Inbox zero", () => {
     const row = page.locator("li[data-id]").filter({ hasText: "40% off everything" });
     await row.click();
     await page.getByRole("button", { name: "Delete", exact: true }).click();
+    await expect(row).toHaveCount(0, { timeout: 1000 }); // gone at once, before Gmail answers
     await expect(page.getByText("Moved to Trash.")).toBeVisible();
-    await expect(row).toHaveCount(0);
     await page.getByRole("status").getByRole("button", { name: "Undo" }).click();
     await expect(row).toHaveCount(1);
 
@@ -312,5 +312,27 @@ test.describe("Long lists", () => {
     expect(new Set([...a.messages, ...b.messages].map((m: { id: string }) => m.id)).size).toBe(20);
     const sel = await (await page.request.get("/api/inbox/messages?ws=all&view=all&ids=1")).json();
     expect(sel.ids).toHaveLength(n);
+  });
+});
+
+test.describe("Formatted email", () => {
+  test("shows the email with its images in a sandbox where nothing can run", async ({ page }, info) => {
+    test.skip(info.project.name !== "desktop");
+    await page.request.delete("/api/inbox/data", { data: { confirm: "DELETE" } });
+    await page.request.post("/api/inbox/demo");
+    await page.request.patch("/api/inbox/settings", { data: { onboarding: { step: 10 } } });
+    await page.goto("/inbox/mail?view=all");
+    await page.locator("li[data-id]").filter({ hasText: "The Weekly Signal" }).click();
+    const frame = page.locator("iframe.ip-html-body");
+    await expect(frame).toBeVisible({ timeout: 20_000 });
+    expect(await frame.getAttribute("sandbox")).not.toContain("allow-scripts");
+    const body = page.frameLocator("iframe.ip-html-body");
+    await expect(body.getByRole("heading", { name: "This week" })).toBeVisible();
+    const img = body.getByAltText("The Weekly Signal masthead");
+    await expect(img).toHaveAttribute("src", /^data:image\/png;base64,/); // embedded image, inlined
+    expect(await frame.getAttribute("srcdoc")).not.toContain("<script");
+    await page.getByRole("button", { name: "Show plain text" }).click();
+    await expect(page.locator(".ip-body-text")).toContainText("This week: five ideas on focus");
+    await expect(frame).toHaveCount(0);
   });
 });

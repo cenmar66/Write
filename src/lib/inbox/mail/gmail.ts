@@ -263,6 +263,10 @@ export function gmailProvider(deps: ProviderDeps): MailProvider {
       });
       return results.filter((m): m is NonNullable<typeof m> => !!m);
     },
+    async attachment(acc, id, attachmentId) {
+      const r = await gapi<{ data?: string }>(admin(), acc.id, `messages/${id}/attachments/${attachmentId}`);
+      return (r.data ?? "").replace(/-/g, "+").replace(/_/g, "/");
+    },
     async search(acc, query, max) {
       const q = new URLSearchParams({ q: query.slice(0, 500), maxResults: String(Math.min(max, 100)) });
       const r = await gapi<{ messages?: { id: string }[] }>(admin(), acc.id, `messages?${q}`);

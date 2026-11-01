@@ -48,7 +48,7 @@
 ## Input & output handling
 - ✅ All route inputs validated (types, lengths, allow-lists); rule conditions/actions from an allow-list (no regex → no ReDoS); search terms sanitized before PostgREST filters.
 - ✅ Header-injection guard in the RFC 5322 builder (tested).
-- ✅ HTML email converted to text server-side (scripts/styles/hidden blocks dropped); React escapes everything rendered. Remote images and links in mail aren't rendered as HTML.
+- ✅ Formatted (HTML) email is shown like Gmail, with two layers of protection: the server strips scripts, frames, forms, event handlers and `javascript:` links (`lib/inbox/html.ts`), and the browser shows it in a sandboxed iframe **without** `allow-scripts`, under a CSP that allows only images and inline styles (no scripts, no network calls, no forms, no referrer). Links open in a new tab. Embedded (cid:) images are inlined from the message. Remote images load like in Gmail, except for messages flagged suspicious or as prompt injection, where they're blocked (they can reveal that you opened the email). The HTML is fetched on open, never stored, and never sent to AI; AI only ever sees the fenced plain text.
 - ✅ CSV export neutralizes spreadsheet formulas.
 - ✅ InboxSatori never opens unsubscribe links and never marks spam or permanently deletes. Delete moves to Gmail Trash (restorable 30 days) only when you click it (bulk asks first; Undo offered); rules/AI/assistant/Black Hole have no trash action (tested).
 - ✅ Black Hole: per-sender, user-chosen; archives (never trashes) existing mail after confirmation and future mail on arrival; each archive has an undo record; leaving the Black Hole restores them.

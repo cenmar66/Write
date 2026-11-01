@@ -2,7 +2,7 @@
 
 // Client data layer: typed fetch helpers + TanStack Query hooks for /api/inbox.
 
-import { useMutation, useQuery, useQueryClient, type QueryKey } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, type QueryClient, type QueryKey } from "@tanstack/react-query";
 import type { AccountRow, Address, ClassificationRow, FollowupRow, MessageRow, Preferences, SenderRow, TaskRow, WorkspaceRow } from "@/lib/inbox/types";
 import type { BriefingContent } from "@/lib/inbox/briefing";
 
@@ -67,7 +67,7 @@ export type ListMessage = MessageRow & {
 };
 
 export interface MessageDetail {
-  message: ListMessage & { body_source: "stored" | "provider" | "unavailable" };
+  message: ListMessage & { body_source: "stored" | "provider" | "unavailable"; body_html: string | null };
   classification: ClassificationRow | null;
   thread: Pick<MessageRow, "id" | "from_email" | "from_name" | "to_addrs" | "subject" | "snippet" | "received_at" | "is_sent" | "signals">[];
   followups: FollowupRow[];
@@ -144,6 +144,20 @@ export function useMessagePage(ws: string, view: string, q: string, account: str
     queryKey: [...qk.messages(ws, view, q, account), "page", page],
     queryFn: () => api<{ messages: ListMessage[]; total: number; page: number; pageSize: number }>(`/messages?${new URLSearchParams({ ws, view, q, page: String(page), ...(account ? { account } : {}) })}`),
     placeholderData: (prev) => prev, // keep the current page on screen while the next one loads
+  });
+}
+
+/**
+ * Removes messages from every loaded list right away (Delete/Archive/Done feel instant);
+ * the server result then refreshes the lists, which brings them back if it failed.
+ */
+export function hideFromLists(qc: QueryClient, ids: string[]) {
+  const gone = new Set(ids);
+  qc.setQueriesData<ListMessage[] | { messages: ListMessage[]; total: number }>({ queryKey: ["messages"] }, (d) => {
+    if (!d) return d;
+    if (Array.isArray(d)) return d.filter((m) => !gone.has(m.id));
+    const messages = d.messages.filter((m) => !gone.has(m.id));
+    return { ...d, messages, total: Math.max(0, d.total - (d.messages.length - messages.length)) };
   });
 }
 

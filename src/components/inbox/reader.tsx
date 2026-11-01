@@ -1,11 +1,13 @@
 "use client";
 
 import { AlarmClock, Archive, Check, CheckSquare, CircleDot, Clock, ExternalLink, FileText, Paperclip, Reply, ShieldAlert, Sparkles, Star, Trash2, UserX, X } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { ACTIONS, IMPORTANCE, MSG_TYPES } from "@/lib/inbox/types";
-import { api, ApiError, useAct, useMessage, type MessageDetail } from "./api";
+import { api, ApiError, hideFromLists, useAct, useMessage, type MessageDetail } from "./api";
 import { Composer } from "./composer";
+import { HtmlBody } from "./html-body";
 import { useScope } from "./shell";
 import { FollowupDialog, TaskDialog } from "./task-dialog";
 import { Avatar, CategoryChip, ImportanceChip, type MailboxResult, Skeleton, Spinner, dueLabel, errText, reportMailboxResult, timeLabel, useToast } from "./ui";
@@ -22,6 +24,7 @@ export function MessageReader({ id, onDone }: { id: string; onDone: () => void }
   const [fuOpen, setFuOpen] = useState(false);
   const delRef = useRef<() => void>(() => undefined);
   const patch = useAct((b: Record<string, unknown>) => api(`/messages/${id}`, { method: "PATCH", json: b }));
+  const qc = useQueryClient();
   const bulk = useAct((b: Record<string, unknown>) => api(`/messages`, { method: "POST", json: { ids: [id], ...b } }));
 
   useEffect(() => {
@@ -40,9 +43,27 @@ export function MessageReader({ id, onDone }: { id: string; onDone: () => void }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q.data?.message.id]);
 
+  // Delete/Archive/Done move on to the next message at once; Gmail catches up in the background.
+  const moveOn = (target: string) => {
+    onDone();
+    hideFromLists(qc, [target]);
+  };
+  const failed = (e: Error) => {
+    toast({ text: errText(e), tone: "error" });
+    qc.invalidateQueries(); // brings the message back
+  };
+  // Delete = move to Gmail Trash (recoverable for 30 days), with Undo.
+  const trashNow = (target: string) => {
+    moveOn(target);
+    bulk.mutate({ action: "trash", ids: [target] }, {
+      onSuccess: (r) => void reportMailboxResult(toast, r as MailboxResult, { text: "Moved to Trash.", tone: "ok", action: { label: "Undo", run: () => bulk.mutate({ action: "untrash", ids: [target] }) } }),
+      onError: failed,
+    });
+  };
+
   useEffect(() => {
     const target = id; // the message on screen when # was pressed
-    delRef.current = () => bulk.mutate({ action: "trash", ids: [id] }, { onSuccess: (r) => { if (reportMailboxResult(toast, r as MailboxResult, { text: "Moved to Trash.", tone: "ok", action: { label: "Undo", run: () => bulk.mutate({ action: "untrash", ids: [target] }) } })) onDone(); } });
+    delRef.current = () => trashNow(target);
   });
 
   if (q.isLoading) return <Skeleton rows={8} />;
@@ -54,30 +75,21 @@ export function MessageReader({ id, onDone }: { id: string; onDone: () => void }
   const suspicious = m.signals?.suspicious ?? [];
   const done = () => {
     const target = id; // undo must act on this message even after the view moves on
-    bulk.mutate({ action: "done", ids: [id] }, {
-      onSuccess: () => {
-        toast({ text: "Marked done.", tone: "ok", action: { label: "Undo", run: () => bulk.mutate({ action: "undone", ids: [target] }) } });
-        onDone();
-      },
+    moveOn(target);
+    bulk.mutate({ action: "done", ids: [target] }, {
+      onSuccess: () => toast({ text: "Marked done.", tone: "ok", action: { label: "Undo", run: () => bulk.mutate({ action: "undone", ids: [target] }) } }),
+      onError: failed,
     });
   };
-  const archive = () =>
-    bulk.mutate({ action: "archive", ids: [id] }, {
-      onSuccess: (r) => {
-        if (reportMailboxResult(toast, r as MailboxResult, { text: "Archived in Gmail.", tone: "ok" })) onDone();
-      },
-      onError: (e) => toast({ text: errText(e), tone: "error" }),
-    });
-  // Delete = move to Gmail Trash (recoverable for 30 days), with Undo.
-  const del = () => {
-    const target = id; // undo must act on this message even after the view moves on
-    bulk.mutate({ action: "trash", ids: [id] }, {
-      onSuccess: (r) => {
-        if (reportMailboxResult(toast, r as MailboxResult, { text: "Moved to Trash.", tone: "ok", action: { label: "Undo", run: () => bulk.mutate({ action: "untrash", ids: [target] }) } })) onDone();
-      },
-      onError: (e) => toast({ text: errText(e), tone: "error" }),
+  const archive = () => {
+    const target = id;
+    moveOn(target);
+    bulk.mutate({ action: "archive", ids: [target] }, {
+      onSuccess: (r) => void reportMailboxResult(toast, r as MailboxResult, { text: "Archived in Gmail.", tone: "ok" }),
+      onError: failed,
     });
   };
+  const del = () => trashNow(id);
   const snooze = (value: string) => bulk.mutate({ action: "snooze", value, ids: [id] }, { onSuccess: () => { toast({ text: "Snoozed.", tone: "ok" }); onDone(); }, onError: (e) => toast({ text: errText(e), tone: "error" }) });
 
   return (
@@ -145,7 +157,7 @@ export function MessageReader({ id, onDone }: { id: string; onDone: () => void }
           </div>
 
           <div className="ip-card p-4 md:p-5">
-            {m.body_text ? <div className="ip-body-text">{m.body_text}</div> : <p className="ip-muted">{m.snippet}</p>}
+            <MessageBody key={m.id} html={m.body_html} text={m.body_text} snippet={m.snippet} blockRemote={suspicious.length > 0 || !!m.c?.injection_flag} />
             <p className="ip-muted mt-3 text-[11px]">
               {m.body_source === "provider" ? "Content fetched from your mailbox for viewing; not stored (your retention setting)." : m.body_source === "unavailable" ? "Full content isn't stored (metadata-first mode). Showing Gmail's preview." : "Stored copy; deleted automatically after your retention period."}
             </p>
@@ -400,5 +412,26 @@ function SenderControls({ d }: { d: MessageDetail }) {
         <BlackHoleButton id={s.id} on={s.blocked} />
       </div>
     </Panel>
+  );
+}
+
+/** Formatted email (images, layout) by default, like Gmail; one click switches to plain text. */
+function MessageBody({ html, text, snippet, blockRemote }: { html: string | null; text: string | null; snippet: string; blockRemote: boolean }) {
+  const [plain, setPlain] = useState(false);
+  if (!html || plain)
+    return (
+      <>
+        {text ? <div className="ip-body-text">{text}</div> : <p className="ip-muted">{snippet}</p>}
+        {html && <button className="ip-btn ip-btn-ghost ip-btn-sm mt-2" onClick={() => setPlain(false)}>Show formatted email</button>}
+      </>
+    );
+  return (
+    <>
+      <HtmlBody html={html} blockRemote={blockRemote} />
+      <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
+        <button className="ip-btn ip-btn-ghost ip-btn-sm" onClick={() => setPlain(true)}>Show plain text</button>
+        {blockRemote && <span className="ip-muted">Remote images are blocked for this suspicious message.</span>}
+      </div>
+    </>
   );
 }
