@@ -116,6 +116,22 @@ describe("sync pipeline (demo mailbox)", () => {
     expect(bySubject("Q4 plan").done_at).toBeNull(); // other senders untouched
   });
 
+  it("bulk Black Hole (blackHoleSender): existing mail archived with undo, sender blocked, nothing trashed", async () => {
+    await syncAccount(db, db, acc, prefs, { now: NOW });
+    const { blackHoleSender } = await import("@/lib/inbox/server/black-hole");
+    const s = rows("ip_senders").find((x) => x.email === "deals@shopmore.test")!;
+    const r = await blackHoleSender({ db, admin: db }, s as never);
+    expect(r.affected).toBeGreaterThan(0);
+    const m = bySubject("40% off");
+    expect(m.done_at).toBeTruthy();
+    expect(m.in_inbox).toBe(false);
+    expect(m.label_ids ?? []).not.toContain("TRASH");
+    expect(demoMessages(acc.id).find((x) => x.subject.startsWith("40% off"))!.labelIds).not.toContain("TRASH");
+    expect(rows("ip_senders").find((x) => x.email === "deals@shopmore.test")!.blocked).toBe(true);
+    expect(rows("ip_rule_executions").find((e) => e.message_id === m.id && e.rule_name === "Black Hole")!.undo).toEqual({ add: ["INBOX"] });
+    expect(bySubject("Q4 plan").done_at).toBeNull(); // other senders untouched
+  });
+
   it("disconnecting an account deletes everything fetched from it", async () => {
     await syncAccount(db, db, acc, prefs, { now: NOW });
     await db.from("ip_accounts").delete().eq("id", acc.id);

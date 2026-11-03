@@ -11,6 +11,8 @@ import { Avatar, CategoryChip, Empty, ImportanceChip, type MailboxResult, Skelet
 
 const TITLES: Record<string, string> = { priority: "Priority Inbox", attention: "Needs My Attention", all: "All Mail", sent: "Sent", snoozed: "Snoozed", done: "Done" };
 
+const BLACK_HOLE = "__black_hole__";
+
 export function MailPage() {
   const { ws, boot } = useScope();
   const params = useSearchParams();
@@ -85,6 +87,51 @@ export function MailPage() {
     if (!asks) return go(false);
     const msg = action === "trash" ? `Delete ${ids.length} messages? They go to your Gmail Trash, where you can restore them for 30 days.` : `This will ${action === "archive" ? "archive" : "mark as read"} ${ids.length} messages in your mailbox. Continue?`;
     if (confirm(msg)) go(true);
+  };
+
+  /**
+   * Black Hole the senders of the selected emails (explicit user choice, one confirmation
+   * naming them). Their mail, now and in future, is archived out of the inbox (never
+   * deleted), with Undo.
+   */
+  const blackHoleSenders = async (ids: string[]) => {
+    if (!ids.length) return;
+    try {
+      const pre = await api<{ senders: { id: string; email: string; name: string; selected: number; blocked: boolean }[]; canArchive: boolean }>("/senders/black-hole", { method: "POST", json: { message_ids: ids } });
+      const todo = pre.senders.filter((x) => !x.blocked);
+      if (!todo.length) return toast({ text: pre.senders.length ? "Those senders are already in the Black Hole." : "No senders to send to the Black Hole (only your own sent mail was selected).", tone: "ok" });
+      const names = todo.slice(0, 8).map((x) => `• ${x.name ? `${x.name} <${x.email}>` : x.email}`).join("\n");
+      const more = todo.length > 8 ? `\n…and ${todo.length - 8} more` : "";
+      const what = pre.canArchive ? "marked done and archived out of your Gmail inbox (still searchable)" : "marked done in InboxSatori (grant Organize permission to also clear them from Gmail)";
+      if (!confirm(`Send ${todo.length} sender${todo.length > 1 ? "s" : ""} to the Black Hole?\n\n${names}${more}\n\nAll their mail, now and in the future, will be ${what}. Nothing is deleted, and you can undo.`)) return;
+      if (selectedId && ids.includes(selectedId)) open(null);
+      hideFromLists(qc, ids);
+      setChecked(new Set());
+      let affected = 0;
+      for (let i = 0; i < todo.length; i += 5) {
+        setBulkBusy(`Black Hole… ${Math.min(i + 5, todo.length)} of ${todo.length} senders`);
+        const r = await api<{ affected: number }>("/senders/black-hole", { method: "POST", json: { sender_ids: todo.slice(i, i + 5).map((x) => x.id), confirm: true } });
+        affected += r.affected;
+      }
+      qc.invalidateQueries();
+      const sent = todo.map((x) => x.id);
+      toast({
+        text: `Sent ${todo.length} sender${todo.length > 1 ? "s" : ""} to the Black Hole (${affected} message${affected === 1 ? "" : "s"} cleared).`,
+        tone: "ok",
+        action: {
+          label: "Undo",
+          run: async () => {
+            for (const id of sent) await api(`/senders/${id}`, { method: "PATCH", json: { blocked: false } }).catch(() => undefined);
+            qc.invalidateQueries();
+            toast({ text: "Back from the Black Hole.", tone: "ok" });
+          },
+        },
+      });
+    } catch (e) {
+      failed(e as Error);
+    } finally {
+      setBulkBusy(null);
+    }
   };
 
   /** Large selections ("Select all N"): one confirmation, then batches of 100. */
@@ -239,11 +286,13 @@ export function MailPage() {
               <option value="weekend">This weekend</option>
               <option value="next_week">Next week</option>
             </select>
-            <select className="ip-select !h-7 !w-auto text-[12px]" value="" onChange={(e) => e.target.value && runBulk("category", e.target.value)} aria-label="Move selected">
+            <select className="ip-select !h-7 !w-auto text-[12px]" value="" onChange={(e) => e.target.value === BLACK_HOLE ? void blackHoleSenders([...checked]) : e.target.value && runBulk("category", e.target.value)} aria-label="Move selected">
               <option value="">Move to…</option>
               {[...new Map(boot.categories.filter((c) => !c.hidden).map((c) => [c.key, c])).values()].map((c) => (
                 <option key={c.key} value={c.key}>{c.name}</option>
               ))}
+              <option disabled>──────────</option>
+              <option value={BLACK_HOLE}>Black Hole these senders…</option>
             </select>
             <button className="ip-btn ip-btn-sm" onClick={() => runBulk("archive")} title="Archive in your mailbox (asks first)"><Archive size={13} /> Archive</button>
           </div>
