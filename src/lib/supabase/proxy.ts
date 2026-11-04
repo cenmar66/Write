@@ -3,15 +3,27 @@ import { NextResponse, type NextRequest } from "next/server";
 import { isAllowed, SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from "@/lib/env";
 
 // /api/cron checks its own secret, and /api/v1 checks access codes (no one is signed in for either).
-const PUBLIC_PATHS = ["/login", "/auth", "/manifest.webmanifest", "/canvas/manifest.webmanifest", "/api/cron/", "/api/v1"];
-
+const PUBLIC_PATHS = ["/login", "/auth", "/manifest.webmanifest", "/canvas/manifest.webmanifest", "/satori/manifest.webmanifest", "/inbox/manifest.webmanifest", "/api/cron/", "/api/v1"];
 // Dev/test only: lets The Daily Canvas run on this device without signing in (data stays in
 // the browser). Ignored in production builds, whatever the variable says.
 const CANVAS_LOCAL_ONLY = process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_CANVAS_LOCAL_ONLY === "1";
+// Dev/test only: InboxSatori's local demo mode (in-memory data, fake owner). Never in production.
+const INBOX_LOCAL_DEMO = process.env.NODE_ENV !== "production" && process.env.INBOX_LOCAL_DEMO === "1";
+// Same idea for PromptSatori: local demo/test mode with in-memory data. Never in production.
+const SATORI_LOCAL_ONLY = process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_SATORI_LOCAL_ONLY === "1";
 
-/** Refreshes the session cookie and keeps everyone but the owner out. */
-export async function updateSession(request: NextRequest) {
-  let response = NextResponse.next({ request });
+/**
+ * Refreshes the session cookie and keeps everyone but the owner out.
+ * `rewriteTo` serves a different internal path (used for PromptSatori's own domain).
+ */
+export async function updateSession(request: NextRequest, rewriteTo: string | null = null) {
+  const pass = () => {
+    if (!rewriteTo) return NextResponse.next({ request });
+    const url = request.nextUrl.clone();
+    url.pathname = rewriteTo;
+    return NextResponse.rewrite(url, { request });
+  };
+  let response = pass();
 
   const supabase = createServerClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
     cookies: {
@@ -20,7 +32,7 @@ export async function updateSession(request: NextRequest) {
       },
       setAll(cookiesToSet, headers) {
         cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-        response = NextResponse.next({ request });
+        response = pass();
         cookiesToSet.forEach(({ name, value, options }) =>
           response.cookies.set(name, value, options),
         );
@@ -33,9 +45,10 @@ export async function updateSession(request: NextRequest) {
 
   const { data } = await supabase.auth.getClaims();
   const email = data?.claims?.email as string | undefined;
-  const path = request.nextUrl.pathname;
-  const isPublic = PUBLIC_PATHS.some((p) => path.startsWith(p)) || (CANVAS_LOCAL_ONLY && path.startsWith("/canvas"));
-
+  const path = rewriteTo ?? request.nextUrl.pathname;
+    const isPublic = PUBLIC_PATHS.some((p) => path.startsWith(p)) || (CANVAS_LOCAL_ONLY && path.startsWith("/canvas")) ||
+              (SATORI_LOCAL_ONLY && (path.startsWith("/satori") || path.startsWith("/api/satori"))) ||
+              (INBOX_LOCAL_DEMO && (path.startsWith("/inbox") || path.startsWith("/api/inbox")));
   const redirectTo = (pathname: string, error?: string) => {
     const url = request.nextUrl.clone();
     url.pathname = pathname;
@@ -53,12 +66,14 @@ export async function updateSession(request: NextRequest) {
     if (path.startsWith("/api/")) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    if (path.startsWith("/canvas")) {
-      // Come back to the planner after signing in.
-      const url = request.nextUrl.clone();
-      url.pathname = "/login";
-      url.search = "?next=/canvas";
-      return NextResponse.redirect(url);
+    for (const app of ["/canvas", "/satori", "/inbox"]) {
+          if (path.startsWith(app)) {
+                    // Come back to the planner / PromptSatori / InboxSatori after signing in.
+                    const url = request.nextUrl.clone();
+                    url.pathname = "/login";
+                    url.search = `?next=${app}`;
+                    return NextResponse.redirect(url);
+          }
     }
     return redirectTo("/login");
   }
