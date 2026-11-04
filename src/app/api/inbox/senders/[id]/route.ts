@@ -33,22 +33,16 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
     if (b.blocked === true) {
       // Black Hole: existing mail too (with confirmation), then every future message on arrival.
-      const { data: existing } = await ctx.db.from("ip_messages").select("id,workspace_id,account_id,provider_message_id,in_inbox").eq("workspace_id", s.workspace_id).eq("from_email", s.email).eq("is_sent", false).limit(1000);
-      const rows = existing ?? [];
-      affected = rows.length;
-      const { data: accs } = await ctx.db.from("ip_accounts").select("*").eq("workspace_id", s.workspace_id);
-      const canArchive = (accs ?? []).some((a) => a.provider === "demo" || String(a.scopes).includes("gmail.modify"));
-      if (!b.confirm)
+      const { blackHoleSender, canArchiveIn, senderMail } = await import("@/lib/inbox/server/black-hole");
+      if (!b.confirm) {
+        affected = (await senderMail(ctx, s)).length;
+        const canArchive = await canArchiveIn(ctx, s.workspace_id);
         return Response.json({
           needsConfirmation: `Send ${s.email} to the Black Hole? Their ${affected} existing message(s) and all future mail will be marked done${canArchive ? " and archived out of your Gmail inbox (still searchable; undo any time)" : " in InboxSatori (grant Organize permission to also clear them from your Gmail inbox)"}. Nothing is deleted.`,
           affected,
         }, { status: 409 });
-      const { providerFor } = await import("@/lib/inbox/mail/provider");
-      const { blackHole } = await import("@/lib/inbox/server/process");
-      for (const acc of (accs ?? []) as AccountRow[]) {
-        const p = await providerFor(acc, { admin: ctx.admin });
-        for (const m of rows.filter((r) => r.account_id === acc.id)) if (await blackHole(ctx.db, p, acc, m as never)) archived++;
       }
+      ({ affected, archived } = await blackHoleSender(ctx, s));
     }
     if (b.blocked === false && s.blocked) {
       // Leaving the Black Hole: undo the archives it made and bring the mail back.

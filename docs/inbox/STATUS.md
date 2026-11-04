@@ -42,9 +42,9 @@ Updated: 2026-11-01 (renamed InboxPilot → InboxSatori; inboxsatori.com support
 |---|---|
 | `npm run typecheck` | ✅ clean |
 | `npm run lint` | ✅ clean (whole repo) |
-| `npm test` (Vitest, whole repo) | ✅ 199 passed (78 InboxSatori: unread counts agree everywhere, list paging, email HTML sanitizer + embedded images, parse, classify, deadlines, rules incl. inbox-zero template and no-trash guarantee, follow-ups, safety, send guard, briefing, analytics, time, search, Gmail OAuth/tokens/trash with mocked Google, sync pipeline, Black Hole, jobs, AI-can't-command, memory-DB fidelity, inboxsatori.com routing) |
+| `npm test` (Vitest, whole repo) | ✅ 200 passed (79 InboxSatori: bulk Black Hole, unread counts agree everywhere, list paging, email HTML sanitizer + embedded images, parse, classify, deadlines, rules incl. inbox-zero template and no-trash guarantee, follow-ups, safety, send guard, briefing, analytics, time, search, Gmail OAuth/tokens/trash with mocked Google, sync pipeline, Black Hole, jobs, AI-can't-command, memory-DB fidelity, inboxsatori.com routing) |
 | `npm run test:sql` (real Postgres) | ✅ InboxSatori: tenant isolation, token lockout, dedupe, append-only audit, entitlement self-grant blocked, job claim/retry/dead-letter, disconnect cascade, delete-my-data |
-| Playwright InboxSatori (desktop + iPhone, Chromium) | ✅ 20 passed (incl. sidebar badge = folder unread, formatted email in a no-script sandbox, instant delete, long-list scroll + Select all + paging, Archive, Black Hole, inboxsatori.com icons) |
+| Playwright InboxSatori (desktop + iPhone, Chromium) | ✅ 22 passed (incl. bulk Black Hole + Undo, preview changes nothing, sidebar badge = folder unread, formatted email in a no-script sandbox, instant delete, long-list scroll + Select all + paging, Archive, Black Hole, inboxsatori.com icons) |
 | Full Playwright suite (all specs, 4 device profiles) | ✅ 46 passed, 0 failed, 106 skipped by design |
 | `next build` | ✅ |
 | `npm audit --omit=dev --audit-level=high` | ✅ 0 vulnerabilities |
@@ -56,6 +56,7 @@ Updated: 2026-11-01 (renamed InboxPilot → InboxSatori; inboxsatori.com support
 - Mailbox actions on a read-only account now explain why and offer **Grant permission** (was: “no permission to organize”).
 - Fixed: Undo in the message view could act on the next message after the view moved on.
 - **Mail lists page 100 at a time**, Gmail-style (“1–100 of 342” with Newer/Older). Select all checks the page; a banner offers “Select all N in this view” (large bulk actions run in batches of 100 after one confirmation). Fixed: long lists ran past the bottom of the window, so the last selected emails couldn’t be scrolled to.
+- **Bulk Black Hole**: select emails → Move to… → “Black Hole these senders…”. One confirmation names every sender; their mail (now and future) is archived out of the inbox, never deleted; Undo brings them all back. Runs in batches of 5 senders with progress.
 - **Unread counts fixed**: the number at the top of a folder counted only the current page, and sidebar badges counted Trash and snoozed mail. Now every badge and folder count uses the folder's own filters (one shared query), so they always match; the Priority badge shows unread like the others.
 - **Emails show formatted, with images** (like Gmail), in a sandbox where nothing can run; “Show plain text” switches back. Suspicious messages don't load remote images.
 - **Delete, Archive and Done are instant**: the message leaves the list and the next one opens immediately; Gmail is updated in the background (8 at a time instead of one by one) and the message comes back with an error if that fails.
