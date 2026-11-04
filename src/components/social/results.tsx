@@ -1,6 +1,7 @@
 "use client";
 
-import { CheckCheck, Loader2 } from "lucide-react";
+import { ArrowRight, CheckCheck, Loader2 } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 import { PLATFORMS, type PlatformId } from "@/lib/social/platforms";
 import { savePost } from "@/lib/social/save";
@@ -22,10 +23,13 @@ export function Results({
   extra: { idea?: string; source_document_id?: string | null };
 }) {
   const [saving, setSaving] = useState<Set<number>>(new Set());
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   async function saveOne(i: number) {
     setSaving((s) => new Set(s).add(i));
-    const id = await savePost(supabase, posts[i], { ...extra, template_key: posts[i].template });
+    const res = await savePost(supabase, posts[i], { ...extra, template_key: posts[i].template });
+    const id = "id" in res ? res.id : null;
+    setSaveError("error" in res ? `Couldn’t save that post: ${res.error}` : null);
     setPosts((ps) => ps.map((p, j) => (j === i ? { ...p, id: id ?? p.id, savedAt: id ? new Date().toISOString() : null } : p)));
     setSaving((s) => {
       const n = new Set(s);
@@ -55,6 +59,7 @@ export function Results({
   if (!posts.length) return null;
 
   const allSaved = posts.every((p) => p.savedAt);
+  const savedCount = posts.filter((p) => p.savedAt).length;
   return (
     <section className="mt-6">
       <div className="flex items-center justify-between gap-2">
@@ -67,6 +72,21 @@ export function Results({
           <CheckCheck size={15} /> {allSaved ? "All saved" : "Save all as drafts"}
         </button>
       </div>
+      {saveError && <p className="mt-3 rounded-xl bg-red-50 px-4 py-2 text-sm text-red-800 dark:bg-red-950/40 dark:text-red-300">{saveError}</p>}
+      {savedCount > 0 && (
+        <Link
+          href="/posts?tab=drafts"
+          className="mt-3 flex items-center justify-between gap-3 rounded-xl bg-surface-strong px-4 py-2.5 text-sm transition hover:bg-line"
+        >
+          <span>
+            <CheckCheck size={15} className="mr-1.5 inline" />
+            {savedCount === 1 ? "1 post saved" : `${savedCount} posts saved`} to <b>Posts → Drafts</b>
+          </span>
+          <span className="flex items-center gap-1 text-muted">
+            Open drafts <ArrowRight size={14} />
+          </span>
+        </Link>
+      )}
       <div className="mt-4 grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
         {posts.map((post, i) => (
           <PostCard

@@ -25,10 +25,11 @@ type DraftRow = {
   published_at: string | null;
 };
 type Tab = "templates" | "prompts" | "drafts" | "scheduled" | "published";
+const TABS: Tab[] = ["templates", "prompts", "drafts", "scheduled", "published"];
 
-export function PostsHome() {
+export function PostsHome({ initialTab }: { initialTab?: string }) {
   const supabase = useMemo(() => createClient(), []);
-  const [tab, setTab] = useState<Tab>("templates");
+  const [tab, setTab] = useState<Tab>(TABS.includes(initialTab as Tab) ? (initialTab as Tab) : "templates");
   const [category, setCategory] = useState<TemplateCategory | "all">("all");
   const [custom, setCustom] = useState<CustomTemplate[]>([]);
   const [drafts, setDrafts] = useState<DraftRow[] | null>(null);

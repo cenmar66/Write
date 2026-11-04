@@ -120,6 +120,15 @@ export function DocsBrowser() {
         <div>
           <h1 className="font-display text-4xl tracking-tight sm:text-5xl">{trashView ? "Trash" : folder !== "all" ? (folderName(folder) ?? "Folder") : "Documents"}</h1>
           <p className="mt-1 text-muted">{trashView ? "Deleted documents wait here until you empty the trash." : "Everything you’ve written, in one place."}</p>
+          {!trashView && (
+            <p className="mt-1 text-sm text-muted">
+              Looking for social posts? They’re in{" "}
+              <Link href="/posts?tab=drafts" className="text-ink underline underline-offset-2 hover:text-accent">
+                Posts → Drafts
+              </Link>
+              .
+            </p>
+          )}
         </div>
         {trashView ? (
           <button onClick={emptyTrash} disabled={!docs?.length} className="flex shrink-0 items-center gap-2 rounded-full px-4 py-2.5 text-sm text-red-700 dark:text-red-400 ring-1 ring-line transition hover:bg-surface-strong disabled:opacity-40">

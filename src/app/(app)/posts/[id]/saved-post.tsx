@@ -16,6 +16,7 @@ export function SavedPost({ id }: { id: string }) {
   const [state, setState] = useState<PublishState | null>(null);
   const [idea, setIdea] = useState("");
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     supabase
@@ -66,10 +67,12 @@ export function SavedPost({ id }: { id: string }) {
     if (post === null || post === "missing") return false;
     if (post.savedAt) return true;
     setSaving(true);
-    const ok = await savePost(supabase, post);
+    const res = await savePost(supabase, post);
+    const ok = "id" in res;
     setPost({ ...post, savedAt: ok ? new Date().toISOString() : null });
+    setSaveError(ok ? null : `Couldn’t save: ${res.error}`);
     setSaving(false);
-    return !!ok;
+    return ok;
   }
 
   const live = { ...state!, content: post.content, parts: post.parts, hashtags: post.hashtags };
@@ -77,6 +80,7 @@ export function SavedPost({ id }: { id: string }) {
 
   return (
     <div className="mx-auto max-w-2xl animate-rise pb-8">
+      {saveError && <p className="mb-3 rounded-xl bg-red-50 px-4 py-2 text-sm text-red-800 dark:bg-red-950/40 dark:text-red-300">{saveError}</p>}
       <div className="flex items-center justify-between">
         <Link href="/posts" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
           <ArrowLeft size={15} /> Posts
