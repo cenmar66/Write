@@ -10,8 +10,10 @@ import {
   repurposePrompt,
   TEMPLATE_SCHEMA,
 } from "@/lib/social/ai";
-import { PLATFORM_IDS, PLATFORMS, type PlatformId } from "@/lib/social/platforms";
-import { findTemplate, type PostTemplate } from "@/lib/social/templates";
+import { PLATFORM_IDS, PLATFORMS, type PlatformId, type PostFormat } from "@/lib/social/platforms";
+import { findTemplate, MAX_REPURPOSE_TEMPLATES, type PostTemplate } from "@/lib/social/templates";
+
+const formatOf = (f: unknown): PostFormat => (f === "thread" || f === "carousel" ? f : "single");
 
 export const maxDuration = 300;
 
@@ -23,6 +25,7 @@ type Body = {
   platforms?: string[];
   documentId?: string;
   perPlatform?: number;
+  templateKeys?: unknown;
   platform?: string;
   text?: string;
   example?: string;
@@ -61,7 +64,23 @@ export async function POST(request: Request) {
         const { data: doc } = await supabase.from("documents").select("title,content_text").eq("id", body.documentId).maybeSingle();
         if (!doc?.content_text?.trim()) return bad("That document is empty.");
         const perPlatform = Math.min(Math.max(body.perPlatform ?? 1, 1), 3);
-        const { system, user } = repurposePrompt({ title: doc.title, document: doc.content_text, platforms, perPlatform, voice });
+        // Templates the author picked: built-in keys, or "custom:<id>" for their own (RLS keeps it to theirs).
+        const keys = (Array.isArray(body.templateKeys) ? body.templateKeys : []).filter((k): k is string => typeof k === "string").slice(0, MAX_REPURPOSE_TEMPLATES);
+        const customIds = keys.filter((k) => k.startsWith("custom:")).map((k) => k.slice(7));
+        const { data: custom } = customIds.length
+          ? await supabase.from("post_templates").select("id,name,description,structure,example,format").in("id", customIds)
+          : { data: [] };
+        const templates = keys
+          .map((k): PostTemplate | undefined => {
+            if (!k.startsWith("custom:")) return findTemplate(k);
+            const row = custom?.find((c) => c.id === k.slice(7));
+            return row
+              ? { key: k, name: row.name, category: "mine", description: row.description ?? "", structure: row.structure, example: row.example ?? "", format: formatOf(row.format), bestFor: PLATFORM_IDS }
+              : undefined;
+          })
+          .filter((t): t is PostTemplate => !!t);
+        if (keys.length && !templates.length) return bad("Those templates couldn't be found.");
+        const { system, user } = repurposePrompt({ title: doc.title, document: doc.content_text, platforms, perPlatform, voice, templates });
         return Response.json({ posts: normalizePosts(await run(system, user, POSTS_SCHEMA), platforms) });
       }
       case "fit": {

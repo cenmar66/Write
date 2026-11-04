@@ -104,7 +104,42 @@ ${wanted}`,
   };
 }
 
-export function repurposePrompt(opts: { title: string; document: string; platforms: PlatformId[]; perPlatform: number; voice: string }) {
+export function repurposePrompt(opts: {
+  title: string;
+  document: string;
+  platforms: PlatformId[];
+  perPlatform: number;
+  voice: string;
+  /** Templates the author picked. Empty means the AI chooses from the catalog. */
+  templates?: PostTemplate[];
+}) {
+  const doc = `<document title="${opts.title.replace(/"/g, "'")}">\n${opts.document}\n</document>`;
+  const picked = opts.templates ?? [];
+  if (picked.length) {
+    const list = picked
+      .map(
+        (t) => `<template name="${t.name.replace(/"/g, "'")}" key="${t.key}" format="${t.format}">
+${t.structure}
+${t.example ? `Example of the feel (do not copy it): ${t.example}` : ""}
+</template>`,
+      )
+      .join("\n\n");
+    const wanted = opts.platforms
+      .map((p) => `- ${p}: ${picked.map((t) => `${t.key} as ${formatFor(p, t.format)}`).join(", ")}`)
+      .join("\n");
+    return {
+      system: base(opts.voice, opts.platforms),
+      user: `Turn this document into ${picked.length * opts.platforms.length} social posts: for each platform, one post per template below (${picked.length} per platform).
+Follow each template's structure closely, filled with material from the document. Set each post's "template" field to that template's key. Give each post its own angle on the document, and make it stand on its own for someone who hasn't read the document.
+
+${list}
+
+Platforms, templates and formats:
+${wanted}
+
+${doc}`,
+    };
+  }
   const catalog = TEMPLATES.map((t) => `- ${t.key} (${t.format}): ${t.name}. ${t.description}`).join("\n");
   return {
     system: base(opts.voice, opts.platforms),
@@ -114,9 +149,7 @@ Give every post a different angle (a key insight, a story, a list, a contrarian 
 Template catalog:
 ${catalog}
 
-<document title="${opts.title.replace(/"/g, "'")}">
-${opts.document}
-</document>`,
+${doc}`,
   };
 }
 
