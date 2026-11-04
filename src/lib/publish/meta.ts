@@ -15,6 +15,11 @@ export const META_SCOPES = [
   "business_management",
   "instagram_basic",
   "instagram_content_publish",
+  // Analytics: post stats and comments.
+  "read_insights",
+  "pages_read_user_content",
+  "instagram_manage_insights",
+  "instagram_manage_comments",
 ].join(",");
 
 export function metaAuthUrl(redirectUri: string, state: string) {
@@ -74,7 +79,7 @@ export async function publishFacebook(account: Account, row: PostRow): Promise<P
     ? await post(`${pageId}/photos`, { url: image.url, message, access_token: token })
     : await post(`${pageId}/feed`, { message, access_token: token });
   const body = await readJson<{ id: string; post_id?: string }>(res, "Facebook");
-  return { url: `https://www.facebook.com/${body.post_id ?? body.id}` };
+  return { url: `https://www.facebook.com/${body.post_id ?? body.id}`, id: body.post_id ?? body.id };
 }
 
 async function waitForContainer(id: string, token: string, maxSeconds: number, graph = GRAPH) {
@@ -138,5 +143,5 @@ export async function publishInstagram(account: Account, row: PostRow): Promise<
     await fetch(`${graph}/${published.id}?${new URLSearchParams({ fields: "permalink", access_token: token })}`),
     "Instagram",
   ).catch(() => ({ permalink: undefined }));
-  return { url: link.permalink ?? null };
+  return { url: link.permalink ?? null, id: published.id };
 }

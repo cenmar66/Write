@@ -6,12 +6,17 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type DocSummary, type Folder, timeAgo } from "@/lib/docs";
 import { IMPORT_ACCEPT, importFiles } from "@/lib/import-docs";
+import { PlatformBadge } from "@/components/social/platform-badge";
+import type { PlatformId } from "@/lib/social/platforms";
 import { createClient } from "@/lib/supabase/client";
+
+type FolderPost = { id: string; platform: PlatformId; content: string; parts: string[]; status: string; updated_at: string };
 
 export function DocsBrowser() {
   const supabase = useMemo(() => createClient(), []);
   const [docs, setDocs] = useState<DocSummary[] | null>(null);
   const [folders, setFolders] = useState<Folder[]>([]);
+  const [folderPosts, setFolderPosts] = useState<FolderPost[]>([]);
   const router = useRouter();
   const params = useSearchParams();
   const trashView = params.get("view") === "trash";
@@ -34,12 +39,17 @@ export function DocsBrowser() {
     if (folder !== "all" && !trashView) q = q.eq("folder_id", folder);
     const term = query.trim().replace(/[%,()]/g, " ");
     if (term) q = q.or(`title.ilike.%${term}%,content_text.ilike.%${term}%`);
-    const [{ data: d }, { data: f }] = await Promise.all([
+    const inFolder = folder !== "all" && !trashView;
+    const [{ data: d }, { data: f }, { data: p }] = await Promise.all([
       q,
       supabase.from("folders").select("id,name").order("name"),
+      inFolder
+        ? supabase.from("posts").select("id,platform,content,parts,status,updated_at").eq("folder_id", folder).order("updated_at", { ascending: false }).limit(100)
+        : Promise.resolve({ data: [] }),
     ]);
     setDocs(d ?? []);
     setFolders(f ?? []);
+    setFolderPosts((p as FolderPost[]) ?? []);
   }, [supabase, folder, query, trashView]);
 
   useEffect(() => {
@@ -265,6 +275,25 @@ export function DocsBrowser() {
           </div>
         ))}
       </section>
+
+      {folder !== "all" && !trashView && folderPosts.length > 0 && (
+        <section className="mt-10">
+          <h2 className="text-lg font-semibold tracking-tight">Posts in this folder</h2>
+          <ul className="mt-3 space-y-2">
+            {folderPosts.map((p) => (
+              <li key={p.id}>
+                <Link href={`/posts/${p.id}`} className="glass flex items-center gap-3 rounded-2xl p-4 transition hover:-translate-y-0.5">
+                  <PlatformBadge platform={p.platform} />
+                  <span className="min-w-0 flex-1 truncate">{(p.content || p.parts[0] || "Empty").split("\n")[0]}</span>
+                  <span className="shrink-0 text-xs text-muted">
+                    <span className="capitalize">{p.status}</span> · {timeAgo(p.updated_at)}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </div>
   );
 }

@@ -11,7 +11,7 @@ export function instagramAuthUrl(redirectUri: string, state: string) {
     client_id: process.env.INSTAGRAM_APP_ID ?? "",
     redirect_uri: redirectUri,
     response_type: "code",
-    scope: "instagram_business_basic,instagram_business_content_publish",
+    scope: "instagram_business_basic,instagram_business_content_publish,instagram_business_manage_insights,instagram_business_manage_comments",
     state,
     enable_fb_login: "0",
   });

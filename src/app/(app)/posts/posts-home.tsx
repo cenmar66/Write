@@ -1,9 +1,10 @@
 "use client";
 
-import { ArrowUpRight, FileText, Layers, Loader2, PenLine, Plus, Sparkles, Trash2, Wand2, X } from "lucide-react";
+import { ArrowUpRight, BarChart3, FileText, Layers, Loader2, PenLine, Plus, Sparkles, Trash2, Wand2, X } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Drawer } from "@/components/editor/drawer";
+import { FolderSelect, useFolders } from "@/components/folder-select";
 import { PlatformBadge } from "@/components/social/platform-badge";
 import { timeAgo } from "@/lib/docs";
 import type { PlatformId, PostFormat } from "@/lib/social/platforms";
@@ -20,6 +21,7 @@ type DraftRow = {
   parts: string[];
   idea: string;
   status: "draft" | "scheduled" | "publishing" | "published" | "failed";
+  folder_id: string | null;
   updated_at: string;
   scheduled_at: string | null;
   published_at: string | null;
@@ -35,6 +37,14 @@ export function PostsHome({ initialTab }: { initialTab?: string }) {
   const [drafts, setDrafts] = useState<DraftRow[] | null>(null);
   const [creating, setCreating] = useState(false);
   const [now] = useState(() => Date.now());
+  const folders = useFolders();
+  const [folderFilter, setFolderFilter] = useState<string | null>(null);
+
+  async function moveToFolder(id: string, folderId: string | null) {
+    setDrafts((ds) => ds?.map((d) => (d.id === id ? { ...d, folder_id: folderId } : d)) ?? ds);
+    const { error } = await supabase.from("posts").update({ folder_id: folderId }).eq("id", id);
+    if (error) alert(`Couldn’t move that post: ${error.message}`);
+  }
 
   const loadCustom = useCallback(async () => {
     const { data } = await supabase.from("post_templates").select("id,name,description,structure,example,format").order("created_at", { ascending: false });
@@ -43,20 +53,22 @@ export function PostsHome({ initialTab }: { initialTab?: string }) {
 
   useEffect(() => {
     loadCustom().then(setCustom);
-    supabase
-      .from("posts")
-      .select("id,platform,format,content,parts,idea,status,updated_at,scheduled_at,published_at")
-      .order("updated_at", { ascending: false })
-      .limit(300)
-      .then(({ data }) => setDrafts((data as DraftRow[]) ?? []));
+    const list = (cols: string) => supabase.from("posts").select(cols).order("updated_at", { ascending: false }).limit(300);
+    const base = "id,platform,format,content,parts,idea,status,updated_at,scheduled_at,published_at";
+    list(`${base},folder_id`).then(async ({ data, error }) => {
+      // Before migration 0014 there's no folder_id column: show the posts without folders.
+      const rows = error ? (await list(base)).data : data;
+      setDrafts(((rows ?? []) as unknown as DraftRow[]).map((d) => ({ ...d, folder_id: d.folder_id ?? null })));
+    });
   }, [supabase, loadCustom]);
 
+  const inFolder = folderFilter ? drafts?.filter((d) => d.folder_id === folderFilter) : drafts;
   const lists = {
-    drafts: drafts?.filter((d) => d.status === "draft"),
-    scheduled: drafts
+    drafts: inFolder?.filter((d) => d.status === "draft"),
+    scheduled: inFolder
       ?.filter((d) => d.status === "scheduled" || d.status === "publishing" || d.status === "failed")
       .sort((a, b) => (a.scheduled_at ?? "").localeCompare(b.scheduled_at ?? "")),
-    published: drafts?.filter((d) => d.status === "published").sort((a, b) => (b.published_at ?? "").localeCompare(a.published_at ?? "")),
+    published: inFolder?.filter((d) => d.status === "published").sort((a, b) => (b.published_at ?? "").localeCompare(a.published_at ?? "")),
   };
   const builtIns = category === "all" ? TEMPLATES : TEMPLATES.filter((t) => t.category === category);
   const showCustom = category === "all" || category === "mine";
@@ -69,9 +81,14 @@ export function PostsHome({ initialTab }: { initialTab?: string }) {
 
   return (
     <div className="animate-rise pb-8">
-      <header>
-        <h1 className="font-display text-4xl tracking-tight sm:text-5xl">Posts</h1>
-        <p className="mt-1 text-muted">One idea in. Scroll-stopping posts out.</p>
+      <header className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="font-display text-4xl tracking-tight sm:text-5xl">Posts</h1>
+          <p className="mt-1 text-muted">One idea in. Scroll-stopping posts out.</p>
+        </div>
+        <Link href="/analytics" className="mt-2 flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-2 text-sm ring-1 ring-line transition hover:bg-surface-strong">
+          <BarChart3 size={15} /> Analytics
+        </Link>
       </header>
 
       <div className="mt-6 grid gap-3 sm:grid-cols-2">
@@ -155,6 +172,11 @@ export function PostsHome({ initialTab }: { initialTab?: string }) {
         </>
       )}
 
+      {tab !== "templates" && tab !== "prompts" && folders.length > 0 && (
+        <div className="mt-4 flex justify-end">
+          <FolderSelect folders={folders} value={folderFilter} onChange={setFolderFilter} emptyLabel="All folders" label="Show folder" />
+        </div>
+      )}
       {tab !== "templates" && tab !== "prompts" && (
         <ul className="mt-4 space-y-2">
           {drafts === null && <li className="py-8 text-center text-muted"><Loader2 className="mx-auto animate-spin" /></li>}
@@ -165,8 +187,8 @@ export function PostsHome({ initialTab }: { initialTab?: string }) {
             </li>
           )}
           {lists[tab]?.map((d) => (
-            <li key={d.id}>
-              <Link href={`/posts/${d.id}`} className="glass flex items-center gap-3 rounded-2xl p-4 transition hover:-translate-y-0.5">
+            <li key={d.id} className="relative">
+              <Link href={`/posts/${d.id}`} className={`glass flex items-center gap-3 rounded-2xl p-4 transition hover:-translate-y-0.5 ${folders.length ? "sm:pr-52" : ""}`}>
                 <PlatformBadge platform={d.platform} />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate">{(d.content || d.parts[0] || "Empty").split("\n")[0]}</span>
@@ -185,6 +207,15 @@ export function PostsHome({ initialTab }: { initialTab?: string }) {
                 )}
                 <ArrowUpRight size={16} className="text-muted" />
               </Link>
+              {folders.length > 0 && (
+                <FolderSelect
+                  folders={folders}
+                  value={d.folder_id}
+                  onChange={(f) => moveToFolder(d.id, f)}
+                  label="Move to folder"
+                  className="mt-1.5 w-fit bg-bg sm:absolute sm:top-1/2 sm:right-12 sm:mt-0 sm:-translate-y-1/2"
+                />
+              )}
             </li>
           ))}
         </ul>

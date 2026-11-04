@@ -5,7 +5,7 @@ import type { EditablePost } from "@/components/social/post-card";
 export async function savePost(
   supabase: SupabaseClient,
   post: EditablePost,
-  extra: { idea?: string; template_key?: string; source_document_id?: string | null } = {},
+  extra: { idea?: string; template_key?: string; source_document_id?: string | null; folder_id?: string | null } = {},
 ): Promise<{ id: string } | { error: string }> {
   const row = {
     platform: post.platform,

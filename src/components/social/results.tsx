@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { PLATFORMS, type PlatformId } from "@/lib/social/platforms";
 import { savePost } from "@/lib/social/save";
+import { FolderSelect, useFolders } from "../folder-select";
 import type { createClient } from "@/lib/supabase/client";
 import { type EditablePost, PostCard } from "./post-card";
 
@@ -24,10 +25,12 @@ export function Results({
 }) {
   const [saving, setSaving] = useState<Set<number>>(new Set());
   const [saveError, setSaveError] = useState<string | null>(null);
+  const folders = useFolders();
+  const [folderId, setFolderId] = useState<string | null>(null);
 
   async function saveOne(i: number) {
     setSaving((s) => new Set(s).add(i));
-    const res = await savePost(supabase, posts[i], { ...extra, template_key: posts[i].template });
+    const res = await savePost(supabase, posts[i], { ...extra, template_key: posts[i].template, ...(folderId ? { folder_id: folderId } : {}) });
     const id = "id" in res ? res.id : null;
     setSaveError("error" in res ? `Couldn’t save that post: ${res.error}` : null);
     setPosts((ps) => ps.map((p, j) => (j === i ? { ...p, id: id ?? p.id, savedAt: id ? new Date().toISOString() : null } : p)));
@@ -64,6 +67,8 @@ export function Results({
     <section className="mt-6">
       <div className="flex items-center justify-between gap-2">
         <h2 className="font-display text-2xl tracking-tight">Your posts</h2>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+        <FolderSelect folders={folders} value={folderId} onChange={setFolderId} label="Save into folder" emptyLabel="Save to: no folder" />
         <button
           onClick={saveAll}
           disabled={allSaved || saving.size > 0}
@@ -71,6 +76,7 @@ export function Results({
         >
           <CheckCheck size={15} /> {allSaved ? "All saved" : "Save all as drafts"}
         </button>
+        </div>
       </div>
       {saveError && <p className="mt-3 rounded-xl bg-red-50 px-4 py-2 text-sm text-red-800 dark:bg-red-950/40 dark:text-red-300">{saveError}</p>}
       {savedCount > 0 && (

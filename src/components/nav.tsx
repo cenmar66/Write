@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  BarChart3,
   CalendarDays,
   Feather,
   FileText,
@@ -37,6 +38,7 @@ const MAIN = [
   { href: "/docs?search=1", label: "Search", Icon: Search },
   { href: "/posts", label: "Posts", Icon: Sparkles },
   { href: "/calendar", label: "Calendar", Icon: CalendarDays },
+  { href: "/analytics", label: "Analytics", Icon: BarChart3 },
   { href: "/settings", label: "Settings", Icon: Settings },
 ];
 

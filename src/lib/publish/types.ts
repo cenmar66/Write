@@ -15,7 +15,8 @@ export type PostRow = {
   scheduled_at: string | null;
 };
 
-export type PublishResult = { url: string | null };
+/** url: where to see it; id: the platform's id for it (used to match up stats later). */
+export type PublishResult = { url: string | null; id?: string | null };
 
 /** Platforms the app can post to by itself. X stays manual (copy + open X). */
 export const AUTO_PLATFORMS: PlatformId[] = ["linkedin", "facebook", "instagram", "threads"];

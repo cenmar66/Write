@@ -28,3 +28,12 @@ PSQL=(psql -X -q -h "$DIR" -p "$PORT" -U postgres -d postgres -v ON_ERROR_STOP=1
 "${PSQL[@]}" -f "$ROOT/supabase/migrations/0013_inbox_scheduler.sql"
 "${PSQL[@]}" -f "$ROOT/supabase/migrations/0013_inbox_scheduler.sql"
 (cd "$ROOT" && "${PSQL[@]}" -f "supabase/tests/inbox-scheduler.test.sql")
+# Post folders + social analytics (0014), on a fresh database with the Write.ai tables it builds on.
+"${PSQL[@]}" -c "create database analytics_test" >/dev/null
+APSQL=(psql -X -q -h "$DIR" -p "$PORT" -U postgres -d analytics_test -v ON_ERROR_STOP=1)
+"${APSQL[@]}" -f "$ROOT/supabase/tests/supabase-shim.sql"
+"${APSQL[@]}" -f "$ROOT/supabase/migrations/0002_documents.sql"
+"${APSQL[@]}" -f "$ROOT/supabase/migrations/0005_posts.sql"
+"${APSQL[@]}" -f "$ROOT/supabase/migrations/0014_post_folders_analytics.sql" 2>/dev/null
+"${APSQL[@]}" -f "$ROOT/supabase/migrations/0014_post_folders_analytics.sql" 2>/dev/null  # must be re-runnable
+"${APSQL[@]}" -f "$ROOT/supabase/tests/analytics.test.sql"
