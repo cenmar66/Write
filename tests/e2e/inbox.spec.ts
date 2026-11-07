@@ -401,3 +401,39 @@ test.describe("Unread counts", () => {
     }
   });
 });
+
+test.describe("Crash screen", () => {
+  test("a crash in the browser shows what went wrong instead of a blank page", async ({ page }, info) => {
+    test.skip(info.project.name !== "desktop" && info.project.name !== "iphone");
+    await page.request.delete("/api/inbox/data", { data: { confirm: "DELETE" } });
+    await page.request.post("/api/inbox/demo");
+    await page.request.patch("/api/inbox/settings", { data: { onboarding: { step: 10 } } });
+    // Simulate a browser that can't format dates (the home page uses this on load).
+    await page.addInitScript(() => {
+      const Real = Intl.DateTimeFormat;
+      Intl.DateTimeFormat = function (...a: ConstructorParameters<typeof Real>) {
+        if (a[1]?.hour12 === false) throw new RangeError("Simulated browser incompatibility");
+        return new Real(...a);
+      } as unknown as typeof Real;
+    });
+    await page.goto("/inbox");
+    await expect(page.getByText("Something went wrong")).toBeVisible({ timeout: 45_000 });
+    await expect(page.getByText(/Simulated browser incompatibility/).first()).toBeVisible();
+    await expect(page.getByRole("button", { name: "Reload page" })).toBeVisible();
+  });
+
+  test("a normal load has no browser errors", async ({ page }, info) => {
+    test.skip(info.project.name !== "iphone");
+    const errors: string[] = [];
+    page.on("pageerror", (e) => errors.push(e.message));
+    page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+    await page.request.post("/api/inbox/demo");
+    await page.request.patch("/api/inbox/settings", { data: { onboarding: { step: 10 } } });
+    await page.goto("/inbox");
+    await expect(page.getByText("Upcoming deadlines")).toBeVisible({ timeout: 45_000 });
+    await page.waitForTimeout(9000); // past the start-up watchdog
+    await expect(page.getByRole("alert").filter({ hasText: "couldn't start" })).toHaveCount(0);
+    expect(errors.filter((e) => !/favicon|Download the React DevTools|hydrat/i.test(e))).toEqual([]);
+    expect(errors.filter((e) => /hydrat|script tag/i.test(e))).toEqual([]);
+  });
+});
