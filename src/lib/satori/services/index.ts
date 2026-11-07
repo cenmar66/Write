@@ -9,9 +9,12 @@ import {
   judgePrompt,
   refinePrompt,
   templatePrompt,
+  sourceBlocks,
   type QA,
+  type SourceText,
   type RequestOptions,
 } from "../meta-prompts";
+import type { ImageInput, RunTools } from "../context";
 import type { ProfileInput } from "../profiles";
 import type { ProviderChoice } from "../providers";
 import {
@@ -34,12 +37,23 @@ export { ServiceError, type ServiceResult, type UsageRecord } from "./run";
 
 type Ctx = { target: TargetSpec; profile?: Partial<ProfileInput> | null; options?: RequestOptions };
 
-export function clarify(choice: ProviderChoice, input: Ctx & { request: string }) {
-  return runStructured({ choice, meta: clarifyPrompt, input, schema: ClarifyResult, schemaVersion: SCHEMA_VERSIONS.clarify, maxTokens: 4000, effort: "low" });
+export function clarify(choice: ProviderChoice, input: Ctx & { request: string; sources?: SourceText[]; images?: ImageInput[] }) {
+  const { images, ...rest } = input;
+  return runStructured({ choice, meta: clarifyPrompt, input: { ...rest, imageCount: images?.length ?? 0 }, schema: ClarifyResult, schemaVersion: SCHEMA_VERSIONS.clarify, maxTokens: 4000, effort: "low", images });
 }
 
-export function generate(choice: ProviderChoice, input: Ctx & { request: string; answers?: QA[] }) {
-  return runStructured({ choice, meta: generatePrompt, input, schema: GenerationResult, schemaVersion: SCHEMA_VERSIONS.generation, maxTokens: 20000, effort: "medium" });
+export function generate(choice: ProviderChoice, input: Ctx & { request: string; answers?: QA[]; sources?: SourceText[]; images?: ImageInput[] }) {
+  const { images, ...rest } = input;
+  return runStructured({
+    choice,
+    meta: generatePrompt,
+    input: { ...rest, imageCount: images?.length ?? 0 },
+    schema: GenerationResult,
+    schemaVersion: SCHEMA_VERSIONS.generation,
+    maxTokens: 20000,
+    effort: "medium",
+    images,
+  });
 }
 
 export function refine(choice: ProviderChoice, input: Ctx & { prompt: string; instruction: string; originalRequest?: string }) {
@@ -97,7 +111,9 @@ export function judge(choice: ProviderChoice, input: { prompt: string; output: s
 }
 
 /** Testing Lab: run a prompt as-is (variables filled) against one provider. */
-export function runPrompt(choice: ProviderChoice, input: { prompt: string; variables: Record<string, string> }) {
+export function runPrompt(choice: ProviderChoice, input: { prompt: string; variables: Record<string, string>; images?: ImageInput[]; sources?: SourceText[]; tools?: RunTools }) {
   const filled = fillVariables(input.prompt, input.variables);
-  return runText({ choice, system: "", user: filled });
+  // Reference pages are appended as clearly marked material after the prompt itself.
+  const user = input.sources?.length ? `${filled}\n\nReference material (web pages the user supplied):\n\n${sourceBlocks(input.sources)}` : filled;
+  return runText({ choice, system: "", user, images: input.images, tools: input.tools });
 }

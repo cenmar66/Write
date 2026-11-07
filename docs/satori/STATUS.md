@@ -32,12 +32,17 @@ Updated 2026-10-31. Branch `claude/relaxed-johnson-xv606m`.
 
 ## Needs you
 
-1. Run `supabase/migrations/0011_promptsatori.sql` in Supabase.
+1. Run `supabase/migrations/0011_promptsatori.sql` and `0015_satori_connectors.sql` in Supabase.
 2. Deploy, then connect promptsatori.com (Vercel domain, DNS, Supabase redirect URL — see README).
 3. Run the live evaluation once with your key (`npm run eval:satori`) and skim the report.
 4. Work through the manual checklist in [TESTING.md](TESTING.md).
 
 ## Known limitations
+
+- **Web search and connected apps are Claude-only** and run in the Testing Lab, not the Generator. Connected apps use the Claude API's MCP connector, which is in beta. Servers that need a browser login (OAuth) can't be connected; use ones that accept a token or API key.
+- **Websites:** public HTML and text pages only — no logins, no PDFs, no pages that need JavaScript to show their text. Each page is trimmed to 15,000 characters.
+- **Images** aren't saved with history or library items; reopening a past generation won't bring them back. Max 4 per request.
+- Images, websites, web search and connected apps were tested against simulated providers only; no live Claude/OpenAI/Gemini or MCP server was available in the build environment.
 
 - **OpenAI and Gemini adapters are untested against live accounts.** They follow those providers' documented REST shapes and are off unless configured.
 - The per-minute rate limiter is per server instance (daily/monthly caps are global).

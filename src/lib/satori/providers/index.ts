@@ -47,8 +47,8 @@ export function resolveProvider(pref: { provider?: string | null; model?: string
 }
 
 /** Public, secret-free description for the browser. */
-export function providerStatus(): { id: ProviderId; label: string; configured: boolean; isMock: boolean; models: { id: string; label: string }[]; missing: string[] }[] {
-  return allProviders().map((p) => ({ id: p.id, label: p.label, configured: p.configured(), isMock: !!p.isMock, models: p.configured() ? p.models() : [], missing: missingSettings(p.id) }));
+export function providerStatus(): { id: ProviderId; label: string; configured: boolean; isMock: boolean; supportsTools: boolean; models: { id: string; label: string }[]; missing: string[] }[] {
+  return allProviders().map((p) => ({ id: p.id, label: p.label, configured: p.configured(), isMock: !!p.isMock, supportsTools: !!p.supportsTools, models: p.configured() ? p.models() : [], missing: missingSettings(p.id) }));
 }
 
 /** Names (never values) of the environment variables a provider still needs. */

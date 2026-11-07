@@ -25,6 +25,6 @@ export default defineConfig({
     url: `http://localhost:${PORT}/satori/manifest.webmanifest`,
     timeout: 180_000,
     reuseExistingServer: true,
-    env: { NEXT_PUBLIC_SATORI_LOCAL_ONLY: "1", SATORI_MOCK_PROVIDER: "1", ANTHROPIC_API_KEY: "", OPENAI_API_KEY: "", GEMINI_API_KEY: "", SATORI_RATE_PER_MINUTE: "1000" },
+    env: { NEXT_PUBLIC_SATORI_LOCAL_ONLY: "1", SATORI_MOCK_PROVIDER: "1", ANTHROPIC_API_KEY: "", OPENAI_API_KEY: "", GEMINI_API_KEY: "", SATORI_RATE_PER_MINUTE: "1000", SATORI_ALLOW_LOCAL_FETCH: "1", ENCRYPTION_KEY: "test-only-encryption-key-not-a-secret" },
   },
 });

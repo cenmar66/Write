@@ -29,11 +29,12 @@ export async function satoriContext(): Promise<SatoriCtx | { denied: Response }>
 }
 
 /** Reads and validates a JSON body with a size limit. */
-export async function readBody<S extends z.ZodType>(request: Request, schema: S): Promise<{ data: z.infer<S> } | { denied: Response }> {
+export async function readBody<S extends z.ZodType>(request: Request, schema: S, maxBytes = LIMITS.maxBodyBytes): Promise<{ data: z.infer<S> } | { denied: Response }> {
+  const tooLarge = maxBytes > LIMITS.maxBodyBytes ? "That request is too large. Try fewer or smaller images." : "That request is too large.";
   const len = Number(request.headers.get("content-length") ?? 0);
-  if (len > LIMITS.maxBodyBytes) return { denied: jsonError("That request is too large.", 413) };
+  if (len > maxBytes) return { denied: jsonError(tooLarge, 413) };
   const raw = await request.text().catch(() => "");
-  if (raw.length > LIMITS.maxBodyBytes) return { denied: jsonError("That request is too large.", 413) };
+  if (raw.length > maxBytes) return { denied: jsonError(tooLarge, 413) };
   let body: unknown;
   try {
     body = raw ? JSON.parse(raw) : {};

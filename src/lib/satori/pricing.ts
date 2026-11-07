@@ -26,10 +26,14 @@ function configured(): Record<string, Price> {
   }
 }
 
+/** Claude web search: $10 per 1,000 searches (first-party API list price). */
+const WEB_SEARCH_USD = 0.01;
+
 /** Returns an estimated cost in USD, or null when no price is known for this model. */
 export function estimateCost(provider: string, model: string, usage: Usage | null): number | null {
   if (!usage) return null;
   const price = configured()[`${provider}:${model}`] ?? BUILT_IN[`${provider}:${model}`];
   if (!price) return null;
-  return (usage.inputTokens * price.input + usage.outputTokens * price.output) / 1_000_000;
+  const searches = provider === "anthropic" ? (usage.webSearches ?? 0) * WEB_SEARCH_USD : 0;
+  return (usage.inputTokens * price.input + usage.outputTokens * price.output) / 1_000_000 + searches;
 }
