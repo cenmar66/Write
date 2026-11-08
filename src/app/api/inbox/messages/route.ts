@@ -50,10 +50,10 @@ export async function GET(request: Request) {
 /** Bulk actions on messages the user selected (all app-level unless stated). */
 export async function POST(request: Request) {
   return handle(async (ctx) => {
-    const b = await body<{ ids?: string[]; action?: string; value?: string; confirm?: boolean }>(request);
+    const b = await body<{ ids?: string[]; action?: string; value?: string; confirm?: boolean; learn?: boolean }>(request);
     const ids = (b.ids ?? []).filter(isUuid).slice(0, 200); // the app sends large selections in chunks of 100
     if (!ids.length) throw new HttpError(400, "Select some messages.");
-    const { data } = await ctx.db.from("ip_messages").select("id,workspace_id,account_id,provider_message_id,thread_id,label_ids").in("id", ids);
+    const { data } = await ctx.db.from("ip_messages").select("id,workspace_id,account_id,provider_message_id,thread_id,label_ids,from_email,is_sent").in("id", ids);
     const msgs = (data ?? []) as MessageRow[];
     const wsIds = await scopeWorkspaces(ctx, "all");
     if (msgs.some((m) => !wsIds.includes(m.workspace_id))) throw new HttpError(403, "Not allowed.");
@@ -77,7 +77,24 @@ export async function POST(request: Request) {
         const { data: cat } = await ctx.db.from("ip_categories").select("key").in("workspace_id", [...new Set(msgs.map((m) => m.workspace_id))]).eq("key", key).limit(1);
         if (!cat?.length) throw new HttpError(400, "Unknown category.");
         await ctx.db.from("ip_messages").update({ category: key }).in("id", ids);
-        break;
+        if (!b.learn) break;
+        // Teach InboxSatori: like correcting one email, for every selected email and its sender.
+        const { data: cls } = await ctx.db.from("ip_classifications").select("message_id,category").in("message_id", ids);
+        const prev = new Map((cls ?? []).map((c) => [c.message_id as string, c.category as string | null]));
+        const incoming = msgs.filter((m) => !m.is_sent && m.from_email);
+        if (incoming.length) {
+          await ctx.db.from("ip_classification_feedback").insert(incoming.map((m) => ({ workspace_id: m.workspace_id, message_id: m.id, sender_email: m.from_email, field: "category", old_value: prev.get(m.id) ?? null, new_value: key })));
+          await ctx.db.from("ip_classifications").update({ category: key, user_corrected: true, source: "user", confidence: 1 }).in("message_id", incoming.map((m) => m.id));
+        }
+        const senders = new Map<string, { ws: string; email: string }>();
+        for (const m of incoming) senders.set(`${m.workspace_id}|${m.from_email}`, { ws: m.workspace_id, email: m.from_email });
+        for (const ws of new Set([...senders.values()].map((x) => x.ws))) {
+          const emails = [...senders.values()].filter((x) => x.ws === ws).map((x) => x.email);
+          await ctx.db.from("ip_senders").update({ default_category: key }).eq("workspace_id", ws).in("email", emails);
+          await audit(ctx.db, ws, "user", "sender.update", null, { default_category: key, senders: emails.length, via: "bulk_move" });
+        }
+        await audit(ctx.db, msgs[0].workspace_id, "user", "mail.category", null, { count: ids.length, value: key, learned: senders.size });
+        return { ok: true, learned: senders.size };
       }
       case "archive":
       case "mark_read": {
