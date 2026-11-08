@@ -1,10 +1,14 @@
 "use client";
 
-import { Check, Copy, Hash, Loader2, Minimize2, Plus, Save, Trash2, X } from "lucide-react";
+import { Check, Copy, Fingerprint, Hash, Loader2, Minimize2, Plus, RotateCcw, Save, ScanSearch, Trash2, X } from "lucide-react";
 import { useState } from "react";
+import { slopReport } from "@/lib/editor/style-check";
 import type { GeneratedPost } from "@/lib/social/ai";
 import { countChars, fullText, PLATFORMS } from "@/lib/social/platforms";
 import { PlatformBadge } from "./platform-badge";
+import { editPostText, SmartTextarea } from "./smart-textarea";
+
+const SLOP_LINE = { low: "Sounds like you.", medium: "A few AI tells.", high: "Reads like AI." } as const;
 
 export type EditablePost = GeneratedPost & { id?: string; savedAt?: string | null };
 
@@ -28,6 +32,10 @@ export function PostCard({
   const [copied, setCopied] = useState(false);
   const [fitting, setFitting] = useState<number | "main" | null>(null);
   const [tagInput, setTagInput] = useState("");
+  const [check, setCheck] = useState(false);
+  const [humanizing, setHumanizing] = useState(false);
+  const [undo, setUndo] = useState<EditablePost | null>(null);
+  const [checkError, setCheckError] = useState<string | null>(null);
 
   const isSingle = post.format === "single";
   const isCarousel = post.format === "carousel";
@@ -40,6 +48,24 @@ export function PostCard({
   const partsOver = post.format === "thread" && post.parts.some((p) => countChars(post.platform, p) > platform.limit);
 
   const update = (patch: Partial<EditablePost>) => onChange({ ...post, ...patch, savedAt: null });
+  const whole = [hasMain ? post.content : "", ...post.parts].filter((t) => t.trim()).join("\n\n");
+  const report = check ? slopReport(whole) : null;
+
+  /** Humanize every part of the post at once; Undo puts it back. */
+  async function humanizeAll() {
+    setHumanizing(true);
+    setCheckError(null);
+    const before = post;
+    try {
+      const fix = (t: string) => (t.trim() ? editPostText({ action: "humanize", text: t, post: whole, platform: post.platform }) : Promise.resolve(t));
+      const [content, ...parts] = await Promise.all([hasMain ? fix(post.content) : Promise.resolve(post.content), ...post.parts.map(fix)]);
+      update({ content, parts });
+      setUndo(before);
+    } catch (e) {
+      setCheckError((e as Error).message || "Couldn't humanize right now.");
+    }
+    setHumanizing(false);
+  }
 
   async function fit(index: number | "main") {
     setFitting(index);
@@ -100,6 +126,15 @@ export function PostCard({
           </p>
           {post.angle && <p className="truncate text-xs text-muted">{post.angle}</p>}
         </div>
+        <button
+          onClick={() => setCheck(!check)}
+          aria-label="Slop check"
+          aria-pressed={check}
+          title="Slop check: filler, clichés and AI-sounding phrases"
+          className={`rounded-full p-1.5 transition ${check ? "bg-surface-strong text-ink" : "text-muted hover:bg-surface-strong hover:text-ink"}`}
+        >
+          <ScanSearch size={16} />
+        </button>
         {onRemove && (
           <button onClick={onRemove} aria-label="Remove post" className="rounded-full p-1.5 text-muted hover:bg-surface-strong hover:text-red-700 dark:hover:text-red-400">
             <X size={16} />
@@ -107,15 +142,57 @@ export function PostCard({
         )}
       </header>
 
+      {report && (
+        <div className="mt-3 rounded-2xl bg-surface-strong/60 px-3 py-2.5 text-sm">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="font-medium">Slop: {report.level === "low" ? "Low" : report.level === "medium" ? "Medium" : "High"}</span>
+            <span className="text-muted">{report.words < 8 ? "Too short to judge." : SLOP_LINE[report.level]}</span>
+            <span className="ml-auto flex gap-1.5">
+              {undo && (
+                <button
+                  onClick={() => {
+                    onChange({ ...undo, savedAt: null });
+                    setUndo(null);
+                  }}
+                  className="flex items-center gap-1 rounded-full px-2.5 py-1 text-xs ring-1 ring-line hover:bg-bg"
+                >
+                  <RotateCcw size={12} /> Undo
+                </button>
+              )}
+              {report.items.length > 0 && (
+                <button onClick={humanizeAll} disabled={humanizing} className="flex items-center gap-1 rounded-full bg-ink px-2.5 py-1 text-xs text-bg disabled:opacity-60">
+                  {humanizing ? <Loader2 size={12} className="animate-spin" /> : <Fingerprint size={12} />} Humanize post
+                </button>
+              )}
+            </span>
+          </div>
+          {report.items.length > 0 && (
+            <p className="mt-1 flex flex-wrap gap-x-3 text-xs text-muted">
+              {report.items.map((i) => (
+                <span key={i.id} title={i.hint}>
+                  {i.label} <b className="font-medium text-ink tabular-nums">{i.count}</b>
+                </span>
+              ))}
+            </p>
+          )}
+          {checkError && <p className="mt-1 text-xs text-red-700 dark:text-red-400">{checkError}</p>}
+        </div>
+      )}
+
       {hasMain && (
         <div className="mt-3">
           {isCarousel && <p className="mb-1 text-xs font-medium text-muted">Caption</p>}
-          <textarea
+          <SmartTextarea
             value={post.content}
-            onChange={(e) => update({ content: e.target.value })}
+            onChange={(content) => update({ content })}
+            platform={post.platform}
+            post={whole}
+            styleCheck={check}
             rows={isCarousel ? 3 : 8}
-            aria-label={`${platform.label} ${isCarousel ? "caption" : "post"}`}
-            className="max-h-[28rem] w-full resize-y rounded-2xl bg-bg px-3.5 py-3 text-[15px] leading-relaxed ring-1 ring-line outline-none [field-sizing:content] [overflow-wrap:anywhere] focus:ring-2 focus:ring-accent"
+            resizable
+            ariaLabel={`${platform.label} ${isCarousel ? "caption" : "post"}`}
+            boxClass="rounded-2xl bg-bg ring-1 ring-line focus-within:ring-2 focus-within:ring-accent"
+            textClass="px-3.5 py-3 text-[15px] leading-relaxed"
           />
           {platform.fold && post.content.length > platform.fold && (
             <p className="mt-1.5 text-xs text-muted">
@@ -162,11 +239,16 @@ export function PostCard({
                     <Trash2 size={12} />
                   </button>
                 </div>
-                <textarea
+                <SmartTextarea
                   value={part}
-                  onChange={(e) => update({ parts: post.parts.map((p, j) => (j === i ? e.target.value : p)) })}
+                  onChange={(text) => update({ parts: post.parts.map((p, j) => (j === i ? text : p)) })}
+                  platform={post.platform}
+                  post={whole}
+                  styleCheck={check}
                   rows={2}
-                  className="w-full resize-none bg-transparent px-1 text-[15px] leading-relaxed outline-none [field-sizing:content] [overflow-wrap:anywhere]"
+                  ariaLabel={`${post.format === "thread" ? "Post" : "Slide"} ${i + 1}`}
+                  boxClass=""
+                  textClass="px-1 text-[15px] leading-relaxed"
                 />
               </li>
             );

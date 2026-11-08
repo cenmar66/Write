@@ -21,14 +21,18 @@ export function editPrompt(opts: {
   tone?: Tone;
   /** The author's voice instructions, or "" when the voice is off. Grammar fixes ignore it. */
   voice: string;
+  /** Editing a social post rather than a document. */
+  post?: { platform: string };
 }): { system: string; user: string } {
   const voice = opts.action === "grammar" ? "" : opts.voice;
   const system = [
     BASE,
     "Reply with only the finished text. No introduction, no quotation marks around it, no explanation.",
+    opts.post &&
+      `This is a ${opts.post.platform} post. Write plain text the way people post there: no Markdown (no **bold**, # headings or [links](url)), keep line breaks and any emoji or hashtags that are already there.`,
     opts.action === "grammar" ? "" : ANTI_SLOP,
     voice,
-    `Here is the full document for context:\n<document>\n${opts.document}\n</document>`,
+    `Here is the full ${opts.post ? "post" : "document"} for context:\n<document>\n${opts.document}\n</document>`,
   ]
     .filter(Boolean)
     .join("\n\n");

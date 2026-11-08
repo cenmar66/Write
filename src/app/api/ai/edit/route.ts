@@ -1,6 +1,7 @@
 import { EDIT_ACTIONS, TONES, type EditAction, type Tone } from "@/lib/ai/actions";
 import { loadAiSettings, requireOwner, streamText } from "@/lib/ai/server";
 import { editPrompt } from "@/lib/ai/prompts";
+import { PLATFORMS, type PlatformId } from "@/lib/social/platforms";
 
 export const maxDuration = 120;
 
@@ -15,6 +16,8 @@ export async function POST(request: Request) {
     tone?: string;
     documentId?: string;
     styleId?: string;
+    /** Set when editing a social post: plain text, no Markdown, for this platform. */
+    post?: { platform?: string };
   };
   const action = body.action as EditAction;
   if (!(action in EDIT_ACTIONS) || typeof body.text !== "string") {
@@ -29,6 +32,7 @@ export async function POST(request: Request) {
     document: body.document ?? "",
     tone,
     voice,
+    post: body.post ? { platform: PLATFORMS[body.post.platform as PlatformId]?.label ?? "social media" } : undefined,
   });
 
   return streamText({
