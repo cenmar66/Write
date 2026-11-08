@@ -6,7 +6,8 @@ import { useState } from "react";
 import { PRESET_PROFILES, type Profile, type ProfileInput } from "@/lib/satori/profiles";
 import type { Preferences } from "@/lib/satori/store/types";
 import type { TargetSpec } from "@/lib/satori/targets";
-import { api, download, formatCost } from "./client";
+import { api, download } from "./client";
+import { BudgetSettings } from "./budget-settings";
 import { ConnectorsSettings } from "./connectors-settings";
 import { TargetPicker } from "./editor";
 import { useSatori } from "./provider";
@@ -227,39 +228,8 @@ export function SettingsPage() {
         </div>
       </Section>
 
-      <Section title="Usage & limits" description="Estimated from provider-reported token counts. Your provider's bill is the source of truth.">
-        {status?.usage ? (
-          <>
-            <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              {[
-                ["AI requests this month", status.usage.requests.toLocaleString()],
-                ["Input tokens", status.usage.inputTokens.toLocaleString()],
-                ["Output tokens", status.usage.outputTokens.toLocaleString()],
-                ["Estimated cost", formatCost(status.usage.costUsd)],
-              ].map(([k, v]) => (
-                <div key={k} className="rounded-xl border p-3 ps-line">
-                  <dt className="text-xs ps-muted">{k}</dt>
-                  <dd className="text-lg font-semibold tabular-nums">{v}</dd>
-                </div>
-              ))}
-            </dl>
-            {Object.keys(status.usage.byKind).length > 0 && (
-              <p className="text-sm ps-soft">
-                {Object.entries(status.usage.byKind)
-                  .map(([k, v]) => `${k}: ${v.requests} (${formatCost(v.costUsd)})`)
-                  .join(" · ")}
-              </p>
-            )}
-            {status.usage.unpricedRequests > 0 && <p className="text-xs ps-muted">{status.usage.unpricedRequests} requests had no known price and aren&apos;t in the estimate.</p>}
-          </>
-        ) : (
-          <p className="text-sm ps-muted">No usage recorded yet.</p>
-        )}
-        {status && (
-          <p className="text-sm ps-soft">
-            Limits: {status.limits.perMinute || "no"} requests/minute · {status.limits.perDay || "no"} per day · monthly budget {status.limits.monthlyBudgetUsd ? `$${status.limits.monthlyBudgetUsd}` : "not set"}. Change with <code className="ps-mono">SATORI_RATE_PER_MINUTE</code>, <code className="ps-mono">SATORI_DAILY_REQUEST_LIMIT</code>, <code className="ps-mono">SATORI_MONTHLY_BUDGET_USD</code>.
-          </p>
-        )}
+      <Section id="budget" title="Budget & prices" description="Set a monthly AI budget, get warned before you reach it, and price models so their costs are counted.">
+        <BudgetSettings />
       </Section>
 
       <Section title="Your data" description="Export everything, set how long history is kept, or delete it all.">

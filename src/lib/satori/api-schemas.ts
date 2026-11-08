@@ -142,6 +142,15 @@ export const PreferencesBody = z.object({
   active_profile_id: id.nullable().optional(),
   clarify: z.boolean().optional(),
   retention_days: z.number().int().min(0).max(3650).optional(),
+  monthly_budget_usd: z.number().min(0).max(100000).nullable().optional(),
+  alert_percent: z.number().int().min(1).max(100).optional(),
+  model_prices: z
+    .record(
+      z.string().regex(/^[a-z]+:[\w.\-/:]{1,100}$/, "Unknown model"),
+      z.object({ input: z.number().min(0).max(10000), output: z.number().min(0).max(10000) }),
+    )
+    .refine((r) => Object.keys(r).length <= 50, "Too many prices")
+    .optional(),
 });
 
 export const TemplateBody = z.object({

@@ -32,7 +32,7 @@ Updated 2026-10-31. Branch `claude/relaxed-johnson-xv606m`.
 
 ## Needs you
 
-1. Run `supabase/migrations/0011_promptsatori.sql` and `0015_satori_connectors.sql` in Supabase.
+1. Run `supabase/migrations/0011_promptsatori.sql`, `0015_satori_connectors.sql` and `0016_satori_costs.sql` in Supabase.
 2. Deploy, then connect promptsatori.com (Vercel domain, DNS, Supabase redirect URL — see README).
 3. Run the live evaluation once with your key (`npm run eval:satori`) and skim the report.
 4. Work through the manual checklist in [TESTING.md](TESTING.md).

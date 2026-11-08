@@ -70,7 +70,9 @@ Every table: `user_id default auth.uid()`, RLS "own rows only", and write polici
 
 ## Limits and costs
 
-`checkLimits()` runs before every AI call: a per-user sliding one-minute window (in memory, so per server instance), a daily request cap and a monthly estimated-spend cap (both read from `satori_usage`, so they hold across instances). Usage is recorded for successes and failures. Claude prices are built in (`pricing.ts`); other providers' prices come from `SATORI_PRICES` — unknown prices show "cost n/a" rather than a guess.
+`checkLimits()` runs before every AI call: a per-user sliding one-minute window (in memory, so per server instance), a daily request cap and a monthly estimated-spend cap (both read from `satori_usage`, so they hold across instances). Usage is recorded for successes and failures. Claude prices are built in (`pricing.ts`); other providers' prices come from your Settings (`satori_preferences.model_prices`, migration 0016) or `SATORI_PRICES` — unknown prices show "cost n/a" rather than a guess, and rows recorded without a price are priced at read time once you add one.
+
+**Budgets.** The monthly cap is the lower of your own budget (Settings, `monthly_budget_usd`) and `SATORI_MONTHLY_BUDGET_USD`; you're warned at `alert_percent` (default 80%) and AI requests return 429 once it's reached. The month is counted in UTC. `costs.ts` builds the Costs page report (totals, a zero-filled daily series in your time zone, by-model and by-activity breakdowns) from `satori_usage`. `estimate.ts` gives a cost range before a run: input from the text length plus PromptSatori's own instructions, output from typical sizes until you have three runs of the same kind on the same model, then from your history (20th–80th percentile). `POST /api/satori/estimate` makes no AI call.
 
 ## Preparing for commercial features (Phase 5 — not built)
 

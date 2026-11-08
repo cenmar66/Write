@@ -40,3 +40,6 @@ APSQL=(psql -X -q -h "$DIR" -p "$PORT" -U postgres -d analytics_test -v ON_ERROR
 "${PSQL[@]}" -f "$ROOT/supabase/migrations/0015_satori_connectors.sql"
 "${PSQL[@]}" -f "$ROOT/supabase/migrations/0015_satori_connectors.sql"   # must be re-runnable
 "${PSQL[@]}" -f "$ROOT/supabase/tests/satori-connectors.test.sql"
+"${PSQL[@]}" -f "$ROOT/supabase/migrations/0016_satori_costs.sql"
+"${PSQL[@]}" -f "$ROOT/supabase/migrations/0016_satori_costs.sql"   # must be re-runnable
+"${PSQL[@]}" -f "$ROOT/supabase/tests/satori-costs.test.sql"
