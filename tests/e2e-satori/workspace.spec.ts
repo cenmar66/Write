@@ -159,7 +159,10 @@ test.describe("library, templates, analyzer, lab, history, settings", () => {
 
 test.describe("API safeguards", () => {
   test("rejects oversized and invalid bodies", async ({ request }) => {
-    const big = await request.post("/api/satori/generate", { data: { request: "x".repeat(250_000), target: { id: "claude" } } });
+    // Routes that take images allow ~4 MB; everything else stays at 200 KB.
+    const huge = await request.post("/api/satori/generate", { data: { request: "x".repeat(4_500_000), target: { id: "claude" } } });
+    expect(huge.status()).toBe(413);
+    const big = await request.post("/api/satori/refine", { data: { prompt: "x".repeat(250_000), instruction: "shorter", target: { id: "claude" } } });
     expect(big.status()).toBe(413);
     const invalid = await request.post("/api/satori/generate", { data: { request: "hi", target: { id: "skynet" } } });
     expect(invalid.status()).toBe(400);

@@ -7,6 +7,7 @@ import {
   DEFAULT_PREFERENCES,
   summarize,
   type Collection,
+  type Connector,
   type SatoriStore,
   type GenerationRecord,
   type Preferences,
@@ -19,7 +20,7 @@ type Row = Record<string, unknown>;
 function fail(error: { message: string } | null, what: string): void {
   if (error) {
     console.error(`[satori] database error: ${what}`); // message may contain data; keep logs content-free
-    throw new Error(`Couldn't ${what}. Check that the PromptSatori database update (0011) has been run.`);
+    throw new Error(`Couldn't ${what}. Check that the PromptSatori database updates (0011 and 0015) have been run.`);
   }
 }
 
@@ -68,6 +69,12 @@ function toGeneration(r: Row): GenerationRecord {
     result,
     created_at: r.created_at as string,
   };
+}
+
+const CONNECTOR_FIELDS = "id,label,server_name,url,enabled,created_at,has_token:token_encrypted";
+
+function toConnector(r: Row): Connector {
+  return { id: r.id as string, label: r.label as string, server_name: r.server_name as string, url: r.url as string, enabled: r.enabled as boolean, has_token: !!r.has_token, created_at: r.created_at as string };
 }
 
 /** Strips PostgREST filter syntax from a search term. */
@@ -309,6 +316,33 @@ export function supabaseStore(supabase: SupabaseClient, userId: string): SatoriS
     async deleteTemplate(id) {
       const { error } = await own(supabase.from("satori_templates").delete().eq("id", id));
       fail(error, "delete the template");
+    },
+
+    async listConnectors() {
+      const { data, error } = await own(supabase.from("satori_connectors").select(CONNECTOR_FIELDS)).order("label");
+      fail(error, "load connected apps");
+      return (data ?? []).map(toConnector);
+    },
+    async getConnectorSecrets(ids) {
+      if (!ids.length) return [];
+      const { data, error } = await own(supabase.from("satori_connectors").select(`${CONNECTOR_FIELDS},token_encrypted`)).in("id", ids);
+      fail(error, "load connected apps");
+      return (data ?? []).map((r: Row) => ({ ...toConnector(r), token_encrypted: (r.token_encrypted as string) ?? null }));
+    },
+    async saveConnector(input, id) {
+      const row: Row = { label: input.label, server_name: input.server_name, url: input.url, enabled: input.enabled };
+      if (input.token_encrypted !== undefined) row.token_encrypted = input.token_encrypted;
+      const q = id
+        ? own(supabase.from("satori_connectors").update(row).eq("id", id)).select(CONNECTOR_FIELDS).maybeSingle()
+        : supabase.from("satori_connectors").insert({ ...row, user_id: userId }).select(CONNECTOR_FIELDS).single();
+      const { data, error } = await q;
+      if (error && /duplicate|unique/i.test(error.message)) throw new Error("A connected app with that name already exists.");
+      fail(error, "save the connected app");
+      return data ? toConnector(data) : null;
+    },
+    async deleteConnector(id) {
+      const { error } = await own(supabase.from("satori_connectors").delete().eq("id", id));
+      fail(error, "delete the connected app");
     },
 
     async createTestRun(r) {

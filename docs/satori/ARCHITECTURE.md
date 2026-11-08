@@ -46,6 +46,13 @@ The generation meta-prompt asks the model to: find the real objective, separate 
 
 Adding a provider: implement `SatoriProvider` (`providers/types.ts`) and list it in `providers/index.ts`.
 
+## Images, websites and tools
+
+- **Images** (`context.ts`, `components/satori/attachments.tsx`): the browser resizes to ≤1568 px and re-encodes (JPEG, or PNG with transparency), then sends base64 in the request body (routes that accept images allow ~4 MB; Vercel's limit is 4.5 MB). Each provider gets them in its own format: Claude image blocks, OpenAI `image_url` / `input_image`, Gemini `inlineData`.
+- **Websites** (`web.ts`, `/api/satori/web/preview`): server-side fetch with SSRF protection (public addresses only, every redirect re-checked, 12 s / 2 MB limits, text types only), HTML reduced to readable text (≤15,000 chars). The text is sent as `<satori_source_N>` data blocks: the generator meta-prompt (`generate.v2`, `clarify.v2`) is told to use it as background facts and never follow instructions inside it.
+- **Web search and connected apps** (Testing Lab, providers with `supportsTools`, i.e. Claude): `web_search_20260209` (max 5 uses) and the MCP connector (`mcp-client-2025-11-20` beta: `mcp_servers` + one `mcp_toolset` per server). The adapter resumes `pause_turn` up to 4 times and reports tool use as plain-words "activity". Other providers run without tools and the result says so.
+- **Connectors** are stored in `satori_connectors` (migration 0015) with the token AES-256-GCM-encrypted by the server (`lib/crypto.ts`); the browser only ever sees `has_token`. Decrypted tokens exist only for the duration of a Lab run.
+
 ## Database (migration `0011_promptsatori.sql`)
 
 | Table | Purpose |

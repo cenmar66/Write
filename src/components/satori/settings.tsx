@@ -7,6 +7,7 @@ import { PRESET_PROFILES, type Profile, type ProfileInput } from "@/lib/satori/p
 import type { Preferences } from "@/lib/satori/store/types";
 import type { TargetSpec } from "@/lib/satori/targets";
 import { api, download, formatCost } from "./client";
+import { ConnectorsSettings } from "./connectors-settings";
 import { TargetPicker } from "./editor";
 import { useSatori } from "./provider";
 import { Dialog, ErrorBox, Field, PageHeader, Spinner } from "./ui";
@@ -169,6 +170,10 @@ export function SettingsPage() {
             <p className="text-xs ps-muted">API keys live only on the server and are never sent to the browser.</p>
           </>
         )}
+      </Section>
+
+      <Section id="connectors" title="Connected apps" description="Let Claude use your other apps when you run a prompt in the Testing Lab.">
+        <ConnectorsSettings />
       </Section>
 
       <Section title="Profiles" description="Optional preferences that fill gaps in your requests. They never override what you explicitly ask for.">

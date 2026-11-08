@@ -45,7 +45,7 @@ export type ServedBy = {
   usage: { inputTokens: number; outputTokens: number; costUsd: number | null };
 };
 
-export type ProviderStatus = { id: string; label: string; configured: boolean; isMock: boolean; models: { id: string; label: string }[]; missing?: string[] };
+export type ProviderStatus = { id: string; label: string; configured: boolean; isMock: boolean; models: { id: string; label: string }[]; missing?: string[]; supportsTools?: boolean };
 
 export type Status = {
   providers: ProviderStatus[];

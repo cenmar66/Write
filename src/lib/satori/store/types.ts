@@ -122,9 +122,18 @@ export type TestRun = {
   latency_ms: number | null;
   ratings: CriterionRating[];
   judge: unknown;
+  /** What the run used: image count, website addresses, web search, connected apps, activity. */
+  context: RunContext;
   created_at: string;
 };
 export type NewTestRun = Omit<TestRun, "id" | "created_at">;
+export type RunContext = { images?: number; sources?: string[]; webSearch?: boolean; connectors?: string[]; activity?: string[] };
+
+/** A connected app (MCP server). The token never leaves the server. */
+export type Connector = { id: string; label: string; server_name: string; url: string; has_token: boolean; enabled: boolean; created_at: string };
+export type ConnectorSecret = Connector & { token_encrypted: string | null };
+/** token_encrypted: undefined keeps the stored token, null removes it. */
+export type ConnectorInput = { label: string; server_name: string; url: string; enabled: boolean; token_encrypted?: string | null };
 
 export type AnalysisRecord = {
   id: string;
@@ -221,6 +230,12 @@ export interface SatoriStore {
   createTestRun(r: NewTestRun): Promise<TestRun>;
   listTestRuns(opts?: { promptId?: string; limit?: number }): Promise<TestRun[]>;
   deleteTestRun(id: string): Promise<void>;
+
+  listConnectors(): Promise<Connector[]>;
+  /** Server-only: includes encrypted tokens for the given ids. */
+  getConnectorSecrets(ids: string[]): Promise<ConnectorSecret[]>;
+  saveConnector(input: ConnectorInput, id?: string): Promise<Connector | null>;
+  deleteConnector(id: string): Promise<void>;
 
   createAnalysis(a: NewAnalysis): Promise<AnalysisRecord>;
   listAnalyses(limit?: number): Promise<AnalysisRecord[]>;
