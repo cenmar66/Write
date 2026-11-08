@@ -43,6 +43,27 @@ To call a different address (e.g. your Write.ai domain): `select vault.create_se
 
 Without this, nothing runs in the background; “Sync now” and “Brief me now” still work.
 
+## 4b. Instant updates from Gmail (optional, recommended)
+
+Without this, InboxSatori picks up changes every 10 minutes (§4). With it, Gmail tells InboxSatori the moment something changes, for example when you move mail into an **InboxSatori/** label, and it acts within seconds. Use the same Google Cloud project as your Gmail OAuth client (§3). Nothing here is secret.
+
+1. **APIs & Services → Library → Cloud Pub/Sub API → Enable.**
+2. **Pub/Sub → Topics → Create topic**, ID `inboxsatori-gmail` (leave “Add a default subscription” unticked). Its full name is `projects/YOUR-PROJECT-ID/topics/inboxsatori-gmail`.
+3. Open the topic → **Permissions → Add principal** `gmail-api-push@system.gserviceaccount.com` with the role **Pub/Sub Publisher** (this lets Gmail post to it).
+4. **IAM & Admin → Service accounts → Create service account** named `inboxsatori-push` (no roles needed). Note its email, e.g. `inboxsatori-push@YOUR-PROJECT-ID.iam.gserviceaccount.com`.
+5. **Pub/Sub → Subscriptions → Create subscription** on that topic: Delivery type **Push**; Endpoint `https://inboxsatori.com/api/inbox/gmail/push`; tick **Enable authentication** and pick the `inboxsatori-push` service account; Audience: the same endpoint URL; Acknowledgement deadline 60 seconds. (If Google asks to grant the Pub/Sub service agent “Service Account Token Creator”, accept.)
+6. **Vercel → Settings → Environment Variables**, then redeploy:
+
+   | Name | Value |
+   |---|---|
+   | `GMAIL_PUBSUB_TOPIC` | `projects/YOUR-PROJECT-ID/topics/inboxsatori-gmail` |
+   | `GMAIL_PUSH_AUDIENCE` | `https://inboxsatori.com/api/inbox/gmail/push` |
+   | `GMAIL_PUSH_SERVICE_ACCOUNT` | the service account email from step 4 |
+
+7. In InboxSatori → **Connected Accounts → Sort from Gmail → Turn on** (or off and on again). The badge changes to **Instant**. Subscriptions last 7 days; the scheduler (§4) renews them automatically.
+
+InboxSatori checks every notification's Google signature, audience and sender before acting; a notification only contains your email address and a change number, never mail content.
+
 ## 5. Its own domain: inboxsatori.com
 
 InboxSatori runs from the same code and deployment as Write.ai. On **inboxsatori.com** the whole site is InboxSatori: `/` is the dashboard, short addresses work (`/mail`, `/brief`, `/followups`), the sign-in page carries InboxSatori's name, and Write.ai's pages never appear. (Override the domain list with `INBOX_HOSTS` if needed.)

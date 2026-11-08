@@ -29,6 +29,9 @@ export interface MailProvider {
   listChanges(acc: AccountRow, cursor: string): Promise<Changes>;
   getMessages(acc: AccountRow, ids: string[], opts: { format: "full" | "metadata" }): Promise<NormalizedMessage[]>;
   search(acc: AccountRow, query: string, max: number): Promise<string[]>;
+  /** Gmail push: asks Gmail to notify a Pub/Sub topic on every mailbox change (renew within 7 days). */
+  watch?(acc: AccountRow, topicName: string): Promise<{ historyId: string; expiration: string }>;
+  stopWatch?(acc: AccountRow): Promise<void>;
   /** Bytes of one attachment (used for images embedded in a message), base64. */
   attachment?(acc: AccountRow, providerMessageId: string, attachmentId: string): Promise<string>;
   modify(acc: AccountRow, providerMessageId: string, change: { add?: string[]; remove?: string[] }): Promise<void>;

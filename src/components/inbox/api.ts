@@ -54,7 +54,7 @@ export interface Bootstrap {
   categories: Category[];
   entitlements: Record<string, { plan: string; label: string; features: string[]; maxAccounts: number }>;
   counts: { priority?: number; priority_unread?: number; unread?: number; attention?: number; review?: number; i_owe?: number; they_owe?: number; tasks?: number; unread_by_category?: Record<string, number> };
-  server: { gmail: boolean; gmailReason: string | null; outlook: boolean; billing: boolean; ai: { available: boolean; reason?: string; provider?: string }; simulatedAi: boolean; costEstimate: { perMonthUsd: number; assumptions: Record<string, number> } };
+  server: { gmail: boolean; gmailReason: string | null; outlook: boolean; instant: boolean; billing: boolean; ai: { available: boolean; reason?: string; provider?: string }; simulatedAi: boolean; costEstimate: { perMonthUsd: number; assumptions: Record<string, number> } };
 }
 
 export type ListMessage = MessageRow & {

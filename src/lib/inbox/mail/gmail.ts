@@ -263,6 +263,13 @@ export function gmailProvider(deps: ProviderDeps): MailProvider {
       });
       return results.filter((m): m is NonNullable<typeof m> => !!m);
     },
+    async watch(acc, topicName) {
+      const r = await gapi<{ historyId: string; expiration: string }>(admin(), acc.id, "watch", { method: "POST", body: JSON.stringify({ topicName, labelFilterBehavior: "EXCLUDE", labelIds: ["SPAM"] }) });
+      return { historyId: String(r.historyId), expiration: new Date(Number(r.expiration)).toISOString() };
+    },
+    async stopWatch(acc) {
+      await gapi(admin(), acc.id, "stop", { method: "POST" });
+    },
     async attachment(acc, id, attachmentId) {
       const r = await gapi<{ data?: string }>(admin(), acc.id, `messages/${id}/attachments/${attachmentId}`);
       return (r.data ?? "").replace(/-/g, "+").replace(/_/g, "/");

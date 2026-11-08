@@ -269,3 +269,61 @@ describe("unread counts", () => {
     expect(c.priority_unread).toBe(pri.rows.filter((r) => r.is_unread).length);
   });
 });
+
+describe("SaneBox-style Gmail labels", () => {
+  beforeEach(async () => {
+    setProviderForTests(null);
+    await setup();
+  });
+
+  const reload = async () => (await db.from("ip_accounts").select("*").eq("id", acc.id).single()).data as AccountRow;
+
+  it("moving mail into InboxSatori labels in Gmail black-holes senders, files categories, and moving back brings senders back", async () => {
+    const { setupTrainingLabels } = await import("@/lib/inbox/server/training-labels");
+    const { demoGmailMove } = await import("@/lib/inbox/mail/demo");
+    await syncAccount(db, db, acc, prefs, { now: NOW });
+    const map = await setupTrainingLabels(db, db, await reload());
+    const bh = Object.keys(map).find((k) => map[k] === "black_hole")!;
+    const low = Object.keys(map).find((k) => map[k] === "category:low_priority")!;
+    expect(bh).toBeTruthy();
+    expect(low).toBeTruthy();
+
+    // The user moves the promo email into InboxSatori/Black Hole, and a newsletter into Low Priority.
+    const promo = demoMessages(acc.id).find((m) => m.subject.startsWith("40% off"))!;
+    const news = demoMessages(acc.id).find((m) => m.subject.startsWith("The Weekly Signal"))!;
+    demoGmailMove(acc.id, promo.providerMessageId, bh);
+    demoGmailMove(acc.id, news.providerMessageId, low);
+    const r = await syncAccount(db, db, await reload(), prefs, { now: NOW });
+    expect(r.error).toBeUndefined();
+    expect(r.labelActions?.blackHoled).toEqual(["deals@shopmore.test"]);
+    expect(r.labelActions?.filed).toBe(1);
+
+    const sender = rows("ip_senders").find((s) => s.email === "deals@shopmore.test")!;
+    expect(sender.blocked).toBe(true);
+    expect(bySubject("40% off").done_at).toBeTruthy();
+    expect(bySubject("40% off").label_ids).not.toContain("TRASH"); // archived, never deleted
+    expect(bySubject("The Weekly Signal").category).toBe("low_priority");
+    expect(rows("ip_senders").find((s) => s.email === "newsletter@weeklysignal.test")!.default_category).toBe("low_priority");
+    expect(rows("ip_audit_events").some((a) => a.action === "sender.black_hole" && (a.detail as { via?: string }).via === "gmail_label")).toBe(true);
+
+    // A sync with nothing new does nothing more (our own label changes don't loop).
+    const again = await syncAccount(db, db, await reload(), prefs, { now: NOW });
+    expect(again.labelActions?.blackHoled ?? []).toEqual([]);
+
+    // The user drags it back to the inbox: the sender comes back.
+    demoGmailMove(acc.id, promo.providerMessageId, bh, true);
+    const back = await syncAccount(db, db, await reload(), prefs, { now: NOW });
+    expect(back.labelActions?.broughtBack).toEqual(["deals@shopmore.test"]);
+    expect(rows("ip_senders").find((s) => s.email === "deals@shopmore.test")!.blocked).toBe(false);
+  });
+
+  it("label moves do nothing while SaneBox-style labels are off", async () => {
+    const { demoGmailMove } = await import("@/lib/inbox/mail/demo");
+    await syncAccount(db, db, acc, prefs, { now: NOW });
+    const promo = demoMessages(acc.id).find((m) => m.subject.startsWith("40% off"))!;
+    demoGmailMove(acc.id, promo.providerMessageId, "Label_Black_Hole");
+    const r = await syncAccount(db, db, await reload(), prefs, { now: NOW });
+    expect(r.labelActions).toBeUndefined();
+    expect(rows("ip_senders").find((s) => s.email === "deals@shopmore.test")!.blocked).toBeFalsy();
+  });
+});

@@ -2,6 +2,7 @@
 // Idempotent by design: messages are keyed by (account, provider id), so re-running a
 // page, a retried job or two overlapping runs can't create duplicates.
 
+import type { LabelChange } from "./training-labels";
 import type { Db } from "../db";
 import { providerFor, ProviderError } from "../mail/provider";
 import type { AccountRow, MessageRow, NormalizedMessage, Preferences } from "../types";
@@ -12,6 +13,7 @@ export interface SyncResult {
   fetched: number;
   inserted: number;
   removed: number;
+  labelActions?: { blackHoled: string[]; broughtBack: string[]; filed: number };
   done: boolean;
   error?: string;
 }
@@ -55,11 +57,12 @@ export function toRow(m: NormalizedMessage, acc: Pick<AccountRow, "id" | "worksp
 }
 
 /** Stores messages; returns the rows that were new. */
-export async function storeMessages(db: Db, acc: AccountRow, msgs: NormalizedMessage[], prefs: Preferences): Promise<MessageRow[]> {
+export async function storeMessages(db: Db, acc: AccountRow, msgs: NormalizedMessage[], prefs: Preferences, labelChanges?: LabelChange[]): Promise<MessageRow[]> {
   if (!msgs.length) return [];
   const ids = msgs.map((m) => m.providerMessageId);
-  const { data: existing } = await db.from("ip_messages").select("provider_message_id").eq("account_id", acc.id).in("provider_message_id", ids);
+  const { data: existing } = await db.from("ip_messages").select("id,provider_message_id,workspace_id,from_email,is_sent,label_ids").eq("account_id", acc.id).in("provider_message_id", ids);
   const known = new Set((existing ?? []).map((r) => r.provider_message_id as string));
+  const before = new Map((existing ?? []).map((r) => [r.provider_message_id as string, r]));
 
   // Threads first, so messages can point at them.
   const threadIds = [...new Set(msgs.map((m) => m.providerThreadId))];
@@ -71,6 +74,13 @@ export async function storeMessages(db: Db, acc: AccountRow, msgs: NormalizedMes
   // Existing rows: refresh provider-owned fields only (labels, read state), never our own (category, snooze, done).
   for (const r of rows.filter((r) => known.has(r.provider_message_id))) {
     await db.from("ip_messages").update({ label_ids: r.label_ids, is_unread: r.is_unread, is_starred: r.is_starred, in_inbox: r.in_inbox }).eq("account_id", acc.id).eq("provider_message_id", r.provider_message_id);
+    // Label moves the user made in Gmail (for SaneBox-style labels).
+    const old = before.get(r.provider_message_id)!;
+    const was = new Set<string>((old.label_ids as string[]) ?? []);
+    const now = new Set<string>(r.label_ids ?? []);
+    const added = [...now].filter((l) => !was.has(l));
+    const removed = [...was].filter((l) => !now.has(l));
+    if (labelChanges && (added.length || removed.length)) labelChanges.push({ id: old.id as string, workspace_id: old.workspace_id as string, from_email: old.from_email as string, is_sent: !!old.is_sent, added, removed, labels: [...now] });
   }
   const fresh = rows.filter((r) => !known.has(r.provider_message_id));
   if (!fresh.length) return [];
@@ -132,12 +142,18 @@ export async function syncAccount(db: Db, admin: Db | null, acc: AccountRow, pre
         return { ...result, error: "Gmail history expired; a full re-sync was scheduled (no duplicates will be created)." };
       }
       const toFetch = [...changes.added, ...changes.changed];
+      const labelChanges: LabelChange[] = [];
       for (let i = 0; i < toFetch.length && Date.now() - started < budget; i += 50) {
         const msgs = await provider.getMessages(acc, toFetch.slice(i, i + 50), { format });
-        const fresh = await storeMessages(db, acc, msgs, prefs);
+        const fresh = await storeMessages(db, acc, msgs, prefs, labelChanges);
         await processNewMessages(db, admin, acc, fresh, prefs, opts.now);
         result.fetched += msgs.length;
         result.inserted += fresh.length;
+      }
+      // The user's label moves in Gmail (SaneBox-style labels), if turned on for this account.
+      if (labelChanges.length && acc.settings?.training_labels) {
+        const { applyLabelChanges } = await import("./training-labels");
+        result.labelActions = await applyLabelChanges(db, admin, acc, labelChanges);
       }
       if (changes.removed.length) {
         await db.from("ip_messages").delete().eq("account_id", acc.id).in("provider_message_id", changes.removed);

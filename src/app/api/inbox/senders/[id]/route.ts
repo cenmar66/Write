@@ -48,7 +48,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       // Leaving the Black Hole: undo the archives it made and bring the mail back.
       const { data: msgs } = await ctx.db.from("ip_messages").select("id,account_id,provider_message_id").eq("workspace_id", s.workspace_id).eq("from_email", s.email);
       const ids = (msgs ?? []).map((m) => m.id);
-      const { data: ex } = ids.length ? await ctx.db.from("ip_rule_executions").select("id,message_id").in("message_id", ids).eq("rule_name", "Black Hole").eq("status", "applied") : { data: [] };
+      const { data: ex } = ids.length ? await ctx.db.from("ip_rule_executions").select("id,message_id,undo").in("message_id", ids).eq("rule_name", "Black Hole").eq("status", "applied") : { data: [] };
       const { providerFor } = await import("@/lib/inbox/mail/provider");
       const { data: accs } = await ctx.db.from("ip_accounts").select("*").eq("workspace_id", s.workspace_id);
       for (const e of ex ?? []) {
@@ -56,7 +56,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         const acc = (accs ?? []).find((a) => a.id === m.account_id) as AccountRow | undefined;
         if (!acc) continue;
         try {
-          await (await providerFor(acc, { admin: ctx.admin })).modify(acc, m.provider_message_id, { add: ["INBOX"] });
+          await (await providerFor(acc, { admin: ctx.admin })).modify(acc, m.provider_message_id, (e.undo as { add?: string[]; remove?: string[] } | null) ?? { add: ["INBOX"] });
           await ctx.db.from("ip_rule_executions").update({ status: "undone" }).eq("id", e.id);
           await ctx.db.from("ip_messages").update({ in_inbox: true }).eq("id", m.id);
           restored++;

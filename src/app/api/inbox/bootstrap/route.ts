@@ -2,6 +2,7 @@ import { aiStatus, simulatedAiEnabled } from "@/lib/inbox/ai/client";
 import { estimateMonthlyCost } from "@/lib/inbox/ai/models";
 import { billingConfigured, PLANS } from "@/lib/inbox/entitlements";
 import { gmailConfigured } from "@/lib/inbox/mail/gmail";
+import { pushConfig } from "@/lib/inbox/push";
 import { capabilitiesFromScopes } from "@/lib/inbox/mail/gmail";
 import { counts } from "@/lib/inbox/server/queries";
 import { entitlementFor, handle, loadPrefs, myWorkspaces } from "@/lib/inbox/server/workspace";
@@ -31,6 +32,7 @@ export async function GET() {
         gmail: gmailConfigured() && (!!ctx.admin || ctx.local),
         gmailReason: !gmailConfigured() ? "GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET aren't set on the server." : !ctx.admin && !ctx.local ? "SUPABASE_SECRET_KEY isn't set (needed to store mailbox tokens securely)." : null,
         outlook: false,
+        instant: !!pushConfig(),
         billing: billingConfigured(),
         ai: aiStatus(prefs),
         simulatedAi: simulatedAiEnabled(),

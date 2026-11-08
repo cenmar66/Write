@@ -2,8 +2,9 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { isAllowed, SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from "@/lib/env";
 
-// /api/cron checks its own secret, and /api/v1 checks access codes (no one is signed in for either).
-const PUBLIC_PATHS = ["/login", "/auth", "/manifest.webmanifest", "/canvas/manifest.webmanifest", "/satori/manifest.webmanifest", "/inbox/manifest.webmanifest", "/api/cron/", "/api/v1"];
+// /api/cron checks its own secret, /api/v1 checks access codes, and /api/inbox/gmail/push checks
+// Google's signed token (no one is signed in for any of them).
+const PUBLIC_PATHS = ["/login", "/auth", "/manifest.webmanifest", "/canvas/manifest.webmanifest", "/satori/manifest.webmanifest", "/inbox/manifest.webmanifest", "/api/cron/", "/api/v1", "/api/inbox/gmail/push"];
 // Dev/test only: lets The Daily Canvas run on this device without signing in (data stays in
 // the browser). Ignored in production builds, whatever the variable says.
 const CANVAS_LOCAL_ONLY = process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_CANVAS_LOCAL_ONLY === "1";

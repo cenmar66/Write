@@ -331,6 +331,37 @@ test.describe("Bulk Black Hole", () => {
   });
 });
 
+test.describe("SaneBox-style Gmail labels", () => {
+  test("turn on labels; moving mail into InboxSatori/Black Hole in Gmail sends the sender there", async ({ page }, info) => {
+    test.skip(info.project.name !== "desktop");
+    await page.request.delete("/api/inbox/data", { data: { confirm: "DELETE" } });
+    await page.request.post("/api/inbox/demo");
+    await page.request.patch("/api/inbox/settings", { data: { onboarding: { step: 10 } } });
+    await page.goto("/inbox/accounts");
+    await expect(page.getByText("Sort from Gmail (SaneBox-style labels)")).toBeVisible({ timeout: 45_000 });
+    await page.getByRole("button", { name: "Turn on" }).click();
+    await expect(page.getByText(/Created \d+ labels under “InboxSatori\/”/)).toBeVisible();
+    await expect(page.getByText(/Labels: Black Hole, /)).toBeVisible();
+
+    // In "Gmail", the user moves the promo email into InboxSatori/Black Hole.
+    const boot = await (await page.request.get("/api/inbox/bootstrap")).json();
+    const acc = boot.accounts.find((a: { provider: string }) => a.provider === "demo");
+    const bh = Object.entries(acc.settings.training_labels as Record<string, string>).find(([, v]) => v === "black_hole")![0];
+    const promo = (await (await page.request.get("/api/inbox/messages?ws=all&view=all&q=40%25%20off")).json()).messages[0];
+    expect((await page.request.post("/api/inbox/demo/gmail-move", { data: { message_id: promo.id, label: bh } })).ok()).toBe(true);
+    await page.getByRole("button", { name: "Sync now" }).click();
+    await expect(page.getByText(/new message/)).toBeVisible();
+    const senders = await (await page.request.get("/api/inbox/senders?ws=all")).json();
+    const s = (senders.senders ?? senders).find((x: { email: string }) => x.email === "deals@shopmore.test");
+    expect(s.blocked).toBe(true);
+    const after = (await (await page.request.get("/api/inbox/messages?ws=all&view=all&q=40%25%20off")).json()).messages[0];
+    expect(after.label_ids).not.toContain("TRASH");
+
+    // Instant updates aren't configured in tests: the push endpoint says so and does nothing.
+    expect((await page.request.post("/api/inbox/gmail/push", { data: {} })).status()).toBe(404);
+  });
+});
+
 test.describe("Long lists", () => {
   test("every selected message can be scrolled to; pages and Select all work", async ({ page }, info) => {
     test.skip(info.project.name !== "desktop");
@@ -399,5 +430,41 @@ test.describe("Unread counts", () => {
       await expect(page.locator("li[data-id]").first()).toBeVisible();
       await expect(page.getByText(`${badge} unread`, { exact: true })).toBeVisible();
     }
+  });
+});
+
+test.describe("Crash screen", () => {
+  test("a crash in the browser shows what went wrong instead of a blank page", async ({ page }, info) => {
+    test.skip(info.project.name !== "desktop" && info.project.name !== "iphone");
+    await page.request.delete("/api/inbox/data", { data: { confirm: "DELETE" } });
+    await page.request.post("/api/inbox/demo");
+    await page.request.patch("/api/inbox/settings", { data: { onboarding: { step: 10 } } });
+    // Simulate a browser that can't format dates (the home page uses this on load).
+    await page.addInitScript(() => {
+      const Real = Intl.DateTimeFormat;
+      Intl.DateTimeFormat = function (...a: ConstructorParameters<typeof Real>) {
+        if (a[1]?.hour12 === false) throw new RangeError("Simulated browser incompatibility");
+        return new Real(...a);
+      } as unknown as typeof Real;
+    });
+    await page.goto("/inbox");
+    await expect(page.getByText("Something went wrong")).toBeVisible({ timeout: 45_000 });
+    await expect(page.getByText(/Simulated browser incompatibility/).first()).toBeVisible();
+    await expect(page.getByRole("button", { name: "Reload page" })).toBeVisible();
+  });
+
+  test("a normal load has no browser errors", async ({ page }, info) => {
+    test.skip(info.project.name !== "iphone");
+    const errors: string[] = [];
+    page.on("pageerror", (e) => errors.push(e.message));
+    page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+    await page.request.post("/api/inbox/demo");
+    await page.request.patch("/api/inbox/settings", { data: { onboarding: { step: 10 } } });
+    await page.goto("/inbox");
+    await expect(page.getByText("Upcoming deadlines")).toBeVisible({ timeout: 45_000 });
+    await page.waitForTimeout(9000); // past the start-up watchdog
+    await expect(page.getByRole("alert").filter({ hasText: "couldn't start" })).toHaveCount(0);
+    expect(errors.filter((e) => !/favicon|Download the React DevTools|hydrat/i.test(e))).toEqual([]);
+    expect(errors.filter((e) => /hydrat|script tag/i.test(e))).toEqual([]);
   });
 });
