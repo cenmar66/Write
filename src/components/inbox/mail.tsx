@@ -134,6 +134,36 @@ export function MailPage() {
     }
   };
 
+  /**
+   * Move to a category, and teach InboxSatori: each sender's future mail goes there too
+   * (like correcting one email). One confirmation names the senders.
+   */
+  const moveAndTeach = async (key: string, ids: string[]) => {
+    if (!ids.length) return;
+    const name = boot.categories.find((c) => c.key === key)?.name ?? key;
+    try {
+      const pre = await api<{ senders: { email: string; name: string }[] }>("/senders/black-hole", { method: "POST", json: { message_ids: ids } });
+      const list = pre.senders.slice(0, 8).map((x) => `• ${x.name ? `${x.name} <${x.email}>` : x.email}`).join("\n");
+      const more = pre.senders.length > 8 ? `\n…and ${pre.senders.length - 8} more` : "";
+      const who = pre.senders.length ? `\n\nFuture mail from ${pre.senders.length === 1 ? "this sender" : `these ${pre.senders.length} senders`} will go to ${name} too:\n${list}${more}` : "";
+      if ((ids.length > 1 || pre.senders.length) && !confirm(`Move ${ids.length} email${ids.length > 1 ? "s" : ""} to ${name}?${who}\n\nYour Gmail isn't changed.`)) return;
+      if (view.startsWith("category:") && view !== `category:${key}`) hideFromLists(qc, ids);
+      setChecked(new Set());
+      let learned = 0;
+      for (let i = 0; i < ids.length; i += 100) {
+        if (ids.length > 100) setBulkBusy(`Moving… ${Math.min(i + 100, ids.length)} of ${ids.length}`);
+        const r = await api<{ learned?: number }>("/messages", { method: "POST", json: { action: "category", value: key, ids: ids.slice(i, i + 100), learn: true } });
+        learned += r.learned ?? 0;
+      }
+      qc.invalidateQueries();
+      toast({ text: `Moved ${ids.length} to ${name}.${learned ? ` InboxSatori will file ${learned === 1 ? "this sender" : `these ${learned} senders`}' future mail there too.` : ""}`, tone: "ok" });
+    } catch (e) {
+      failed(e as Error);
+    } finally {
+      setBulkBusy(null);
+    }
+  };
+
   /** Large selections ("Select all N"): one confirmation, then batches of 100. */
   const runLarge = async (action: string, value: string | undefined, ids: string[]) => {
     const verb = { done: "Mark done", trash: "Move to Trash", archive: "Archive in Gmail", mark_read: "Mark read", snooze: "Snooze", category: "Move", undone: "Restore" }[action] ?? action;
@@ -286,7 +316,7 @@ export function MailPage() {
               <option value="weekend">This weekend</option>
               <option value="next_week">Next week</option>
             </select>
-            <select className="ip-select !h-7 !w-auto text-[12px]" value="" onChange={(e) => e.target.value === BLACK_HOLE ? void blackHoleSenders([...checked]) : e.target.value && runBulk("category", e.target.value)} aria-label="Move selected">
+            <select className="ip-select !h-7 !w-auto text-[12px]" value="" onChange={(e) => e.target.value === BLACK_HOLE ? void blackHoleSenders([...checked]) : e.target.value && void moveAndTeach(e.target.value, [...checked])} aria-label="Move selected">
               <option value="">Move to…</option>
               {[...new Map(boot.categories.filter((c) => !c.hidden).map((c) => [c.key, c])).values()].map((c) => (
                 <option key={c.key} value={c.key}>{c.name}</option>

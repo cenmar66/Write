@@ -362,6 +362,38 @@ test.describe("SaneBox-style Gmail labels", () => {
   });
 });
 
+test.describe("Bulk Move to teaches senders", () => {
+  test("moving several emails to a category names their senders and files their future mail there", async ({ page }, info) => {
+    test.skip(info.project.name !== "desktop");
+    await page.request.delete("/api/inbox/data", { data: { confirm: "DELETE" } });
+    await page.request.post("/api/inbox/demo");
+    await page.request.patch("/api/inbox/settings", { data: { onboarding: { step: 10 } } });
+    await page.goto("/inbox/mail?view=all");
+    const digest = page.locator("li[data-id]").filter({ hasText: "Your daily tech digest" });
+    const promo = page.locator("li[data-id]").filter({ hasText: "40% off everything" });
+    await expect(digest).toBeVisible({ timeout: 45_000 });
+    await digest.getByRole("checkbox").check();
+    await promo.getByRole("checkbox").check();
+    let asked = "";
+    page.once("dialog", (d) => {
+      asked = d.message();
+      void d.accept();
+    });
+    await page.getByLabel("Move selected").selectOption({ label: "Low Priority" });
+    await expect(page.getByText(/Moved 2 to Low Priority\. InboxSatori will file these 2 senders' future mail there too\./)).toBeVisible();
+    expect(asked).toContain("Move 2 emails to Low Priority?");
+    expect(asked).toContain("deals@shopmore.test");
+    expect(asked).toContain("digest@techdigest.test");
+    const senders = await (await page.request.get("/api/inbox/senders?ws=all")).json();
+    for (const email of ["deals@shopmore.test", "digest@techdigest.test"]) {
+      expect(senders.senders.find((x: { email: string }) => x.email === email).default_category).toBe("low_priority");
+    }
+    const m = (await (await page.request.get("/api/inbox/messages?ws=all&view=all&q=40%25%20off")).json()).messages[0];
+    expect(m.category).toBe("low_priority");
+    expect(m.c.user_corrected).toBe(true);
+  });
+});
+
 test.describe("Long lists", () => {
   test("every selected message can be scrolled to; pages and Select all work", async ({ page }, info) => {
     test.skip(info.project.name !== "desktop");
