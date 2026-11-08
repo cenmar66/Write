@@ -38,6 +38,7 @@ function answer(req: CompletionRequest): unknown {
         : { needs_clarification: false, reason: "[MOCK] Enough to proceed.", questions: [] };
     case "generate": {
       const t = targetLabel(u);
+      const seen = contextNote(req);
       const xml = t === "Claude";
       const body = xml
         ? `<role>[MOCK] Expert for: ${short(request)}</role>\n<objective>${request}</objective>\n<instructions>Work step by step for {{audience}}.</instructions>`
@@ -46,7 +47,7 @@ function answer(req: CompletionRequest): unknown {
         analysis: { objective: `[MOCK] ${short(request)}`, user_role: "", task: request, desired_outcome: "", audience: "", industry: "", expertise: "", context: "", constraints: [], tone: "", output_format: "", success_criteria: [], known_facts: [request] },
         assumptions: [{ field: "audience", assumption: "[MOCK] General audience", impact: "Tone may not fit." }],
         missing_context: [{ field: "audience", question: "[MOCK] Who exactly is this for?", why_it_matters: "Changes the message." }],
-        recommended: { title: `[MOCK] Prompt for ${t}`, prompt: `[MOCK OUTPUT — test provider, not real AI]\n${body}`, sections_used: ["Role", "Objective", "Instructions"] },
+        recommended: { title: `[MOCK] Prompt for ${t}`, prompt: `[MOCK OUTPUT — test provider, not real AI]${seen}\n${body}`, sections_used: ["Role", "Objective", "Instructions"] },
         alternatives: [
           { kind: "concise", title: "[MOCK] Concise", approach: "Shorter.", prompt: `[MOCK] Concise: ${request}` },
           { kind: "comprehensive", title: "[MOCK] Comprehensive", approach: "Deeper.", prompt: `[MOCK] Comprehensive: ${request}\nInclude context, steps and checks.` },
@@ -89,10 +90,22 @@ function answer(req: CompletionRequest): unknown {
   }
 }
 
+/** Proves in tests that attachments and tools reached the provider. */
+function contextNote(req: CompletionRequest): string {
+  const notes: string[] = [];
+  if (req.images?.length) notes.push(`[MOCK saw ${req.images.length} image(s)]`);
+  const sites = (req.user.match(/<satori_source_\d+>/g) ?? []).length;
+  if (sites) notes.push(`[MOCK read ${sites} website(s)]`);
+  if (req.tools?.webSearch) notes.push("[MOCK web search on]");
+  if (req.tools?.connectors?.length) notes.push(`[MOCK connectors: ${req.tools.connectors.map((c) => c.name).join(", ")}]`);
+  return notes.length ? ` ${notes.join(" ")}` : "";
+}
+
 export const mockSatori: SatoriProvider = {
   id: "mock",
   label: "Mock (test only)",
   isMock: true,
+  supportsTools: true,
   configured: () => true,
   models: () => [{ id: "mock-1", label: "Mock model (test only)" }],
   async complete(req) {
@@ -100,7 +113,17 @@ export const mockSatori: SatoriProvider = {
     if (req.user.includes("__MOCK_BADJSON__")) return { text: "{not json", model: "mock-1", stopReason: "end_turn", usage: { inputTokens: 10, outputTokens: 2 } };
     const usage = { inputTokens: Math.ceil((req.system.length + req.user.length) / 4), outputTokens: 120 };
     if (!req.json) {
-      return { text: `[MOCK OUTPUT — test provider, not real AI]\nResponse to: ${short(req.user.replace(/\s+/g, " "), 160)}`, model: "mock-1", stopReason: "end_turn", usage };
+      const activity = [
+        ...(req.tools?.webSearch ? ["Searched the web: “mock query”"] : []),
+        ...(req.tools?.connectors ?? []).map((c) => `Used ${c.name}: mock_tool`),
+      ];
+      return {
+        text: `[MOCK OUTPUT — test provider, not real AI]${contextNote(req)}\nResponse to: ${short(req.user.replace(/\s+/g, " "), 160)}`,
+        model: "mock-1",
+        stopReason: "end_turn",
+        usage: { ...usage, ...(req.tools?.webSearch ? { webSearches: 1 } : {}) },
+        ...(activity.length ? { activity } : {}),
+      };
     }
     return { text: JSON.stringify(answer(req)), model: "mock-1", stopReason: "end_turn", usage };
   },

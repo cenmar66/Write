@@ -8,13 +8,14 @@ It installs as its own app on Mac, iPhone and iPad (separate icon from Write.ai)
 
 | Page | What it does |
 |---|---|
-| **Generator** (`/satori`) | Plain-English request → recommended prompt + Concise / Comprehensive / Creative alternatives, "why this works", assumptions, missing context, next steps. Up to 3 clarifying questions (or **Generate now**). One-click refinements, free-form "How would you like to improve this prompt?", version history with compare and restore, voice input. |
+| **Generator** (`/satori`) | Plain-English request → recommended prompt + Concise / Comprehensive / Creative alternatives, "why this works", assumptions, missing context, next steps. Up to 3 clarifying questions (or **Generate now**). One-click refinements, free-form "How would you like to improve this prompt?", version history with compare and restore, voice input. **Attach images** (button, or paste a screenshot) and **websites** (up to 3 pages) for the AI to use while writing. |
 | **Analyzer** | Paste any prompt: instant offline quick check + AI review across 7 dimensions with a 0–100 composite, weaknesses, missing info, suggestions, revised prompt, Before/After view. |
-| **Testing Lab** | Run a prompt (with `{{variables}}` filled in) against up to 3 connected models side by side. Shows the model that actually answered, tokens, cost, latency. Editable criteria, your 1–5 ratings, optional AI first-pass rating, saved runs. |
+| **Testing Lab** | Run a prompt (with `{{variables}}` filled in) against up to 3 connected models side by side. Shows the model that actually answered, tokens, cost, latency. Editable criteria, your 1–5 ratings, optional AI first-pass rating, saved runs. Attach images and websites to a run; with Claude, turn on **web search** and **connected apps**. |
 | **Templates** | 32 original starter templates across Business, Marketing, Writing, Technology, Construction & Restoration, Personal Development, plus your own private templates. |
 | **My Library** | Search, filter by model/category/collection, favorites, tags, archive, trash/restore, duplicate, card/list views, export Markdown/text/JSON, import JSON. Every prompt keeps its full version history. |
 | **History** | Every generation, searchable; reopen to keep working. |
-| **Settings** | Theme, accent color, text size, default target model, generation provider/model, named profiles, usage and limits, retention, export, delete all data. |
+| **Costs** | Money spent today, this month and over the last 7/30/90 days (in your time zone), a daily chart with a table view, breakdowns by AI model and by activity, and your monthly budget. The Generator, Analyzer and Testing Lab show a cost estimate (a range) before you run anything. |
+| **Settings** | Theme, accent color, text size, default target model, generation provider/model, named profiles, **budget & prices** (monthly budget, warning level, prices for non-Claude models), retention, export, delete all data. |
 
 More: [Architecture](ARCHITECTURE.md) · [Security & privacy](SECURITY.md) · [Testing](TESTING.md) · [Status, limitations, next steps](STATUS.md)
 
@@ -24,10 +25,17 @@ More: [Architecture](ARCHITECTURE.md) · [Security & privacy](SECURITY.md) · [T
 
 PromptSatori reuses Write.ai's Supabase project, login and Claude key. If Write.ai already works, you need two steps.
 
-1. **Database:** Supabase → **SQL Editor → New query** → paste [`supabase/migrations/0011_promptsatori.sql`](../../supabase/migrations/0011_promptsatori.sql) → **Run**. (Or paste all of [`supabase/setup-all.sql`](../../supabase/setup-all.sql) — safe to re-run.)
+1. **Database:** Supabase → **SQL Editor → New query** → paste [`supabase/migrations/0011_promptsatori.sql`](../../supabase/migrations/0011_promptsatori.sql) → **Run**, then do the same with [`0015_satori_connectors.sql`](../../supabase/migrations/0015_satori_connectors.sql) (connected apps) and [`0016_satori_costs.sql`](../../supabase/migrations/0016_satori_costs.sql) (budgets and prices). (Or paste all of [`supabase/setup-all.sql`](../../supabase/setup-all.sql) — safe to re-run.)
 2. **Deploy** (push to the branch Vercel builds, or **Redeploy**). Open `https://YOUR-SITE/satori` and sign in.
 
 That's it — `ANTHROPIC_API_KEY` from Write.ai's setup is the generation provider.
+
+### Images, websites, web search and connected apps
+
+- **Images:** up to 4 per request, resized in your browser (which also strips hidden photo data like GPS) and sent to the AI for that request only. Works with Claude, ChatGPT and Gemini. Not saved.
+- **Websites:** up to 3 public pages. PromptSatori's server reads the page's text (no logins, no PDFs yet) and sends it as reference material. Only the address and title are kept.
+- **Web search (Testing Lab, Claude only):** Claude can run up to 5 searches per run, at about 1¢ each; the cost shows on the result.
+- **Connected apps (Testing Lab, Claude only):** in **Settings → Connected apps**, add an app's **MCP server URL** and, if it needs one, an access token or API key. Then pick it in the Lab. "What it did" on each result lists every search and app action. Tokens are encrypted with `ENCRYPTION_KEY` (already set for Write.ai) and never sent to your browser. Servers that only offer a browser login (OAuth) can't be connected yet.
 
 ### Its own home: promptsatori.com
 

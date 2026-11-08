@@ -10,7 +10,7 @@ import { AUTO_PLATFORMS, type PostRow, type PublishResult } from "./types";
 const DAY = 86_400_000;
 
 /** Refreshes tokens that expire soon (Threads every ~60 days, LinkedIn when a refresh token exists). */
-async function freshAccount(supabase: SupabaseClient, account: Account): Promise<Account> {
+export async function freshAccount(supabase: SupabaseClient, account: Account): Promise<Account> {
   if (!account.expiresAt) return account;
   const left = new Date(account.expiresAt).getTime() - Date.now();
   if (left > 7 * DAY) return account;
@@ -87,10 +87,10 @@ export async function claimAndPublish(supabase: SupabaseClient, postId: string, 
 
   try {
     const result = await publishPost(supabase, claimed as PostRow);
-    await supabase
-      .from("posts")
-      .update({ status: "published", published_at: new Date().toISOString(), external_url: result.url, error: null, updated_at: new Date().toISOString() })
-      .eq("id", postId);
+    const done = { status: "published", published_at: new Date().toISOString(), external_url: result.url, error: null, updated_at: new Date().toISOString() };
+    const { error } = await supabase.from("posts").update({ ...done, external_id: result.id ?? null }).eq("id", postId);
+    // Before migration 0014 there's no external_id column: still record that it was published.
+    if (error) await supabase.from("posts").update(done).eq("id", postId);
     return { ok: true, url: result.url };
   } catch (e) {
     const message = (e as Error).message || "Publishing failed.";

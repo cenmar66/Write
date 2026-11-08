@@ -4,9 +4,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Profile } from "../profiles";
 import type { GenerationResult } from "../schema";
 import {
+  COST_PREFERENCE_KEYS,
   DEFAULT_PREFERENCES,
   summarize,
   type Collection,
+  type Connector,
   type SatoriStore,
   type GenerationRecord,
   type Preferences,
@@ -19,7 +21,7 @@ type Row = Record<string, unknown>;
 function fail(error: { message: string } | null, what: string): void {
   if (error) {
     console.error(`[satori] database error: ${what}`); // message may contain data; keep logs content-free
-    throw new Error(`Couldn't ${what}. Check that the PromptSatori database update (0011) has been run.`);
+    throw new Error(`Couldn't ${what}. Check that the PromptSatori database updates (0011 and 0015) have been run.`);
   }
 }
 
@@ -70,6 +72,12 @@ function toGeneration(r: Row): GenerationRecord {
   };
 }
 
+const CONNECTOR_FIELDS = "id,label,server_name,url,enabled,created_at,has_token:token_encrypted";
+
+function toConnector(r: Row): Connector {
+  return { id: r.id as string, label: r.label as string, server_name: r.server_name as string, url: r.url as string, enabled: r.enabled as boolean, has_token: !!r.has_token, created_at: r.created_at as string };
+}
+
 /** Strips PostgREST filter syntax from a search term. */
 const searchTerm = (q: string) => q.replace(/[,()*%\\]/g, " ").trim().slice(0, 100);
 
@@ -111,12 +119,21 @@ export function supabaseStore(supabase: SupabaseClient, userId: string): SatoriS
       fail(error, "load settings");
       if (!data) return { ...DEFAULT_PREFERENCES };
       const keys = Object.keys(DEFAULT_PREFERENCES) as (keyof Preferences)[];
-      return Object.fromEntries(keys.map((k) => [k, data[k] ?? DEFAULT_PREFERENCES[k]])) as Preferences;
+      const prefs = Object.fromEntries(keys.map((k) => [k, data[k] ?? DEFAULT_PREFERENCES[k]])) as Preferences;
+      // numeric columns arrive as strings from PostgREST.
+      prefs.monthly_budget_usd = data.monthly_budget_usd === null || data.monthly_budget_usd === undefined ? null : Number(data.monthly_budget_usd);
+      return prefs;
     },
     async savePreferences(patch) {
       const current = await store.getPreferences();
       const next = { ...current, ...patch };
-      const { error } = await supabase.from("satori_preferences").upsert({ ...next, user_id: userId }, { onConflict: "user_id" });
+      let { error } = await supabase.from("satori_preferences").upsert({ ...next, user_id: userId }, { onConflict: "user_id" });
+      if (error && /column|schema cache/i.test(error.message)) {
+        // Database update 0016 not run yet: save everything else, and say so if budget fields changed.
+        const older = Object.fromEntries(Object.entries(next).filter(([k]) => !(COST_PREFERENCE_KEYS as readonly string[]).includes(k)));
+        ({ error } = await supabase.from("satori_preferences").upsert({ ...older, user_id: userId }, { onConflict: "user_id" }));
+        if (!error && COST_PREFERENCE_KEYS.some((k) => k in patch)) throw new Error("Couldn't save budget settings. Run the PromptSatori database update 0016_satori_costs.sql in Supabase.");
+      }
       fail(error, "save settings");
       return next;
     },
@@ -311,6 +328,33 @@ export function supabaseStore(supabase: SupabaseClient, userId: string): SatoriS
       fail(error, "delete the template");
     },
 
+    async listConnectors() {
+      const { data, error } = await own(supabase.from("satori_connectors").select(CONNECTOR_FIELDS)).order("label");
+      fail(error, "load connected apps");
+      return (data ?? []).map(toConnector);
+    },
+    async getConnectorSecrets(ids) {
+      if (!ids.length) return [];
+      const { data, error } = await own(supabase.from("satori_connectors").select(`${CONNECTOR_FIELDS},token_encrypted`)).in("id", ids);
+      fail(error, "load connected apps");
+      return (data ?? []).map((r: Row) => ({ ...toConnector(r), token_encrypted: (r.token_encrypted as string) ?? null }));
+    },
+    async saveConnector(input, id) {
+      const row: Row = { label: input.label, server_name: input.server_name, url: input.url, enabled: input.enabled };
+      if (input.token_encrypted !== undefined) row.token_encrypted = input.token_encrypted;
+      const q = id
+        ? own(supabase.from("satori_connectors").update(row).eq("id", id)).select(CONNECTOR_FIELDS).maybeSingle()
+        : supabase.from("satori_connectors").insert({ ...row, user_id: userId }).select(CONNECTOR_FIELDS).single();
+      const { data, error } = await q;
+      if (error && /duplicate|unique/i.test(error.message)) throw new Error("A connected app with that name already exists.");
+      fail(error, "save the connected app");
+      return data ? toConnector(data) : null;
+    },
+    async deleteConnector(id) {
+      const { error } = await own(supabase.from("satori_connectors").delete().eq("id", id));
+      fail(error, "delete the connected app");
+    },
+
     async createTestRun(r) {
       const { data, error } = await supabase.from("satori_test_runs").insert({ ...r, user_id: userId }).select("*").single();
       fail(error, "save the test run");
@@ -343,6 +387,14 @@ export function supabaseStore(supabase: SupabaseClient, userId: string): SatoriS
       if (!entries.length) return;
       const { error } = await supabase.from("satori_usage").insert(entries.map((e) => ({ ...e, user_id: userId })));
       if (error) console.error("[satori] couldn't record usage");
+    },
+    async usageRows(since) {
+      const { data, error } = await own(supabase.from("satori_usage").select("kind,provider,model,input_tokens,output_tokens,cost_usd,created_at"))
+        .gte("created_at", since.toISOString())
+        .order("created_at", { ascending: true })
+        .limit(50000);
+      fail(error, "load usage");
+      return (data ?? []).map((r: Row) => ({ ...r, cost_usd: r.cost_usd === null ? null : Number(r.cost_usd) })) as never;
     },
     async usageSince(since) {
       const { data, error } = await own(supabase.from("satori_usage").select("kind,provider,model,input_tokens,output_tokens,cost_usd,created_at")).gte("created_at", since.toISOString()).limit(20000);

@@ -7,6 +7,7 @@ import {
   summarize,
   type AnalysisRecord,
   type Collection,
+  type ConnectorSecret,
   type CustomTemplate,
   type SatoriStore,
   type GenerationRecord,
@@ -29,6 +30,7 @@ type UserData = {
   templates: CustomTemplate[];
   runs: TestRun[];
   analyses: AnalysisRecord[];
+  connectors: ConnectorSecret[];
   usage: (UsageEntry & { created_at: string })[];
 };
 
@@ -47,7 +49,7 @@ const stamp = () => {
 function data(userId: string): UserData {
   let d = DB.get(userId);
   if (!d) {
-    d = { prefs: { ...DEFAULT_PREFERENCES }, profiles: [], generations: [], prompts: [], versions: [], collections: [], templates: [], runs: [], analyses: [], usage: [] };
+    d = { prefs: { ...DEFAULT_PREFERENCES }, profiles: [], generations: [], prompts: [], versions: [], collections: [], templates: [], runs: [], analyses: [], connectors: [], usage: [] };
     DB.set(userId, d);
   }
   return d;
@@ -259,6 +261,32 @@ export function memoryStore(userId: string): SatoriStore {
       d().runs = d().runs.filter((r) => r.id !== id);
     },
 
+    async listConnectors() {
+      return d().connectors.map(({ token_encrypted: _t, ...c }) => {
+        void _t;
+        return { ...c };
+      });
+    },
+    async getConnectorSecrets(ids) {
+      return d().connectors.filter((c) => ids.includes(c.id)).map((c) => ({ ...c }));
+    },
+    async saveConnector(input, id) {
+      const list = d().connectors;
+      if (list.some((c) => c.server_name === input.server_name && c.id !== id)) throw new Error("A connected app with that name already exists.");
+      const existing = id ? list.find((c) => c.id === id) : undefined;
+      if (id && !existing) return null;
+      const target: ConnectorSecret = existing ?? { id: randomUUID(), label: "", server_name: "", url: "", has_token: false, enabled: true, token_encrypted: null, created_at: now() };
+      const token = input.token_encrypted === undefined ? target.token_encrypted : input.token_encrypted;
+      Object.assign(target, { label: input.label, server_name: input.server_name, url: input.url, enabled: input.enabled, token_encrypted: token, has_token: !!token });
+      if (!existing) list.push(target);
+      const { token_encrypted: _t, ...out } = target;
+      void _t;
+      return out;
+    },
+    async deleteConnector(id) {
+      d().connectors = d().connectors.filter((c) => c.id !== id);
+    },
+
     async createAnalysis(a) {
       const rec = { ...a, id: randomUUID(), created_at: stamp() };
       d().analyses.unshift(rec);
@@ -270,6 +298,9 @@ export function memoryStore(userId: string): SatoriStore {
 
     async recordUsage(entries) {
       d().usage.push(...entries.map((e) => ({ ...e, created_at: now() })));
+    },
+    async usageRows(since) {
+      return d().usage.filter((u) => u.created_at >= since.toISOString()).map((u) => ({ ...u }));
     },
     async usageSince(since) {
       return summarize(

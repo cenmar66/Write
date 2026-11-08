@@ -7,6 +7,7 @@ import { quickCheck } from "@/lib/satori/heuristics";
 import { DIMENSIONS, type AnalysisResult, type Dimension } from "@/lib/satori/schema";
 import type { TargetSpec } from "@/lib/satori/targets";
 import { api, ApiError, readLocal, setHandoff, takeHandoff, writeLocal, type ServedBy } from "./client";
+import { CostEstimate } from "./cost-estimate";
 import { DiffView, TargetPicker } from "./editor";
 import { useSatori } from "./provider";
 import { SaveToLibraryDialog, type SaveDraft } from "./save-dialog";
@@ -62,7 +63,7 @@ function Bars({ scores, rationale }: { scores: Record<Dimension, number>; ration
 
 export function AnalyzerPage() {
   const router = useRouter();
-  const { prefs, status } = useSatori();
+  const { prefs, status, reloadStatus } = useSatori();
   const [prompt, setPrompt] = useState("");
   const [target, setTarget] = useState<TargetSpec>({ id: "universal" });
   const [busy, setBusy] = useState(false);
@@ -89,6 +90,7 @@ export function AnalyzerPage() {
     try {
       const r = await api<{ result: Analysis; servedBy: ServedBy; injectionWarning: boolean }>("/api/satori/analyze", { body: { prompt, target } });
       setResult(r.result);
+      void reloadStatus(); // refresh money spent
       setServedBy(r.servedBy);
       setInjection(r.injectionWarning);
       setView("revised");
@@ -117,6 +119,7 @@ export function AnalyzerPage() {
             {busy ? <Spinner size={15} label="Analyzing…" /> : <><Gauge size={16} aria-hidden /> Analyze my prompt</>}
           </button>
           <span className="text-xs ps-muted">{quick.words} words · quick check updates as you type (runs on this device, no AI)</span>
+          {prompt.trim() && status?.active && <CostEstimate request={{ kind: "analyze", chars: prompt.length }} className="ml-auto" />}
         </div>
         {error && <ErrorBox message={error.message} onRetry={error.retryable ? analyze : undefined} onDismiss={() => setError(null)} />}
       </section>

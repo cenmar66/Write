@@ -4,6 +4,7 @@ import type { z } from "zod";
 import type { MetaPrompt } from "../meta-prompts";
 import { estimateCost } from "../pricing";
 import type { ProviderChoice } from "../providers";
+import type { ImageInput, RunTools } from "../context";
 import type { Usage } from "../providers/types";
 import { toProviderSchema } from "../schema";
 
@@ -58,6 +59,7 @@ export async function runStructured<I, S extends z.ZodType>(opts: {
   schemaVersion: string;
   maxTokens?: number;
   effort?: "low" | "medium" | "high";
+  images?: ImageInput[];
 }): Promise<ServiceResult<z.infer<S>>> {
   const { provider, model } = opts.choice;
   const json = { name: opts.meta.id.replace(/[^a-z0-9_]/gi, "_"), schema: toProviderSchema(opts.schema) };
@@ -83,7 +85,7 @@ export async function runStructured<I, S extends z.ZodType>(opts: {
       : "";
     let res;
     try {
-      res = await provider.complete({ model, system: opts.meta.system, user: user + repair, maxTokens: opts.maxTokens ?? 16000, effort: opts.effort, json, task: opts.meta.id });
+      res = await provider.complete({ model, system: opts.meta.system, user: user + repair, maxTokens: opts.maxTokens ?? 16000, effort: opts.effort, json, task: opts.meta.id, images: opts.images });
     } catch (error) {
       const retryable = typeof error === "object" && error !== null && "retryable" in error ? Boolean((error as { retryable: boolean }).retryable) : true;
       console.error(`[satori] ${opts.meta.id} failed on ${provider.id}/${model}`); // no request content in logs
@@ -120,12 +122,14 @@ export async function runStructured<I, S extends z.ZodType>(opts: {
   throw new ServiceError("The AI returned an answer in an unexpected shape. Try again.", 502, true, records());
 }
 
-/** Plain-text completion (Testing Lab). */
-export async function runText(opts: { choice: ProviderChoice; system: string; user: string; maxTokens?: number }) {
+/** Plain-text completion (Testing Lab). Tools are used only where the provider supports them. */
+export async function runText(opts: { choice: ProviderChoice; system: string; user: string; maxTokens?: number; images?: ImageInput[]; tools?: RunTools }) {
   const { provider, model } = opts.choice;
   const started = Date.now();
+  const wantsTools = !!(opts.tools?.webSearch || opts.tools?.connectors?.length);
+  const tools = wantsTools && provider.supportsTools ? opts.tools : undefined;
   try {
-    const res = await provider.complete({ model, system: opts.system, user: opts.user, maxTokens: opts.maxTokens ?? 8000, effort: "medium" });
+    const res = await provider.complete({ model, system: opts.system, user: opts.user, maxTokens: opts.maxTokens ?? 8000, effort: "medium", images: opts.images, tools });
     return {
       text: res.text,
       provider: provider.id,
@@ -135,6 +139,8 @@ export async function runText(opts: { choice: ProviderChoice; system: string; us
       model: res.model || model,
       stopReason: res.stopReason,
       latencyMs: Date.now() - started,
+      activity: res.activity ?? [],
+      toolsSkipped: wantsTools && !provider.supportsTools,
       usage: res.usage,
       costUsd: estimateCost(provider.id, res.model || model, res.usage),
     };

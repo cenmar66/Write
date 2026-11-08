@@ -132,5 +132,5 @@ export async function publishLinkedIn(account: Account, post: PostRow): Promise<
   });
   await readJson(res, "LinkedIn");
   const urn = res.headers.get("x-restli-id");
-  return { url: urn ? `https://www.linkedin.com/feed/update/${urn}/` : null };
+  return { url: urn ? `https://www.linkedin.com/feed/update/${urn}/` : null, id: urn };
 }

@@ -252,8 +252,9 @@ Use this if your Instagram isn't linked to a Facebook Page. Your Instagram must 
 1. In your Meta app (developers.facebook.com → My Apps), add the use case **Manage messaging & content on Instagram** and choose **API setup with Instagram login** (Meta's wording changes; pick the "Instagram login" option, not "Facebook login").
 2. On that setup page, copy the **Instagram app ID** and **Instagram app secret** (different from the main App ID) into Vercel as `INSTAGRAM_APP_ID` and `INSTAGRAM_APP_SECRET`.
 3. Under **Set up Instagram business login → Business login settings**, add the redirect URL `https://YOUR-APP.vercel.app/api/connect/instagram/callback` (Settings shows the exact address with a Copy button).
-4. **App roles → Roles → Add people → Instagram Tester**: add your Instagram username, then accept it in Instagram: Settings → **Apps and websites** → **Tester invites**.
-5. Redeploy, then **Settings → Instagram (without Facebook) → Connect Instagram**. The login lasts 60 days and renews itself whenever a post goes out.
+4. **Permissions:** on the same setup page, under **Permissions**, make sure these four are added: `instagram_business_basic`, `instagram_business_content_publish`, `instagram_business_manage_insights`, `instagram_business_manage_comments`. The last two are what Analytics needs to pull your numbers.
+5. **App roles → Roles → Add people → Instagram Tester**: add your Instagram username, then accept it in Instagram: Settings → **Apps and websites** → **Tester invites**.
+6. Redeploy, then **Settings → Instagram (without Facebook) → Connect Instagram**. The login lasts 60 days and renews itself whenever a post goes out.
 
 If both are connected, the direct Instagram connection is the one used for Instagram posts.
 
@@ -262,8 +263,9 @@ If both are connected, the direct Instagram connection is the one used for Insta
 1. In your Meta app, add the use case **Access the Threads API**.
 2. In its **Settings**, copy the **Threads app ID** and **Threads app secret** (they're different from the main app's) into Vercel as `THREADS_APP_ID` and `THREADS_APP_SECRET`.
 3. Under **Redirect callback URLs** add `https://YOUR-APP.vercel.app/api/connect/threads/callback`.
-4. **App roles → Roles → Add people → Threads Tester**: add your Threads username. Then accept the invite in the Threads app: profile → ☰ → **Account** → **Website permissions** → **Invites**.
-5. Redeploy, then **Settings → Connect** next to Threads.
+4. **Permissions:** add `threads_manage_insights` and `threads_read_replies` — Analytics needs both to pull your numbers.
+5. **App roles → Roles → Add people → Threads Tester**: add your Threads username. Then accept the invite in the Threads app: profile → ☰ → **Account** → **Website permissions** → **Invites**.
+6. Redeploy, then **Settings → Connect** next to Threads.
 
 **D. LinkedIn:**
 

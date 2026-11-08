@@ -2,6 +2,7 @@
 // Both are optional and only appear when their key AND model list are configured, so the
 // app never guesses model names. They have not been exercised against live accounts in
 // this repository's tests; see docs/satori/ARCHITECTURE.md.
+import type { ImageInput } from "../context";
 import { ProviderError, type SatoriProvider, type ProviderModel } from "./types";
 
 function modelList(envName: string): ProviderModel[] {
@@ -52,20 +53,23 @@ async function postJson(url: string, headers: Record<string, string>, body: unkn
 
 const describe = (label: string) => (error: unknown) => (error instanceof ProviderError ? error.message : `Something went wrong talking to ${label}.`);
 
-type OpenAIRequest = { model: string; system: string; user: string; maxTokens: number; json?: { name: string; schema: Record<string, unknown> } };
+type OpenAIRequest = { model: string; system: string; user: string; maxTokens: number; json?: { name: string; schema: Record<string, unknown> }; images?: ImageInput[] };
+
+const dataUrl = (i: ImageInput) => `data:${i.mediaType};base64,${i.data}`;
 
 const openaiBase = () => (process.env.OPENAI_BASE_URL ?? "https://api.openai.com/v1").replace(/\/+$/, "");
 const openaiAuth = () => ({ Authorization: `Bearer ${process.env.OPENAI_API_KEY}` });
 
 /** Chat Completions: works for most OpenAI models. */
-async function openaiChat({ model, system, user, maxTokens, json }: OpenAIRequest) {
+async function openaiChat({ model, system, user, maxTokens, json, images }: OpenAIRequest) {
+  const content = images?.length ? [{ type: "text", text: user }, ...images.map((i) => ({ type: "image_url", image_url: { url: dataUrl(i) } }))] : user;
   const data = (await postJson(
     `${openaiBase()}/chat/completions`,
     openaiAuth(),
     {
       model,
       max_completion_tokens: maxTokens,
-      messages: [...(system ? [{ role: "system", content: system }] : []), { role: "user", content: user }],
+      messages: [...(system ? [{ role: "system", content: system }] : []), { role: "user", content }],
       ...(json ? { response_format: { type: "json_schema", json_schema: { name: json.name, schema: json.schema, strict: true } } } : {}),
     },
     "OpenAI",
@@ -85,7 +89,8 @@ async function openaiChat({ model, system, user, maxTokens, json }: OpenAIReques
 }
 
 /** Responses API: some newer OpenAI models are only offered here. */
-async function openaiResponses({ model, system, user, maxTokens, json }: OpenAIRequest) {
+async function openaiResponses({ model, system, user, maxTokens, json, images }: OpenAIRequest) {
+  const input = images?.length ? [{ role: "user", content: [{ type: "input_text", text: user }, ...images.map((i) => ({ type: "input_image", image_url: dataUrl(i) }))] }] : user;
   const data = (await postJson(
     `${openaiBase()}/responses`,
     openaiAuth(),
@@ -93,7 +98,7 @@ async function openaiResponses({ model, system, user, maxTokens, json }: OpenAIR
       model,
       max_output_tokens: maxTokens,
       ...(system ? { instructions: system } : {}),
-      input: user,
+      input,
       ...(json ? { text: { format: { type: "json_schema", name: json.name, schema: json.schema, strict: true } } } : {}),
     },
     "OpenAI",
@@ -140,13 +145,14 @@ export const geminiSatori: SatoriProvider = {
   label: "Google Gemini",
   configured: () => !!process.env.GEMINI_API_KEY && modelList("GEMINI_MODELS").length > 0,
   models: () => modelList("GEMINI_MODELS"),
-  async complete({ model, system, user, maxTokens, json }) {
+  async complete({ model, system, user, maxTokens, json, images }) {
+    const parts = [...(images ?? []).map((i) => ({ inlineData: { mimeType: i.mediaType, data: i.data } })), { text: user }];
     const data = (await postJson(
       `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
       { "x-goog-api-key": process.env.GEMINI_API_KEY ?? "" },
       {
         ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}),
-        contents: [{ role: "user", parts: [{ text: user }] }],
+        contents: [{ role: "user", parts }],
         generationConfig: {
           maxOutputTokens: maxTokens,
           ...(json ? { responseMimeType: "application/json", responseJsonSchema: json.schema } : {}),

@@ -16,6 +16,8 @@ import { SaveTemplateDialog, SaveToLibraryDialog, type SaveDraft } from "./save-
 import { Collapsible, CopyButton, Dialog, ErrorBox, Notice, ProviderBadge, Spinner } from "./ui";
 import { VersionList, type VersionItem } from "./versions";
 import { VoiceInput } from "./voice";
+import { CostEstimate } from "./cost-estimate";
+import { Attachments, prepareImage, toImageInputs, toSourceInputs, type AttachedImage, type AttachedSource } from "./attachments";
 
 type TabKey = "recommended" | (typeof ALTERNATIVE_KINDS)[number];
 const TABS: { key: TabKey; label: string }[] = [
@@ -72,13 +74,16 @@ function tracksFrom(g: GenerationRecord, servedBy: ServedBy | null): Record<TabK
 
 export function Generator() {
   const router = useRouter();
-  const { prefs, profiles, status, savePrefs, toast, ready } = useSatori();
+  const { prefs, profiles, status, savePrefs, toast, ready, reloadStatus } = useSatori();
 
   // ---- Input state (autosaved locally so nothing typed is ever lost) ---------------------
   const [request, setRequest] = useState("");
   const [target, setTarget] = useState<TargetSpec>({ id: "universal" });
   const [profileId, setProfileId] = useState<string | null>(null);
   const [options, setOptions] = useState<Options>(NO_OPTIONS);
+  // Attachments live for this page only (images are too large to keep as a draft).
+  const [images, setImages] = useState<AttachedImage[]>([]);
+  const [sources, setSources] = useState<AttachedSource[]>([]);
   const [advanced, setAdvanced] = useState(false);
   const [askFirst, setAskFirst] = useState(true);
   const [hydrated, setHydrated] = useState(false);
@@ -187,7 +192,7 @@ export function Generator() {
           | { stage: "clarify"; reason: string; questions: ClarifyResult["questions"] }
           | { stage: "done"; generation: GenerationRecord; servedBy: ServedBy; injectionWarning: boolean }
         >("/api/satori/generate", {
-          body: { request, target, profileId, options: cleanOptions, answers: opts.withAnswers ?? [], skipClarify: opts.skipClarify || !askFirst },
+          body: { request, target, profileId, options: cleanOptions, answers: opts.withAnswers ?? [], skipClarify: opts.skipClarify || !askFirst, images: toImageInputs(images), sources: toSourceInputs(sources) },
           signal: ac.signal,
         });
         if (r.stage === "clarify") {
@@ -200,6 +205,7 @@ export function Generator() {
         setMissingAnswers({});
         setLastChange(null);
         setPhase("done");
+        void reloadStatus(); // refresh money spent
         setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
       } catch (e) {
         if ((e as Error).name === "AbortError") return;
@@ -207,7 +213,7 @@ export function Generator() {
         setPhase(session ? "done" : "idle");
       }
     },
-    [request, target, profileId, options, askFirst, session],
+    [request, target, profileId, options, askFirst, session, images, sources, reloadStatus],
   );
 
   const cancel = () => {
@@ -337,13 +343,31 @@ export function Generator() {
               void run();
             }
           }}
+          onPaste={async (e) => {
+            // Pasting a screenshot attaches it as an image.
+            const files = [...e.clipboardData.files].filter((f) => f.type.startsWith("image/"));
+            if (!files.length) return;
+            e.preventDefault();
+            const added: AttachedImage[] = [];
+            for (const f of files.slice(0, Math.max(0, 4 - images.length))) {
+              try {
+                added.push(await prepareImage(f));
+              } catch (err) {
+                toast((err as Error).message, "error");
+              }
+            }
+            setImages((cur) => [...cur, ...added].slice(0, 4));
+          }}
           aria-describedby="ps-request-hint"
         />
-        <div className="mt-3 flex flex-wrap items-center gap-2">
+        <div className="mt-2">
+          <Attachments images={images} sources={sources} onImages={setImages} onSources={setSources} disabled={loading} imageHint="Attach a screenshot, photo or design for the AI to look at while it writes your prompt." />
+        </div>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
           <VoiceInput onInsert={(t) => setRequest((r) => (r.trim() ? `${r.trimEnd()} ${t}` : t))} />
           <span id="ps-request-hint" className="text-xs ps-muted">
             {request.length > 7000 ? `${8000 - request.length} characters left · ` : ""}
-            {modKey()}+Enter to generate · draft saved on this device
+            {modKey()}+Enter to generate · paste a screenshot to attach it · text draft saved on this device
           </span>
         </div>
 
@@ -363,6 +387,19 @@ export function Generator() {
             </button>
           </div>
         </div>
+        {request.trim() && status?.active && (
+          <div className="mt-2 flex justify-end">
+            <CostEstimate
+              request={{
+                kind: "generate",
+                chars: request.length + Object.values(options).join("").length,
+                images: images.length,
+                sourceChars: sources.reduce((n, s) => n + s.text.length, 0),
+                clarify: askFirst,
+              }}
+            />
+          </div>
+        )}
 
         <div id="ps-advanced" hidden={!advanced} className="mt-4 grid gap-3 border-t pt-4 ps-line sm:grid-cols-2 lg:grid-cols-3">
           <label className="space-y-1 text-sm">
@@ -732,6 +769,11 @@ export function Generator() {
               <p>
                 Target: <strong className="ps-soft">{targetName(track.target)}</strong>
               </p>
+              {(() => {
+                const o = session.generation.options as { imageCount?: number; sources?: { url: string; title: string }[] };
+                const parts = [o.imageCount ? `${o.imageCount} image${o.imageCount > 1 ? "s" : ""}` : "", ...(o.sources ?? []).map((x) => x.title || x.url)].filter(Boolean);
+                return parts.length ? <p>Used: {parts.join(" · ")}</p> : null;
+              })()}
               <p>
                 Engine: <span className="ps-mono">{session.generation.meta_prompt_version}</span> · schema <span className="ps-mono">{session.generation.schema_version}</span>
               </p>

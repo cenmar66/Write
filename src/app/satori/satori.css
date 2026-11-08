@@ -4,6 +4,8 @@
 /* In Tailwind's components layer so utility classes (w-auto, pl-9, …) can override. */
 @layer components {
   .ps-root {
+    /* Chart bars: validated for chroma, lightness band and contrast on each surface. */
+    --ps-chart: #0b9384;
     --ps-bg: #f8f6f1;
     --ps-surface: #fffdf9;
     --ps-surface-2: #f2efe8;
@@ -34,6 +36,7 @@
   }
 
   .dark .ps-root {
+    --ps-chart: #2fa597;
     --ps-bg: #171918;
     --ps-surface: #1f2221;
     --ps-surface-2: #262a28;

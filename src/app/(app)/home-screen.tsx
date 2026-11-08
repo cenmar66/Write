@@ -145,14 +145,14 @@ export function HomeScreen() {
 
   return (
     <div className="mx-auto max-w-3xl pb-10">
-      <h1 className="animate-rise pt-6 text-center font-display text-4xl leading-tight tracking-tight sm:pt-16 sm:text-5xl">
+      <h1 className="animate-rise pt-6 text-center text-2xl font-semibold tracking-tight sm:pt-20 sm:text-[28px]">
         What story are we telling today?
       </h1>
 
       {/* Prompt box */}
       <section
         style={{ animationDelay: "80ms" }}
-        className="animate-rise relative z-20 mt-8 rounded-3xl border border-line bg-bg p-3 shadow-[0_12px_40px_-24px_rgba(40,30,90,0.25)] transition focus-within:border-accent/50 sm:mt-10"
+        className="animate-rise relative z-20 mt-7 rounded-xl border border-line bg-surface p-3 transition focus-within:border-accent/40"
       >
         <textarea
           value={brief}
@@ -166,7 +166,7 @@ export function HomeScreen() {
           rows={3}
           placeholder="Describe a story you’d like to bring to life…"
           aria-label="Describe what you want to write"
-          className="max-h-[50dvh] min-h-24 w-full resize-none bg-transparent px-2 pt-1 text-[17px] leading-relaxed outline-none [field-sizing:content] placeholder:text-muted"
+          className="max-h-[50dvh] min-h-24 w-full resize-none bg-transparent px-2 pt-1 text-base leading-relaxed outline-none [field-sizing:content] placeholder:text-muted"
         />
         {attachments.length > 0 && (
           <div className="flex flex-wrap gap-1.5 px-1 pb-2">
@@ -203,7 +203,7 @@ export function HomeScreen() {
             onClick={startDraft}
             disabled={!brief.trim() || !!busy}
             aria-label="Write the draft"
-            className="grid size-10 place-items-center rounded-full bg-ink text-bg transition enabled:hover:scale-105 disabled:bg-surface-strong disabled:text-muted"
+            className="grid size-9 place-items-center rounded-full bg-ink text-bg transition enabled:hover:opacity-85 disabled:bg-surface-strong disabled:text-muted"
           >
             {busy === "draft" ? <Loader2 size={18} className="animate-spin" /> : <ArrowUp size={19} />}
           </button>
@@ -248,7 +248,7 @@ export function HomeScreen() {
             </label>
           ) : (
             <>
-              <h2 className="text-xl font-semibold tracking-tight">Drafts</h2>
+              <h2 className="text-lg font-semibold tracking-tight">Drafts</h2>
               <button onClick={() => setSearching(true)} aria-label="Search drafts" className="rounded-full p-2 text-muted hover:bg-surface-strong hover:text-ink">
                 <Search size={18} />
               </button>
@@ -259,7 +259,7 @@ export function HomeScreen() {
         {drafts === null && (
           <div className="mt-6 space-y-2">
             {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="h-14 animate-pulse rounded-2xl bg-surface-strong" />
+              <div key={i} className="h-12 animate-pulse rounded-lg bg-surface-strong" />
             ))}
           </div>
         )}
@@ -274,9 +274,9 @@ export function HomeScreen() {
                 <li key={d.id} className="group relative">
                   <Link
                     href={`/docs/${d.id}`}
-                    className="flex items-center gap-3 rounded-2xl border border-line px-4 py-3.5 transition hover:bg-surface-strong/60"
+                    className="flex items-center gap-3 rounded-lg border border-line bg-surface px-4 py-3 text-[15px] transition hover:bg-surface-strong/60"
                   >
-                    <FileText size={18} className="shrink-0 text-muted" />
+                    <FileText size={17} className="shrink-0 text-muted" />
                     <span className="min-w-0 flex-1 truncate">{d.title || d.content_text.slice(0, 80) || "Untitled"}</span>
                     <span className="shrink-0 text-sm text-muted transition group-hover:opacity-0">
                       {new Date(d.updated_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}

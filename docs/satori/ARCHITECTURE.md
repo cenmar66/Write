@@ -46,6 +46,13 @@ The generation meta-prompt asks the model to: find the real objective, separate 
 
 Adding a provider: implement `SatoriProvider` (`providers/types.ts`) and list it in `providers/index.ts`.
 
+## Images, websites and tools
+
+- **Images** (`context.ts`, `components/satori/attachments.tsx`): the browser resizes to ≤1568 px and re-encodes (JPEG, or PNG with transparency), then sends base64 in the request body (routes that accept images allow ~4 MB; Vercel's limit is 4.5 MB). Each provider gets them in its own format: Claude image blocks, OpenAI `image_url` / `input_image`, Gemini `inlineData`.
+- **Websites** (`web.ts`, `/api/satori/web/preview`): server-side fetch with SSRF protection (public addresses only, every redirect re-checked, 12 s / 2 MB limits, text types only), HTML reduced to readable text (≤15,000 chars). The text is sent as `<satori_source_N>` data blocks: the generator meta-prompt (`generate.v2`, `clarify.v2`) is told to use it as background facts and never follow instructions inside it.
+- **Web search and connected apps** (Testing Lab, providers with `supportsTools`, i.e. Claude): `web_search_20260209` (max 5 uses) and the MCP connector (`mcp-client-2025-11-20` beta: `mcp_servers` + one `mcp_toolset` per server). The adapter resumes `pause_turn` up to 4 times and reports tool use as plain-words "activity". Other providers run without tools and the result says so.
+- **Connectors** are stored in `satori_connectors` (migration 0015) with the token AES-256-GCM-encrypted by the server (`lib/crypto.ts`); the browser only ever sees `has_token`. Decrypted tokens exist only for the duration of a Lab run.
+
 ## Database (migration `0011_promptsatori.sql`)
 
 | Table | Purpose |
@@ -63,7 +70,9 @@ Every table: `user_id default auth.uid()`, RLS "own rows only", and write polici
 
 ## Limits and costs
 
-`checkLimits()` runs before every AI call: a per-user sliding one-minute window (in memory, so per server instance), a daily request cap and a monthly estimated-spend cap (both read from `satori_usage`, so they hold across instances). Usage is recorded for successes and failures. Claude prices are built in (`pricing.ts`); other providers' prices come from `SATORI_PRICES` — unknown prices show "cost n/a" rather than a guess.
+`checkLimits()` runs before every AI call: a per-user sliding one-minute window (in memory, so per server instance), a daily request cap and a monthly estimated-spend cap (both read from `satori_usage`, so they hold across instances). Usage is recorded for successes and failures. Claude prices are built in (`pricing.ts`); other providers' prices come from your Settings (`satori_preferences.model_prices`, migration 0016) or `SATORI_PRICES` — unknown prices show "cost n/a" rather than a guess, and rows recorded without a price are priced at read time once you add one.
+
+**Budgets.** The monthly cap is the lower of your own budget (Settings, `monthly_budget_usd`) and `SATORI_MONTHLY_BUDGET_USD`; you're warned at `alert_percent` (default 80%) and AI requests return 429 once it's reached. The month is counted in UTC. `costs.ts` builds the Costs page report (totals, a zero-filled daily series in your time zone, by-model and by-activity breakdowns) from `satori_usage`. `estimate.ts` gives a cost range before a run: input from the text length plus PromptSatori's own instructions, output from typical sizes until you have three runs of the same kind on the same model, then from your history (20th–80th percentile). `POST /api/satori/estimate` makes no AI call.
 
 ## Preparing for commercial features (Phase 5 — not built)
 

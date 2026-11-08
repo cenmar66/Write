@@ -3,15 +3,16 @@ import { Suspense } from "react";
 import { PostsHome } from "./posts-home";
 
 // Shows what's due now, so it renders at request time.
-async function Live() {
+async function Live({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   await connection();
-  return <PostsHome />;
+  const { tab } = await searchParams;
+  return <PostsHome initialTab={tab} />;
 }
 
-export default function PostsPage() {
+export default function PostsPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   return (
     <Suspense fallback={<div className="glass h-96 animate-pulse rounded-3xl" />}>
-      <Live />
+      <Live searchParams={searchParams} />
     </Suspense>
   );
 }

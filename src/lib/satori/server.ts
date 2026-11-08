@@ -3,7 +3,9 @@
 import type { z } from "zod";
 import { isAllowed } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
+import { budgetStatus, rowCost, type BudgetStatus } from "./costs";
 import { LIMITS, rateLimit, startOfDay, startOfMonth } from "./limits";
+import type { Preferences } from "./store/types";
 import { resolveProvider, type ProviderChoice } from "./providers";
 import { ServiceError, type UsageRecord } from "./services";
 import { memoryStore, supabaseStore, type SatoriStore } from "./store";
@@ -29,11 +31,12 @@ export async function satoriContext(): Promise<SatoriCtx | { denied: Response }>
 }
 
 /** Reads and validates a JSON body with a size limit. */
-export async function readBody<S extends z.ZodType>(request: Request, schema: S): Promise<{ data: z.infer<S> } | { denied: Response }> {
+export async function readBody<S extends z.ZodType>(request: Request, schema: S, maxBytes = LIMITS.maxBodyBytes): Promise<{ data: z.infer<S> } | { denied: Response }> {
+  const tooLarge = maxBytes > LIMITS.maxBodyBytes ? "That request is too large. Try fewer or smaller images." : "That request is too large.";
   const len = Number(request.headers.get("content-length") ?? 0);
-  if (len > LIMITS.maxBodyBytes) return { denied: jsonError("That request is too large.", 413) };
+  if (len > maxBytes) return { denied: jsonError(tooLarge, 413) };
   const raw = await request.text().catch(() => "");
-  if (raw.length > LIMITS.maxBodyBytes) return { denied: jsonError("That request is too large.", 413) };
+  if (raw.length > maxBytes) return { denied: jsonError(tooLarge, 413) };
   let body: unknown;
   try {
     body = raw ? JSON.parse(raw) : {};
@@ -50,17 +53,25 @@ export async function readBody<S extends z.ZodType>(request: Request, schema: S)
   return { data: parsed.data };
 }
 
+/** This calendar month's (UTC) estimated spend against your budget and the server limit. */
+export async function currentBudget(ctx: SatoriCtx, prefs?: Preferences): Promise<BudgetStatus> {
+  const p = prefs ?? (await ctx.store.getPreferences());
+  const rows = await ctx.store.usageRows(startOfMonth());
+  const spent = rows.reduce((sum, r) => sum + (rowCost(r, p.model_prices) ?? 0), 0);
+  return budgetStatus(spent, p);
+}
+
 /** Per-minute, per-day and monthly-budget checks before any paid AI call. */
 export async function checkLimits(ctx: SatoriCtx, bucket: string): Promise<Response | null> {
   const wait = rateLimit(`${ctx.userId}:${bucket}`);
   if (wait) return jsonError(`Slow down a little — try again in ${wait}s.`, 429, { retryable: true, retryAfter: wait });
-  const [day, month] = await Promise.all([
-    LIMITS.perDay ? ctx.store.usageSince(startOfDay()) : null,
-    LIMITS.monthlyBudgetUsd ? ctx.store.usageSince(startOfMonth()) : null,
-  ]);
+  const [day, budget] = await Promise.all([LIMITS.perDay ? ctx.store.usageSince(startOfDay()) : null, currentBudget(ctx)]);
   if (day && LIMITS.perDay && day.requests >= LIMITS.perDay) return jsonError(`Daily limit reached (${LIMITS.perDay} AI requests). It resets at midnight UTC, or raise SATORI_DAILY_REQUEST_LIMIT.`, 429, { code: "daily_limit" });
-  if (month && LIMITS.monthlyBudgetUsd && month.costUsd >= LIMITS.monthlyBudgetUsd)
-    return jsonError(`Monthly AI budget reached ($${LIMITS.monthlyBudgetUsd}). Raise SATORI_MONTHLY_BUDGET_USD to continue.`, 429, { code: "budget" });
+  if (budget.level === "over" && budget.limitUsd !== null) {
+    const serverIsLower = budget.serverLimitUsd !== null && (budget.yourBudgetUsd === null || budget.serverLimitUsd < budget.yourBudgetUsd);
+    const how = serverIsLower ? "Raise SATORI_MONTHLY_BUDGET_USD in Vercel to continue." : "Raise it in Settings → Budget & prices to continue.";
+    return jsonError(`This month's AI budget ($${budget.limitUsd.toFixed(2)}) is used up. ${how}`, 429, { code: "budget" });
+  }
   return null;
 }
 

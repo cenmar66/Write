@@ -45,7 +45,17 @@ export type ServedBy = {
   usage: { inputTokens: number; outputTokens: number; costUsd: number | null };
 };
 
-export type ProviderStatus = { id: string; label: string; configured: boolean; isMock: boolean; models: { id: string; label: string }[]; missing?: string[] };
+export type ModelPrice = { input: number; output: number };
+export type ProviderStatus = {
+  id: string;
+  label: string;
+  configured: boolean;
+  isMock: boolean;
+  models: { id: string; label: string; price?: ModelPrice | null; priceSource?: "built-in" | "server" | "yours" | null; canSetPrice?: boolean }[];
+  missing?: string[];
+  supportsTools?: boolean;
+};
+export type { BudgetStatus } from "@/lib/satori/costs";
 
 export type Status = {
   providers: ProviderStatus[];
@@ -56,6 +66,7 @@ export type Status = {
   databaseReady: boolean;
   limits: { perMinute: number; perDay: number; monthlyBudgetUsd: number };
   usage: { requests: number; inputTokens: number; outputTokens: number; costUsd: number; unpricedRequests: number; byKind: Record<string, { requests: number; costUsd: number }> } | null;
+  budget: import("@/lib/satori/costs").BudgetStatus | null;
 };
 
 export type { GenerationRecord, Preferences, PromptRecord, PromptVersion };

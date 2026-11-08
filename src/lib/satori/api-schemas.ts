@@ -1,6 +1,7 @@
 // Request bodies accepted by /api/satori routes. Validated on the server; the inferred
 // types are also used by the browser client.
 import { z } from "zod";
+import { Images, MAX_CONNECTORS_PER_RUN, Sources } from "./context";
 import { LENGTHS } from "./profiles";
 import { TargetId } from "./schema";
 import { VERSION_KINDS } from "./store/types";
@@ -33,6 +34,8 @@ export const GenerateBody = z.object({
   options: OptionsInput,
   answers: z.array(z.object({ question: s(500), answer: s(1000) })).max(3).default([]),
   skipClarify: z.boolean().default(false),
+  images: Images,
+  sources: Sources,
   ...ProviderPick,
 });
 export type GenerateBody = z.input<typeof GenerateBody>;
@@ -58,6 +61,10 @@ export const LabRunBody = z.object({
   prompt: z.string().min(1).max(30000),
   variables: z.record(z.string().max(64), z.string().max(20000)).default({}),
   targets: z.array(z.object({ provider: s(20), model: s(100) })).min(1).max(3),
+  images: Images,
+  sources: Sources,
+  webSearch: z.boolean().default(false),
+  connectorIds: z.array(id).max(MAX_CONNECTORS_PER_RUN, `Use at most ${MAX_CONNECTORS_PER_RUN} connected apps at once.`).default([]),
 });
 export const JudgeBody = z.object({
   prompt: z.string().min(1).max(30000),
@@ -81,6 +88,15 @@ export const SaveRunBody = z.object({
   latency_ms: z.number().int().nullable().default(null),
   ratings: z.array(z.object({ name: s(80), description: s(400), score: z.number().int().min(1).max(5).nullable(), note: s(1000) })).max(8).default([]),
   judge: z.unknown().default(null),
+  context: z
+    .object({
+      images: z.number().int().min(0).max(10).optional(),
+      sources: z.array(z.string().max(2000)).max(5).optional(),
+      webSearch: z.boolean().optional(),
+      connectors: z.array(s(60)).max(10).optional(),
+      activity: z.array(s(300)).max(50).optional(),
+    })
+    .default({}),
 });
 
 const VersionIn = z.object({ content: z.string().min(1).max(60000), kind: z.enum(VERSION_KINDS), instruction: s(4000).optional(), provider: s(20).nullable().optional(), model: s(100).nullable().optional() });
@@ -126,6 +142,15 @@ export const PreferencesBody = z.object({
   active_profile_id: id.nullable().optional(),
   clarify: z.boolean().optional(),
   retention_days: z.number().int().min(0).max(3650).optional(),
+  monthly_budget_usd: z.number().min(0).max(100000).nullable().optional(),
+  alert_percent: z.number().int().min(1).max(100).optional(),
+  model_prices: z
+    .record(
+      z.string().regex(/^[a-z]+:[\w.\-/:]{1,100}$/, "Unknown model"),
+      z.object({ input: z.number().min(0).max(10000), output: z.number().min(0).max(10000) }),
+    )
+    .refine((r) => Object.keys(r).length <= 50, "Too many prices")
+    .optional(),
 });
 
 export const TemplateBody = z.object({
@@ -137,3 +162,18 @@ export const TemplateBody = z.object({
 });
 
 export const NameBody = z.object({ name: z.string().trim().min(1).max(80) });
+
+export const WebPreviewBody = z.object({ url: z.string().trim().min(1, "Paste a web address").max(2000) });
+
+/** A connected app. `token`: omit to keep the saved one, "" to remove it. */
+export const ConnectorBody = z.object({
+  label: z.string().trim().min(1, "Give it a name").max(60),
+  url: z
+    .string()
+    .trim()
+    .url("That doesn't look like a web address.")
+    .max(500)
+    .refine((u) => u.startsWith("https://"), "Connected apps must use https."),
+  token: z.string().max(4000).optional(),
+  enabled: z.boolean().default(true),
+});

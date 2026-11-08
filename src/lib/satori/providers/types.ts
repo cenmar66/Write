@@ -1,4 +1,5 @@
 // Generation / test providers: the AI services that actually run requests. Server-only.
+import type { ImageInput, RunTools } from "../context";
 
 export type ProviderId = "anthropic" | "openai" | "gemini" | "mock";
 
@@ -14,9 +15,13 @@ export type CompletionRequest = {
   json?: { name: string; schema: Record<string, unknown> };
   /** Lets the mock provider answer per task; ignored by real providers. */
   task?: string;
+  /** Images the person attached; sent alongside the user text. */
+  images?: ImageInput[];
+  /** Web search / connected apps (Testing Lab). Ignored unless `supportsTools`. */
+  tools?: RunTools;
 };
 
-export type Usage = { inputTokens: number; outputTokens: number };
+export type Usage = { inputTokens: number; outputTokens: number; webSearches?: number };
 
 export type CompletionResult = {
   text: string;
@@ -24,6 +29,8 @@ export type CompletionResult = {
   /** The model that actually answered, as reported by the provider. */
   model: string;
   stopReason: string | null;
+  /** What the model did with tools, in plain words ("Searched the web: …"). */
+  activity?: string[];
 };
 
 export interface SatoriProvider {
@@ -37,6 +44,8 @@ export interface SatoriProvider {
   describeError(error: unknown): string;
   /** Mock providers are for automated tests only and are labelled everywhere. */
   isMock?: boolean;
+  /** Can run web search and connected apps (MCP servers). */
+  supportsTools?: boolean;
 }
 
 export class ProviderError extends Error {

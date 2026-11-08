@@ -7,7 +7,7 @@ export function threadsAuthUrl(redirectUri: string, state: string) {
   const p = new URLSearchParams({
     client_id: process.env.THREADS_APP_ID ?? "",
     redirect_uri: redirectUri,
-    scope: "threads_basic,threads_content_publish",
+    scope: "threads_basic,threads_content_publish,threads_manage_insights,threads_read_replies",
     response_type: "code",
     state,
   });
@@ -90,5 +90,5 @@ export async function publishThreads(account: Account, row: PostRow): Promise<Pu
     await fetch(`${API}/v1.0/${first}?${new URLSearchParams({ fields: "permalink", access_token: token })}`),
     "Threads",
   ).catch(() => ({ permalink: undefined }));
-  return { url: link.permalink ?? null };
+  return { url: link.permalink ?? null, id: first ?? null };
 }

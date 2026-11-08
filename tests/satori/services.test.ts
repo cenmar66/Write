@@ -45,7 +45,7 @@ describe("services (mock provider)", () => {
     expect(r.data.alternatives.map((a) => a.kind).sort()).toEqual(["comprehensive", "concise", "creative"]);
     expect(r.data.recommended.prompt).toContain("<objective>");
     expect(r.isMock).toBe(true);
-    expect(r.metaPrompt.version).toBe("generate.v1");
+    expect(r.metaPrompt.version).toBe("generate.v2");
     expect(r.usage[0]).toMatchObject({ kind: "generate", provider: "mock", model: "mock-1" });
   });
   it("target selection changes the generated structure", async () => {

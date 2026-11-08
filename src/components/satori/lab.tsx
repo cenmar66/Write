@@ -6,6 +6,9 @@ import type { JudgeResult } from "@/lib/satori/schema";
 import type { PromptRecord, TestRun } from "@/lib/satori/store/types";
 import { extractVariables, fillVariables } from "@/lib/satori/variables";
 import { api, ApiError, formatCost, formatDate, readLocal, takeHandoff, writeLocal } from "./client";
+import { CostEstimate } from "./cost-estimate";
+import { Attachments, toImageInputs, toSourceInputs, type AttachedImage, type AttachedSource } from "./attachments";
+import type { Connector } from "@/lib/satori/store/types";
 import { useSatori } from "./provider";
 import { CopyButton, EmptyState, ErrorBox, Notice, PageHeader, Spinner } from "./ui";
 
@@ -18,13 +21,13 @@ const DEFAULT_CRITERIA: Criterion[] = [
 ];
 
 type RunResult =
-  | { ok: true; text: string; provider: string; providerLabel: string; isMock: boolean; requestedModel: string; model: string; latencyMs: number; usage: { inputTokens: number; outputTokens: number } | null; costUsd: number | null; stopReason: string | null }
+  | { ok: true; text: string; provider: string; providerLabel: string; isMock: boolean; requestedModel: string; model: string; latencyMs: number; usage: { inputTokens: number; outputTokens: number; webSearches?: number } | null; costUsd: number | null; stopReason: string | null; activity?: string[]; toolsSkipped?: boolean }
   | { ok: false; provider: string; model: string; error: string };
 
 type Rating = { score: number | null; note: string };
 
 export function LabPage() {
-  const { status, toast } = useSatori();
+  const { status, toast, reloadStatus } = useSatori();
   const [source, setSource] = useState<"paste" | "library">("paste");
   const [library, setLibrary] = useState<PromptRecord[]>([]);
   const [promptId, setPromptId] = useState<string | null>(null);
@@ -33,6 +36,12 @@ export function LabPage() {
   const [picked, setSelected] = useState<string[] | null>(null);
   const [criteria, setCriteria] = useState<Criterion[]>(DEFAULT_CRITERIA);
   const [reference, setReference] = useState("");
+  const [images, setImages] = useState<AttachedImage[]>([]);
+  const [sources, setSources] = useState<AttachedSource[]>([]);
+  const [webSearch, setWebSearch] = useState(false);
+  const [connectors, setConnectors] = useState<Connector[]>([]);
+  const [useConnectors, setUseConnectors] = useState<string[]>([]);
+  const [lastRunContext, setLastRunContext] = useState<{ images: number; sources: string[]; webSearch: boolean; connectors: string[] }>({ images: 0, sources: [], webSearch: false, connectors: [] });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<{ message: string; retryable: boolean } | null>(null);
   const [results, setResults] = useState<RunResult[]>([]);
@@ -41,7 +50,7 @@ export function LabPage() {
   const [judges, setJudges] = useState<Record<number, JudgeResult>>({});
   const [history, setHistory] = useState<TestRun[]>([]);
 
-  const models = useMemo(() => (status?.providers ?? []).filter((p) => p.configured).flatMap((p) => p.models.map((m) => ({ key: `${p.id}::${m.id}`, provider: p.id, providerLabel: p.label, model: m.id, label: m.label, isMock: p.isMock }))), [status]);
+  const models = useMemo(() => (status?.providers ?? []).filter((p) => p.configured).flatMap((p) => p.models.map((m) => ({ key: `${p.id}::${m.id}`, provider: p.id, providerLabel: p.label, model: m.id, label: m.label, isMock: p.isMock, supportsTools: !!p.supportsTools }))), [status]);
 
   useEffect(() => {
     const h = takeHandoff("lab");
@@ -53,6 +62,9 @@ export function LabPage() {
     setCriteria(readLocal("ps-lab-criteria", DEFAULT_CRITERIA));
     api<{ prompts: PromptRecord[] }>("/api/satori/prompts?sort=updated")
       .then((r) => setLibrary(r.prompts))
+      .catch(() => {});
+    api<{ connectors: Connector[] }>("/api/satori/connectors")
+      .then((r) => setConnectors(r.connectors.filter((c) => c.enabled)))
       .catch(() => {});
     api<{ runs: TestRun[] }>("/api/satori/lab/runs")
       .then((r) => setHistory(r.runs))
@@ -78,8 +90,12 @@ export function LabPage() {
     setJudges({});
     try {
       const targets = selected.map((k) => models.find((m) => m.key === k)!).filter(Boolean).map((m) => ({ provider: m.provider, model: m.model }));
-      const r = await api<{ results: RunResult[] }>("/api/satori/lab/run", { body: { prompt, variables: values, targets } });
+      const r = await api<{ results: RunResult[] }>("/api/satori/lab/run", {
+        body: { prompt, variables: values, targets, images: toImageInputs(images), sources: toSourceInputs(sources), webSearch, connectorIds: useConnectors },
+      });
+      setLastRunContext({ images: images.length, sources: sources.map((s) => s.url), webSearch, connectors: connectors.filter((c) => useConnectors.includes(c.id)).map((c) => c.label) });
       setResults(r.results);
+      void reloadStatus(); // refresh money spent
     } catch (e) {
       setError({ message: (e as Error).message, retryable: e instanceof ApiError ? e.retryable : true });
     } finally {
@@ -120,6 +136,7 @@ export function LabPage() {
           latency_ms: r.latencyMs,
           ratings: criteria.map((c) => ({ ...c, score: ratings[i]?.[c.name]?.score ?? null, note: ratings[i]?.[c.name]?.note ?? "" })),
           judge: judges[i] ?? null,
+          context: { ...lastRunContext, activity: r.activity ?? [] },
         },
       });
       setHistory((h) => [run, ...h]);
@@ -188,6 +205,41 @@ export function LabPage() {
               </fieldset>
             )}
 
+            <div>
+              <p className="mb-1.5 text-sm font-medium">Attachments</p>
+              <Attachments images={images} sources={sources} onImages={setImages} onSources={setSources} disabled={busy} imageHint="Images are sent with the prompt, for prompts that work on pictures." />
+            </div>
+
+            <fieldset className="space-y-2">
+              <legend className="mb-1.5 text-sm font-medium">Tools <span className="font-normal ps-muted">(Claude only)</span></legend>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" className="size-4 accent-[var(--ps-accent)]" checked={webSearch} onChange={(e) => setWebSearch(e.target.checked)} />
+                Let Claude search the web <span className="text-xs ps-muted">(about 1¢ per search, up to 5 per run)</span>
+              </label>
+              {connectors.length > 0 ? (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-sm">Connected apps:</span>
+                  {connectors.map((c) => {
+                    const on = useConnectors.includes(c.id);
+                    return (
+                      <button key={c.id} type="button" aria-pressed={on} className="ps-chip" disabled={!on && useConnectors.length >= 5} onClick={() => setUseConnectors(on ? useConnectors.filter((x) => x !== c.id) : [...useConnectors, c.id])}>
+                        {c.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-xs ps-muted">
+                  No connected apps yet. Add them in <a className="underline" href="/satori/settings#connectors">Settings → Connected apps</a>.
+                </p>
+              )}
+              {(webSearch || useConnectors.length > 0) && models.filter((m) => selected.includes(m.key)).some((m) => !m.supportsTools) && (
+                <p className="text-xs" style={{ color: "var(--ps-warn)" }}>
+                  Non-Claude models in this run will answer without web search or connected apps.
+                </p>
+              )}
+            </fieldset>
+
             <fieldset>
               <legend className="mb-1.5 text-sm font-medium">Run on (up to 3)</legend>
               <div className="flex flex-wrap gap-1.5">
@@ -207,6 +259,20 @@ export function LabPage() {
               <button type="button" className="ps-btn ps-btn-primary" onClick={runAll} disabled={busy || !prompt.trim() || !selected.length}>
                 {busy ? <Spinner size={15} label="Running…" /> : <><Play size={15} aria-hidden /> Run test</>}
               </button>
+              {prompt.trim() && selected.length > 0 && (
+                <CostEstimate
+                  request={{
+                    kind: "test",
+                    chars: fillVariables(prompt, values).length,
+                    images: images.length,
+                    sourceChars: sources.reduce((n, s) => n + s.text.length, 0),
+                    webSearch,
+                    connectors: useConnectors.length,
+                  }}
+                  targets={selected.map((k) => models.find((m) => m.key === k)!).filter(Boolean).map((m) => ({ provider: m.provider, model: m.model }))}
+                  labels={Object.fromEntries(models.map((m) => [m.key, m.label]))}
+                />
+              )}
               {missingVars.length > 0 && <span className="text-xs" style={{ color: "var(--ps-warn)" }}>Unfilled: {missingVars.map((v) => `{{${v}}}`).join(", ")} (sent as-is)</span>}
             </div>
             {error && <ErrorBox message={error.message} onRetry={error.retryable ? runAll : undefined} onDismiss={() => setError(null)} />}
@@ -258,7 +324,19 @@ export function LabPage() {
                           <p className="text-xs ps-muted">
                             {(r.latencyMs / 1000).toFixed(1)}s · {r.usage ? `${r.usage.inputTokens.toLocaleString()} in / ${r.usage.outputTokens.toLocaleString()} out` : "usage n/a"} · {formatCost(r.costUsd)}
                             {r.stopReason === "max_tokens" ? " · cut off at length limit" : ""}
+                            {r.usage?.webSearches ? ` · ${r.usage.webSearches} web search${r.usage.webSearches > 1 ? "es" : ""}` : ""}
                           </p>
+                          {r.toolsSkipped && <p className="text-xs" style={{ color: "var(--ps-warn)" }}>Ran without web search / connected apps (Claude only).</p>}
+                          {!!r.activity?.length && (
+                            <details className="text-xs">
+                              <summary className="cursor-pointer ps-soft">What it did ({r.activity.length})</summary>
+                              <ul className="mt-1 list-disc space-y-0.5 pl-4 ps-muted">
+                                {r.activity.map((a, j) => (
+                                  <li key={j}>{a}</li>
+                                ))}
+                              </ul>
+                            </details>
+                          )}
                         </div>
                         <div className="ps-prompt-text max-h-[28rem] overflow-y-auto rounded-xl border p-3 text-sm ps-line">{r.text}</div>
                         <div className="flex flex-wrap gap-2">

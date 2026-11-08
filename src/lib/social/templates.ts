@@ -27,6 +27,9 @@ export const CATEGORIES: { id: TemplateCategory | "all"; label: string }[] = [
   { id: "mine", label: "My templates" },
 ];
 
+/** Most templates you can pick when repurposing one document. */
+export const MAX_REPURPOSE_TEMPLATES = 5;
+
 const ALL: PlatformId[] = ["linkedin", "x", "threads", "facebook", "instagram"];
 
 export const TEMPLATES: PostTemplate[] = [

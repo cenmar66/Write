@@ -1,4 +1,4 @@
--- Write.ai: the whole database in one go (updates 0001 to 0013; 0010 is The Daily Canvas, 0011 is PromptSatori, 0012 is InboxSatori, 0013 its background sync).
+-- Write.ai: the whole database in one go (updates 0001 to 0016; 0010 is The Daily Canvas, 0011 is PromptSatori, 0012 is InboxSatori, 0013 its background sync, 0015 is PromptSatori connected apps, 0016 PromptSatori budgets and prices).
 -- Safe to run any number of times: it only adds what's missing and never deletes your data.
 -- Paste all of it into Supabase > SQL Editor > New query, then click Run.
 
@@ -1786,4 +1786,157 @@ begin
   if exists (select 1 from pg_namespace where nspname = 'cron') then
     perform cron.schedule('inboxsatori-sync', '*/10 * * * *', 'select public.ip_run_inbox_cron()');
   end if;
+end $$;
+
+
+-- 0014: post folders and social analytics -------------------------------------------
+
+-- Posts can live in the same folders as documents.
+alter table public.posts add column if not exists folder_id uuid references public.folders on delete set null;
+create index if not exists posts_folder on public.posts (user_id, folder_id);
+
+-- The id a platform gave a post we published, so its stats can be matched up.
+alter table public.posts add column if not exists external_id text;
+
+-- Every post pulled from a connected account (published from Write.ai or not), with its latest numbers.
+create table if not exists public.social_items (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users on delete cascade,
+  platform text not null check (platform in ('linkedin', 'facebook', 'instagram', 'threads', 'x')),
+  external_id text not null,
+  post_id uuid references public.posts on delete set null,
+  permalink text,
+  text text not null default '',
+  media_type text,
+  posted_at timestamptz,
+  views integer,
+  reach integer,
+  likes integer,
+  comments integer,
+  shares integer,
+  saves integer,
+  metrics_at timestamptz,
+  created_at timestamptz not null default now(),
+  unique (user_id, platform, external_id)
+);
+create index if not exists social_items_user_posted on public.social_items (user_id, posted_at desc);
+
+-- Comments and replies on those posts.
+create table if not exists public.social_comments (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users on delete cascade,
+  item_id uuid not null references public.social_items on delete cascade,
+  platform text not null,
+  external_id text not null,
+  author text not null default '',
+  text text not null default '',
+  like_count integer,
+  posted_at timestamptz,
+  created_at timestamptz not null default now(),
+  unique (user_id, platform, external_id)
+);
+create index if not exists social_comments_user_posted on public.social_comments (user_id, posted_at desc);
+
+-- One follower count per account per day, for the trend line.
+create table if not exists public.social_account_stats (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users on delete cascade,
+  platform text not null,
+  day date not null,
+  followers integer,
+  created_at timestamptz not null default now(),
+  unique (user_id, platform, day)
+);
+
+do $$
+declare t text;
+begin
+  foreach t in array array['social_items', 'social_comments', 'social_account_stats'] loop
+    execute format('alter table public.%I enable row level security', t);
+    execute format('drop policy if exists "owner only" on public.%I', t);
+    execute format(
+      'create policy "owner only" on public.%I for all to authenticated
+         using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()))', t);
+  end loop;
+end $$;
+
+-- 0015: PromptSatori connected apps -------------------------------------------------------
+-- PromptSatori: connected apps (MCP servers) and run context.
+-- Safe to run more than once. Never deletes data. Needs 0011_promptsatori.sql first.
+
+-- Connected apps. The access token is encrypted by the server (AES-256-GCM with
+-- ENCRYPTION_KEY) before it is stored, and is never sent to the browser.
+create table if not exists public.satori_connectors (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users on delete cascade,
+  label text not null check (char_length(label) between 1 and 60),
+  server_name text not null check (server_name ~ '^[a-z0-9][a-z0-9-]{0,39}$'),
+  url text not null check (url ~ '^https://' and char_length(url) <= 500),
+  token_encrypted text check (char_length(token_encrypted) <= 8000),
+  enabled boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create unique index if not exists satori_connectors_name on public.satori_connectors (user_id, server_name);
+
+drop trigger if exists satori_connectors_touch on public.satori_connectors;
+create trigger satori_connectors_touch before insert or update on public.satori_connectors for each row execute function public.satori_touch();
+
+alter table public.satori_connectors enable row level security;
+drop policy if exists "own rows: read" on public.satori_connectors;
+create policy "own rows: read" on public.satori_connectors for select to authenticated using (user_id = auth.uid());
+drop policy if exists "own rows: write" on public.satori_connectors;
+create policy "own rows: write" on public.satori_connectors for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+-- What a Testing Lab run used: image count, website addresses, web search, connected
+-- apps by name, and what the model did with them. No image data, no page text.
+alter table public.satori_test_runs add column if not exists context jsonb not null default '{}'::jsonb;
+
+-- "Delete all my data" also removes connected apps.
+create or replace function public.satori_delete_my_data()
+returns void language plpgsql security definer set search_path = '' as $$
+declare me uuid := auth.uid();
+begin
+  if me is null then raise exception 'Not signed in'; end if;
+  delete from public.satori_prompt_tags where user_id = me;
+  delete from public.satori_refinements where user_id = me;
+  delete from public.satori_test_runs where user_id = me;
+  delete from public.satori_prompts where user_id = me; -- versions cascade
+  delete from public.satori_tags where user_id = me;
+  delete from public.satori_collections where user_id = me;
+  delete from public.satori_alternatives where user_id = me;
+  delete from public.satori_generations where user_id = me;
+  delete from public.satori_templates where user_id = me;
+  delete from public.satori_analyses where user_id = me;
+  delete from public.satori_preferences where user_id = me;
+  delete from public.satori_profiles where user_id = me;
+  delete from public.satori_usage where user_id = me;
+  delete from public.satori_credit_ledger where user_id = me;
+  delete from public.satori_connectors where user_id = me;
+end;
+$$;
+revoke all on function public.satori_delete_my_data() from public;
+grant execute on function public.satori_delete_my_data() to authenticated;
+
+-- 0016: PromptSatori budgets and prices -----------------------------------------------
+-- PromptSatori: personal budget, budget warning and prices for models without built-in
+-- prices (e.g. OpenAI and Gemini models). Safe to run more than once. Never deletes data.
+-- Needs 0011_promptsatori.sql first.
+
+alter table public.satori_preferences add column if not exists monthly_budget_usd numeric(10, 2);
+alter table public.satori_preferences add column if not exists alert_percent integer not null default 80;
+-- {"openai:model-id": {"input": 1.25, "output": 10}, ...} in USD per million tokens.
+alter table public.satori_preferences add column if not exists model_prices jsonb not null default '{}'::jsonb;
+
+do $$ begin
+  alter table public.satori_preferences add constraint satori_preferences_budget_check check (monthly_budget_usd is null or monthly_budget_usd between 0 and 100000);
+exception when duplicate_object then null;
+end $$;
+do $$ begin
+  alter table public.satori_preferences add constraint satori_preferences_alert_check check (alert_percent between 1 and 100);
+exception when duplicate_object then null;
+end $$;
+do $$ begin
+  alter table public.satori_preferences add constraint satori_preferences_prices_check check (jsonb_typeof(model_prices) = 'object' and pg_column_size(model_prices) < 20000);
+exception when duplicate_object then null;
 end $$;
