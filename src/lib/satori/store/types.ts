@@ -177,6 +177,12 @@ export type Preferences = {
   active_profile_id: string | null;
   clarify: boolean;
   retention_days: number;
+  /** Your own monthly AI budget in USD (null = none; the server limit still applies). */
+  monthly_budget_usd: number | null;
+  /** Warn when this share of the monthly budget is used. */
+  alert_percent: number;
+  /** Your prices for models without built-in ones, USD per million tokens. Key "provider:model". */
+  model_prices: Record<string, { input: number; output: number }>;
 };
 
 export const DEFAULT_PREFERENCES: Preferences = {
@@ -191,7 +197,13 @@ export const DEFAULT_PREFERENCES: Preferences = {
   active_profile_id: null,
   clarify: true,
   retention_days: 0,
+  monthly_budget_usd: null,
+  alert_percent: 80,
+  model_prices: {},
 };
+
+/** Preference fields added by migration 0016 (saved separately so older databases keep working). */
+export const COST_PREFERENCE_KEYS = ["monthly_budget_usd", "alert_percent", "model_prices"] as const;
 
 export interface SatoriStore {
   readonly kind: "supabase" | "memory";
@@ -242,6 +254,8 @@ export interface SatoriStore {
 
   recordUsage(entries: UsageEntry[]): Promise<void>;
   usageSince(since: Date): Promise<UsageSummary>;
+  /** Raw usage rows since a date, oldest first (at most 50,000). No prompt text. */
+  usageRows(since: Date): Promise<(UsageEntry & { created_at: string })[]>;
 
   /** Deletes generations, analyses and test runs older than N days. */
   applyRetention(days: number): Promise<number>;

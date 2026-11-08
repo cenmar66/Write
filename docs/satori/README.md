@@ -14,7 +14,8 @@ It installs as its own app on Mac, iPhone and iPad (separate icon from Write.ai)
 | **Templates** | 32 original starter templates across Business, Marketing, Writing, Technology, Construction & Restoration, Personal Development, plus your own private templates. |
 | **My Library** | Search, filter by model/category/collection, favorites, tags, archive, trash/restore, duplicate, card/list views, export Markdown/text/JSON, import JSON. Every prompt keeps its full version history. |
 | **History** | Every generation, searchable; reopen to keep working. |
-| **Settings** | Theme, accent color, text size, default target model, generation provider/model, named profiles, usage and limits, retention, export, delete all data. |
+| **Costs** | Money spent today, this month and over the last 7/30/90 days (in your time zone), a daily chart with a table view, breakdowns by AI model and by activity, and your monthly budget. The Generator, Analyzer and Testing Lab show a cost estimate (a range) before you run anything. |
+| **Settings** | Theme, accent color, text size, default target model, generation provider/model, named profiles, **budget & prices** (monthly budget, warning level, prices for non-Claude models), retention, export, delete all data. |
 
 More: [Architecture](ARCHITECTURE.md) · [Security & privacy](SECURITY.md) · [Testing](TESTING.md) · [Status, limitations, next steps](STATUS.md)
 
@@ -24,7 +25,7 @@ More: [Architecture](ARCHITECTURE.md) · [Security & privacy](SECURITY.md) · [T
 
 PromptSatori reuses Write.ai's Supabase project, login and Claude key. If Write.ai already works, you need two steps.
 
-1. **Database:** Supabase → **SQL Editor → New query** → paste [`supabase/migrations/0011_promptsatori.sql`](../../supabase/migrations/0011_promptsatori.sql) → **Run**, then do the same with [`0015_satori_connectors.sql`](../../supabase/migrations/0015_satori_connectors.sql) (connected apps). (Or paste all of [`supabase/setup-all.sql`](../../supabase/setup-all.sql) — safe to re-run.)
+1. **Database:** Supabase → **SQL Editor → New query** → paste [`supabase/migrations/0011_promptsatori.sql`](../../supabase/migrations/0011_promptsatori.sql) → **Run**, then do the same with [`0015_satori_connectors.sql`](../../supabase/migrations/0015_satori_connectors.sql) (connected apps) and [`0016_satori_costs.sql`](../../supabase/migrations/0016_satori_costs.sql) (budgets and prices). (Or paste all of [`supabase/setup-all.sql`](../../supabase/setup-all.sql) — safe to re-run.)
 2. **Deploy** (push to the branch Vercel builds, or **Redeploy**). Open `https://YOUR-SITE/satori` and sign in.
 
 That's it — `ANTHROPIC_API_KEY` from Write.ai's setup is the generation provider.

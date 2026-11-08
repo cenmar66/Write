@@ -152,8 +152,7 @@ test.describe("library, templates, analyzer, lab, history, settings", () => {
     await page.getByRole("button", { name: "+ Construction Specialist" }).click();
     await page.getByRole("dialog").getByRole("button", { name: "Save profile" }).click();
     await expect(page.getByText("Profile saved")).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Usage & limits" })).toBeVisible();
-    await expect(page.getByText("AI requests this month")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Budget & prices" })).toBeVisible();
   });
 });
 

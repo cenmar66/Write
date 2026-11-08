@@ -4,6 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Profile } from "../profiles";
 import type { GenerationResult } from "../schema";
 import {
+  COST_PREFERENCE_KEYS,
   DEFAULT_PREFERENCES,
   summarize,
   type Collection,
@@ -118,12 +119,21 @@ export function supabaseStore(supabase: SupabaseClient, userId: string): SatoriS
       fail(error, "load settings");
       if (!data) return { ...DEFAULT_PREFERENCES };
       const keys = Object.keys(DEFAULT_PREFERENCES) as (keyof Preferences)[];
-      return Object.fromEntries(keys.map((k) => [k, data[k] ?? DEFAULT_PREFERENCES[k]])) as Preferences;
+      const prefs = Object.fromEntries(keys.map((k) => [k, data[k] ?? DEFAULT_PREFERENCES[k]])) as Preferences;
+      // numeric columns arrive as strings from PostgREST.
+      prefs.monthly_budget_usd = data.monthly_budget_usd === null || data.monthly_budget_usd === undefined ? null : Number(data.monthly_budget_usd);
+      return prefs;
     },
     async savePreferences(patch) {
       const current = await store.getPreferences();
       const next = { ...current, ...patch };
-      const { error } = await supabase.from("satori_preferences").upsert({ ...next, user_id: userId }, { onConflict: "user_id" });
+      let { error } = await supabase.from("satori_preferences").upsert({ ...next, user_id: userId }, { onConflict: "user_id" });
+      if (error && /column|schema cache/i.test(error.message)) {
+        // Database update 0016 not run yet: save everything else, and say so if budget fields changed.
+        const older = Object.fromEntries(Object.entries(next).filter(([k]) => !(COST_PREFERENCE_KEYS as readonly string[]).includes(k)));
+        ({ error } = await supabase.from("satori_preferences").upsert({ ...older, user_id: userId }, { onConflict: "user_id" }));
+        if (!error && COST_PREFERENCE_KEYS.some((k) => k in patch)) throw new Error("Couldn't save budget settings. Run the PromptSatori database update 0016_satori_costs.sql in Supabase.");
+      }
       fail(error, "save settings");
       return next;
     },
@@ -377,6 +387,14 @@ export function supabaseStore(supabase: SupabaseClient, userId: string): SatoriS
       if (!entries.length) return;
       const { error } = await supabase.from("satori_usage").insert(entries.map((e) => ({ ...e, user_id: userId })));
       if (error) console.error("[satori] couldn't record usage");
+    },
+    async usageRows(since) {
+      const { data, error } = await own(supabase.from("satori_usage").select("kind,provider,model,input_tokens,output_tokens,cost_usd,created_at"))
+        .gte("created_at", since.toISOString())
+        .order("created_at", { ascending: true })
+        .limit(50000);
+      fail(error, "load usage");
+      return (data ?? []).map((r: Row) => ({ ...r, cost_usd: r.cost_usd === null ? null : Number(r.cost_usd) })) as never;
     },
     async usageSince(since) {
       const { data, error } = await own(supabase.from("satori_usage").select("kind,provider,model,input_tokens,output_tokens,cost_usd,created_at")).gte("created_at", since.toISOString()).limit(20000);

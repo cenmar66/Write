@@ -1,11 +1,37 @@
 "use client";
 
-import { BookMarked, FlaskConical, Gauge, History, LayoutTemplate, Menu, Settings, Sparkles, X } from "lucide-react";
+import { BookMarked, FlaskConical, Gauge, History, LayoutTemplate, Menu, Settings, Sparkles, Wallet, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, type ReactNode } from "react";
+import { usd } from "./costs";
 import { useSatori } from "./provider";
 import { Notice } from "./ui";
+
+/** This month's estimated spend (and budget), at the foot of the sidebar. */
+function MonthSpend() {
+  const { status } = useSatori();
+  const b = status?.budget;
+  if (!b) return null;
+  const pct = b.limitUsd ? Math.min(100, b.percent ?? 0) : 0;
+  const color = b.level === "over" ? "var(--ps-danger)" : b.level === "warn" ? "var(--ps-warn)" : "var(--ps-chart)";
+  return (
+    <Link href="/satori/costs" className="mt-6 block rounded-xl px-3 py-2.5 text-xs transition hover:bg-[var(--ps-surface-2)]" aria-label={`This month: ${usd(b.spentUsd)} spent${b.limitUsd ? ` of ${usd(b.limitUsd)} budget` : ""}`}>
+      <span className="flex justify-between ps-muted">
+        <span>This month</span>
+        <span className="tabular-nums">
+          <strong className="font-semibold text-[var(--ps-ink)]">{usd(b.spentUsd)}</strong>
+          {b.limitUsd ? ` / ${usd(b.limitUsd)}` : ""}
+        </span>
+      </span>
+      {b.limitUsd !== null && (
+        <span className="mt-1.5 block h-1.5 overflow-hidden rounded-full ps-surface-2" aria-hidden>
+          <span className="block h-full rounded-full" style={{ width: `${pct}%`, background: color }} />
+        </span>
+      )}
+    </Link>
+  );
+}
 
 export const SATORI_NAV = [
   { href: "/satori", label: "Generator", short: "Generate", Icon: Sparkles },
@@ -14,6 +40,7 @@ export const SATORI_NAV = [
   { href: "/satori/templates", label: "Templates", short: "Templates", Icon: LayoutTemplate },
   { href: "/satori/library", label: "My Library", short: "Library", Icon: BookMarked },
   { href: "/satori/history", label: "History", short: "History", Icon: History },
+  { href: "/satori/costs", label: "Costs", short: "Costs", Icon: Wallet },
   { href: "/satori/settings", label: "Settings", short: "Settings", Icon: Settings },
 ];
 
@@ -39,6 +66,21 @@ function StatusBanner() {
   if (statusError) return <Notice tone="warn">Couldn&apos;t check the server: {statusError}</Notice>;
   if (!status) return null;
   const items: ReactNode[] = [];
+  const b = status.budget;
+  if (b && b.limitUsd !== null && (b.level === "warn" || b.level === "over"))
+    items.push(
+      <Notice key="budget" tone="warn">
+        <strong>{b.level === "over" ? "This month's AI budget is used up." : `You've used ${Math.round(b.percent ?? 0)}% of this month's AI budget.`}</strong> {usd(b.spentUsd)} of {usd(b.limitUsd)}.{" "}
+        {b.level === "over" ? "AI requests are paused until next month. " : ""}
+        <Link className="underline" href="/satori/costs">
+          See costs
+        </Link>{" "}
+        ·{" "}
+        <Link className="underline" href="/satori/settings#budget">
+          Change budget
+        </Link>
+      </Notice>,
+    );
   if (status.localMode)
     items.push(
       <Notice key="local" tone="neutral">
@@ -95,6 +137,7 @@ export function SatoriShell({ children }: { children: ReactNode }) {
               </Link>
             ))}
           </nav>
+          <MonthSpend />
           <div className="mt-auto space-y-1 border-t pt-4 ps-line">
             <Link href="/satori/privacy" className="ps-nav-item text-sm" aria-current={path === "/satori/privacy" ? "page" : undefined}>
               Privacy

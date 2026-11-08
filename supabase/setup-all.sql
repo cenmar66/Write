@@ -1,4 +1,4 @@
--- Write.ai: the whole database in one go (updates 0001 to 0015; 0010 is The Daily Canvas, 0011 is PromptSatori, 0012 is InboxSatori, 0013 its background sync, 0015 is PromptSatori connected apps).
+-- Write.ai: the whole database in one go (updates 0001 to 0016; 0010 is The Daily Canvas, 0011 is PromptSatori, 0012 is InboxSatori, 0013 its background sync, 0015 is PromptSatori connected apps, 0016 PromptSatori budgets and prices).
 -- Safe to run any number of times: it only adds what's missing and never deletes your data.
 -- Paste all of it into Supabase > SQL Editor > New query, then click Run.
 
@@ -1917,3 +1917,26 @@ end;
 $$;
 revoke all on function public.satori_delete_my_data() from public;
 grant execute on function public.satori_delete_my_data() to authenticated;
+
+-- 0016: PromptSatori budgets and prices -----------------------------------------------
+-- PromptSatori: personal budget, budget warning and prices for models without built-in
+-- prices (e.g. OpenAI and Gemini models). Safe to run more than once. Never deletes data.
+-- Needs 0011_promptsatori.sql first.
+
+alter table public.satori_preferences add column if not exists monthly_budget_usd numeric(10, 2);
+alter table public.satori_preferences add column if not exists alert_percent integer not null default 80;
+-- {"openai:model-id": {"input": 1.25, "output": 10}, ...} in USD per million tokens.
+alter table public.satori_preferences add column if not exists model_prices jsonb not null default '{}'::jsonb;
+
+do $$ begin
+  alter table public.satori_preferences add constraint satori_preferences_budget_check check (monthly_budget_usd is null or monthly_budget_usd between 0 and 100000);
+exception when duplicate_object then null;
+end $$;
+do $$ begin
+  alter table public.satori_preferences add constraint satori_preferences_alert_check check (alert_percent between 1 and 100);
+exception when duplicate_object then null;
+end $$;
+do $$ begin
+  alter table public.satori_preferences add constraint satori_preferences_prices_check check (jsonb_typeof(model_prices) = 'object' and pg_column_size(model_prices) < 20000);
+exception when duplicate_object then null;
+end $$;

@@ -299,6 +299,9 @@ export function memoryStore(userId: string): SatoriStore {
     async recordUsage(entries) {
       d().usage.push(...entries.map((e) => ({ ...e, created_at: now() })));
     },
+    async usageRows(since) {
+      return d().usage.filter((u) => u.created_at >= since.toISOString()).map((u) => ({ ...u }));
+    },
     async usageSince(since) {
       return summarize(
         d().usage.filter((u) => u.created_at >= since.toISOString()),

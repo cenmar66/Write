@@ -6,6 +6,7 @@ import type { JudgeResult } from "@/lib/satori/schema";
 import type { PromptRecord, TestRun } from "@/lib/satori/store/types";
 import { extractVariables, fillVariables } from "@/lib/satori/variables";
 import { api, ApiError, formatCost, formatDate, readLocal, takeHandoff, writeLocal } from "./client";
+import { CostEstimate } from "./cost-estimate";
 import { Attachments, toImageInputs, toSourceInputs, type AttachedImage, type AttachedSource } from "./attachments";
 import type { Connector } from "@/lib/satori/store/types";
 import { useSatori } from "./provider";
@@ -26,7 +27,7 @@ type RunResult =
 type Rating = { score: number | null; note: string };
 
 export function LabPage() {
-  const { status, toast } = useSatori();
+  const { status, toast, reloadStatus } = useSatori();
   const [source, setSource] = useState<"paste" | "library">("paste");
   const [library, setLibrary] = useState<PromptRecord[]>([]);
   const [promptId, setPromptId] = useState<string | null>(null);
@@ -94,6 +95,7 @@ export function LabPage() {
       });
       setLastRunContext({ images: images.length, sources: sources.map((s) => s.url), webSearch, connectors: connectors.filter((c) => useConnectors.includes(c.id)).map((c) => c.label) });
       setResults(r.results);
+      void reloadStatus(); // refresh money spent
     } catch (e) {
       setError({ message: (e as Error).message, retryable: e instanceof ApiError ? e.retryable : true });
     } finally {
@@ -257,6 +259,20 @@ export function LabPage() {
               <button type="button" className="ps-btn ps-btn-primary" onClick={runAll} disabled={busy || !prompt.trim() || !selected.length}>
                 {busy ? <Spinner size={15} label="Running…" /> : <><Play size={15} aria-hidden /> Run test</>}
               </button>
+              {prompt.trim() && selected.length > 0 && (
+                <CostEstimate
+                  request={{
+                    kind: "test",
+                    chars: fillVariables(prompt, values).length,
+                    images: images.length,
+                    sourceChars: sources.reduce((n, s) => n + s.text.length, 0),
+                    webSearch,
+                    connectors: useConnectors.length,
+                  }}
+                  targets={selected.map((k) => models.find((m) => m.key === k)!).filter(Boolean).map((m) => ({ provider: m.provider, model: m.model }))}
+                  labels={Object.fromEntries(models.map((m) => [m.key, m.label]))}
+                />
+              )}
               {missingVars.length > 0 && <span className="text-xs" style={{ color: "var(--ps-warn)" }}>Unfilled: {missingVars.map((v) => `{{${v}}}`).join(", ")} (sent as-is)</span>}
             </div>
             {error && <ErrorBox message={error.message} onRetry={error.retryable ? runAll : undefined} onDismiss={() => setError(null)} />}

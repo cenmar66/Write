@@ -16,6 +16,7 @@ import { SaveTemplateDialog, SaveToLibraryDialog, type SaveDraft } from "./save-
 import { Collapsible, CopyButton, Dialog, ErrorBox, Notice, ProviderBadge, Spinner } from "./ui";
 import { VersionList, type VersionItem } from "./versions";
 import { VoiceInput } from "./voice";
+import { CostEstimate } from "./cost-estimate";
 import { Attachments, prepareImage, toImageInputs, toSourceInputs, type AttachedImage, type AttachedSource } from "./attachments";
 
 type TabKey = "recommended" | (typeof ALTERNATIVE_KINDS)[number];
@@ -73,7 +74,7 @@ function tracksFrom(g: GenerationRecord, servedBy: ServedBy | null): Record<TabK
 
 export function Generator() {
   const router = useRouter();
-  const { prefs, profiles, status, savePrefs, toast, ready } = useSatori();
+  const { prefs, profiles, status, savePrefs, toast, ready, reloadStatus } = useSatori();
 
   // ---- Input state (autosaved locally so nothing typed is ever lost) ---------------------
   const [request, setRequest] = useState("");
@@ -204,6 +205,7 @@ export function Generator() {
         setMissingAnswers({});
         setLastChange(null);
         setPhase("done");
+        void reloadStatus(); // refresh money spent
         setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
       } catch (e) {
         if ((e as Error).name === "AbortError") return;
@@ -211,7 +213,7 @@ export function Generator() {
         setPhase(session ? "done" : "idle");
       }
     },
-    [request, target, profileId, options, askFirst, session, images, sources],
+    [request, target, profileId, options, askFirst, session, images, sources, reloadStatus],
   );
 
   const cancel = () => {
@@ -385,6 +387,19 @@ export function Generator() {
             </button>
           </div>
         </div>
+        {request.trim() && status?.active && (
+          <div className="mt-2 flex justify-end">
+            <CostEstimate
+              request={{
+                kind: "generate",
+                chars: request.length + Object.values(options).join("").length,
+                images: images.length,
+                sourceChars: sources.reduce((n, s) => n + s.text.length, 0),
+                clarify: askFirst,
+              }}
+            />
+          </div>
+        )}
 
         <div id="ps-advanced" hidden={!advanced} className="mt-4 grid gap-3 border-t pt-4 ps-line sm:grid-cols-2 lg:grid-cols-3">
           <label className="space-y-1 text-sm">
