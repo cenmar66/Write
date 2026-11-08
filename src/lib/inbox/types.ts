@@ -173,7 +173,14 @@ export interface AccountRow {
   last_sync_at: string | null;
   last_error: string | null;
   automation_mode: AutomationMode | null;
-  settings: { label_sync?: boolean; ai_content?: AiContentMode | null };
+  settings: {
+    label_sync?: boolean;
+    ai_content?: AiContentMode | null;
+    /** SaneBox-style Gmail labels: label id → what moving mail into it means. */
+    training_labels?: Record<string, "black_hole" | `category:${string}`>;
+    /** Gmail push notifications (near-instant sync): when the current watch ends. */
+    watch_expires_at?: string | null;
+  };
   created_at: string;
 }
 

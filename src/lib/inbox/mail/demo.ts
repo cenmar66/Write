@@ -63,7 +63,7 @@ const SEEDS: Seed[] = [
 ];
 
 const store = () => {
-  const g = globalThis as unknown as { __inboxDemo?: Map<string, { labels: Map<string, Set<string>>; sent: NormalizedMessage[] }> };
+  const g = globalThis as unknown as { __inboxDemo?: Map<string, { labels: Map<string, Set<string>>; sent: NormalizedMessage[]; changed?: Set<string> }> };
   g.__inboxDemo ??= new Map();
   return g.__inboxDemo;
 };
@@ -122,7 +122,12 @@ export const demoProvider: MailProvider = {
   async listChanges(acc, cursor) {
     const all = demoMessages(acc.id);
     const seen = Number(cursor.split(":")[1] ?? 0);
-    return { added: all.slice(seen).map((m) => m.providerMessageId), changed: [], removed: [], cursor: `demo:${all.length}` };
+    // Label changes since the last sync, like Gmail's history (labelAdded / labelRemoved).
+    const st = stateFor(acc.id);
+    const changed = [...(st.changed ?? [])];
+    st.changed = new Set();
+    const added = all.slice(seen).map((m) => m.providerMessageId);
+    return { added, changed: changed.filter((id) => !added.includes(id)), removed: [], cursor: `demo:${all.length}` };
   },
   async getMessages(acc, ids) {
     const all = demoMessages(acc.id);
@@ -139,18 +144,21 @@ export const demoProvider: MailProvider = {
     if (!set) throw new ProviderError("Message not found in demo mailbox.", "not_found");
     for (const l of change.remove ?? []) set.delete(l);
     for (const l of change.add ?? []) set.add(l);
+    (st.changed ??= new Set()).add(id);
   },
   async trash(acc, id) {
     await demoProvider.modify(acc, id, {});
     const set = stateFor(acc.id).labels.get(id)!;
     set.delete("INBOX");
     set.add("TRASH");
+    (stateFor(acc.id).changed ??= new Set()).add(id);
   },
   async untrash(acc, id) {
     await demoProvider.modify(acc, id, {});
     const set = stateFor(acc.id).labels.get(id)!;
     set.delete("TRASH");
     set.add("INBOX");
+    (stateFor(acc.id).changed ??= new Set()).add(id);
   },
   async ensureLabel(_acc, name) {
     return `Label_${name.replace(/\W+/g, "_")}`;
@@ -194,3 +202,22 @@ export const demoProvider: MailProvider = {
   },
   webLink: () => null,
 };
+
+/**
+ * Demo only: what a user does in Gmail when they "Move to" a label (adds the label and
+ * takes the message out of the inbox). Lets the demo and tests show SaneBox-style labels.
+ */
+export function demoGmailMove(accountId: string, providerMessageId: string, addLabel: string, toInbox = false) {
+  demoMessages(accountId);
+  const st = stateFor(accountId);
+  const set = st.labels.get(providerMessageId);
+  if (!set) throw new ProviderError("Message not found in demo mailbox.", "not_found");
+  if (toInbox) {
+    set.delete(addLabel);
+    set.add("INBOX");
+  } else {
+    set.add(addLabel);
+    set.delete("INBOX");
+  }
+  (st.changed ??= new Set()).add(providerMessageId);
+}

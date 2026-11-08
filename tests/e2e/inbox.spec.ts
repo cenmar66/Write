@@ -331,6 +331,37 @@ test.describe("Bulk Black Hole", () => {
   });
 });
 
+test.describe("SaneBox-style Gmail labels", () => {
+  test("turn on labels; moving mail into InboxSatori/Black Hole in Gmail sends the sender there", async ({ page }, info) => {
+    test.skip(info.project.name !== "desktop");
+    await page.request.delete("/api/inbox/data", { data: { confirm: "DELETE" } });
+    await page.request.post("/api/inbox/demo");
+    await page.request.patch("/api/inbox/settings", { data: { onboarding: { step: 10 } } });
+    await page.goto("/inbox/accounts");
+    await expect(page.getByText("Sort from Gmail (SaneBox-style labels)")).toBeVisible({ timeout: 45_000 });
+    await page.getByRole("button", { name: "Turn on" }).click();
+    await expect(page.getByText(/Created \d+ labels under “InboxSatori\/”/)).toBeVisible();
+    await expect(page.getByText(/Labels: Black Hole, /)).toBeVisible();
+
+    // In "Gmail", the user moves the promo email into InboxSatori/Black Hole.
+    const boot = await (await page.request.get("/api/inbox/bootstrap")).json();
+    const acc = boot.accounts.find((a: { provider: string }) => a.provider === "demo");
+    const bh = Object.entries(acc.settings.training_labels as Record<string, string>).find(([, v]) => v === "black_hole")![0];
+    const promo = (await (await page.request.get("/api/inbox/messages?ws=all&view=all&q=40%25%20off")).json()).messages[0];
+    expect((await page.request.post("/api/inbox/demo/gmail-move", { data: { message_id: promo.id, label: bh } })).ok()).toBe(true);
+    await page.getByRole("button", { name: "Sync now" }).click();
+    await expect(page.getByText(/new message/)).toBeVisible();
+    const senders = await (await page.request.get("/api/inbox/senders?ws=all")).json();
+    const s = (senders.senders ?? senders).find((x: { email: string }) => x.email === "deals@shopmore.test");
+    expect(s.blocked).toBe(true);
+    const after = (await (await page.request.get("/api/inbox/messages?ws=all&view=all&q=40%25%20off")).json()).messages[0];
+    expect(after.label_ids).not.toContain("TRASH");
+
+    // Instant updates aren't configured in tests: the push endpoint says so and does nothing.
+    expect((await page.request.post("/api/inbox/gmail/push", { data: {} })).status()).toBe(404);
+  });
+});
+
 test.describe("Long lists", () => {
   test("every selected message can be scrolled to; pages and Select all work", async ({ page }, info) => {
     test.skip(info.project.name !== "desktop");

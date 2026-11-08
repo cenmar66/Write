@@ -133,10 +133,12 @@ async function updateSenders(db: Db, acc: AccountRow, msgs: MessageRow[], me: Se
 export async function blackHole(db: Db, provider: Awaited<ReturnType<typeof providerFor>>, acc: AccountRow, m: Pick<MessageRow, "id" | "workspace_id" | "provider_message_id" | "in_inbox">, now = new Date()): Promise<boolean> {
   await db.from("ip_messages").update({ done_at: now.toISOString() }).eq("id", m.id).is("done_at", null);
   if (!m.in_inbox || !provider.capabilities(acc).modify) return false;
+  // With SaneBox-style labels on, the mail is also filed under InboxSatori/Black Hole.
+  const label = Object.entries(acc.settings?.training_labels ?? {}).find(([, v]) => v === "black_hole")?.[0];
   try {
-    await provider.modify(acc, m.provider_message_id, { remove: ["INBOX"] });
+    await provider.modify(acc, m.provider_message_id, { remove: ["INBOX"], ...(label ? { add: [label] } : {}) });
     await db.from("ip_messages").update({ in_inbox: false }).eq("id", m.id);
-    await db.from("ip_rule_executions").insert({ workspace_id: m.workspace_id, rule_id: null, rule_name: "Black Hole", message_id: m.id, action: { kind: "gmail_archive", value: "black_hole" }, status: "applied", provider_applied: true, undo: { add: ["INBOX"] } });
+    await db.from("ip_rule_executions").insert({ workspace_id: m.workspace_id, rule_id: null, rule_name: "Black Hole", message_id: m.id, action: { kind: "gmail_archive", value: "black_hole" }, status: "applied", provider_applied: true, undo: label ? { add: ["INBOX"], remove: [label] } : { add: ["INBOX"] } });
     return true;
   } catch {
     return false;

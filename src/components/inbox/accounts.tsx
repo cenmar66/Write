@@ -156,6 +156,51 @@ function AccountRow({ a }: { a: Account }) {
         </label>
         <label className="flex items-center gap-1.5"><input type="checkbox" checked={a.status === "paused"} onChange={(e) => upd.mutate({ paused: e.target.checked })} /> Pause sync</label>
       </div>
+      {(a.provider === "gmail" || a.provider === "demo") && <GmailLabels a={a} />}
+    </div>
+  );
+}
+
+/** SaneBox-style labels: sort and train from Gmail itself (web or phone, one email or many). */
+function GmailLabels({ a }: { a: Account }) {
+  const { boot } = useScope();
+  const toast = useToast();
+  const on = !!a.settings?.training_labels && Object.keys(a.settings.training_labels).length > 0;
+  const names = on
+    ? Object.values(a.settings.training_labels!).map((v) => (v === "black_hole" ? "Black Hole" : boot.categories.find((c) => c.key === v.slice(9))?.name ?? v.slice(9)))
+    : [];
+  const instant = boot.server.instant && a.provider === "gmail" && !!a.settings?.watch_expires_at && new Date(a.settings.watch_expires_at) > new Date();
+  const set = useAct((enable: boolean) => api<{ enabled: boolean; labels?: number; instant?: boolean }>(`/accounts/${a.id}/labels`, { method: "POST", json: { enable } }), {
+    onSuccess: (r) =>
+      toast({
+        text: r.enabled ? `Created ${r.labels} labels under “InboxSatori/” in your mailbox.${r.instant ? " Changes apply within seconds." : " Changes apply at the next sync (within 10 minutes)."}` : "Gmail labels turned off. The labels and the mail in them are untouched.",
+        tone: "ok",
+      }),
+  });
+  return (
+    <div className="rounded-lg border p-3 text-[12.5px] ip-line">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="font-medium">Sort from Gmail (SaneBox-style labels)</span>
+        {on && <span className={`ip-chip ${instant ? "ip-chip-low" : ""}`}>{instant ? "Instant" : "Every 10 minutes"}</span>}
+        <button
+          className={`ip-btn ip-btn-sm ml-auto ${on ? "" : "ip-btn-primary"}`}
+          disabled={set.isPending || (!on && !a.capabilities.modify)}
+          onClick={() => set.mutate(!on, { onError: (e) => toast({ text: errText(e), tone: "error" }) })}
+        >
+          {set.isPending ? "Working…" : on ? "Turn off" : "Turn on"}
+        </button>
+      </div>
+      {on ? (
+        <p className="ip-muted mt-1.5">
+          In Gmail (web or phone), select one or many emails and <b>Move to</b> a label under <b>InboxSatori/</b>. <b>Black Hole</b>: the sender’s mail, now and later, leaves your inbox (archived, never deleted). Moving an email back to the inbox brings the sender back. A category label files the email and teaches InboxSatori about the sender. Labels: {names.join(", ")}.
+        </p>
+      ) : (
+        <p className="ip-muted mt-1.5">
+          Creates labels like <b>InboxSatori/Black Hole</b> and <b>InboxSatori/Low Priority</b> in your mailbox. Moving mail into them in Gmail tells InboxSatori what to do, so you can work from Gmail on any device.
+          {!a.capabilities.modify && " Needs the Organize permission (grant it above)."}
+        </p>
+      )}
+      {on && a.provider === "gmail" && !boot.server.instant && <p className="ip-muted mt-1">Instant updates aren’t set up on the server yet, so changes apply at the next sync (within 10 minutes). See docs/inbox/SETUP.md, “Instant updates”.</p>}
     </div>
   );
 }

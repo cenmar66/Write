@@ -46,6 +46,30 @@ export async function scheduleTick(db: Db, now = new Date()) {
     if (due) await enqueue(db, { kind: "briefing", key: `brief:${userId}:${due}:${now.toISOString().slice(0, 10)}`, payload: { userId, slot: due } });
   }
   await enqueue(db, { kind: "prune", key: `prune:${now.toISOString().slice(0, 13)}` });
+  await renewWatches(db, now);
+}
+
+/**
+ * Instant updates: Gmail push subscriptions last 7 days, so they're renewed a day before
+ * they end (and started for newly connected Gmail accounts). Only when configured.
+ */
+export async function renewWatches(db: Db, now = new Date()) {
+  const { pushConfig } = await import("../push");
+  const cfg = pushConfig();
+  if (!cfg) return;
+  const { data } = await db.from("ip_accounts").select("*").eq("provider", "gmail").in("status", ["active", "syncing", "error"]);
+  const { providerFor } = await import("../mail/provider");
+  for (const acc of (data ?? []) as AccountRow[]) {
+    const ends = acc.settings?.watch_expires_at ? new Date(acc.settings.watch_expires_at).getTime() : 0;
+    if (ends - now.getTime() > 86_400_000) continue;
+    try {
+      const p = await providerFor(acc, { admin: db });
+      const w = await p.watch?.(acc, cfg.topic);
+      if (w) await db.from("ip_accounts").update({ settings: { ...(acc.settings ?? {}), watch_expires_at: w.expiration } }).eq("id", acc.id);
+    } catch (e) {
+      await db.from("ip_accounts").update({ last_error: `Instant updates: ${e instanceof Error ? e.message : String(e)}`.slice(0, 500) }).eq("id", acc.id);
+    }
+  }
 }
 
 export async function runJob(db: Db, job: JobRow, now = new Date()): Promise<void> {
