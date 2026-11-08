@@ -13,6 +13,19 @@ async function reset(page: Page, opts: { demo?: boolean; ai?: boolean } = { demo
     await page.request.patch("/api/inbox/settings", { data: { ai_external: !!opts.ai, onboarding: { step: 10, completed: true } } });
   }
 }
+/**
+ * GET through the test's request client. A read is retried once if the connection was
+ * reset: the client can reuse a keep-alive socket at the moment the dev server closes it
+ * as idle (Node closes idle sockets after 5s), which browsers retry on their own.
+ */
+async function get(page: Page, url: string) {
+  try {
+    return await page.request.get(url);
+  } catch (e) {
+    if (!/ECONNRESET|socket hang up/i.test(String(e))) throw e;
+    return page.request.get(url);
+  }
+}
 const desktopOnly = (name: string) => test.skip(name !== "desktop", "covered on desktop");
 
 // The dev server compiles each page and API route on first use and reloads open pages while
@@ -82,7 +95,7 @@ test.describe("InboxSatori", () => {
     await page.locator("aside select").filter({ has: page.locator("option[value=critical]") }).selectOption("low");
     await expect(page.getByText(/Future mail from this sender will follow your correction/)).toBeVisible();
     const id = new URL(page.url()).searchParams.get("m");
-    const detail = await (await page.request.get(`/api/inbox/messages/${id}`)).json();
+    const detail = await (await get(page, `/api/inbox/messages/${id}`)).json();
     expect(detail.classification.importance).toBe("low");
     expect(detail.classification.user_corrected).toBe(true);
   });
@@ -119,18 +132,18 @@ test.describe("InboxSatori", () => {
     await page.getByRole("button", { name: /Send now/ }).click();
     await expect(page.getByText(/Recorded in the demo mailbox/)).toBeVisible();
     // The sent reply is synced back and resolves the "I owe" follow-up.
-    const fus = await (await page.request.get("/api/inbox/followups?ws=all&kind=i_owe")).json();
+    const fus = await (await get(page, "/api/inbox/followups?ws=all&kind=i_owe")).json();
     expect(fus.followups.some((f: { title: string }) => f.title.includes("Sunday dinner"))).toBe(false);
   });
 
   test("a stale review can't be sent (the confirmation is bound to the exact message)", async ({ page }, info) => {
     desktopOnly(info.project.name);
     await reset(page);
-    const msgs = await (await page.request.get("/api/inbox/messages?ws=all&view=all&q=Sunday")).json();
+    const msgs = await (await get(page, "/api/inbox/messages?ws=all&view=all&q=Sunday")).json();
     const m = msgs.messages[0];
     const d = (await (await page.request.post("/api/inbox/drafts", { data: { message_id: m.id, action: "blank" } })).json()).draft;
     await page.request.patch(`/api/inbox/drafts/${d.id}`, { data: { body: "See you Sunday." } });
-    const review = await (await page.request.get(`/api/inbox/drafts/${d.id}/send`)).json();
+    const review = await (await get(page, `/api/inbox/drafts/${d.id}/send`)).json();
     await page.request.patch(`/api/inbox/drafts/${d.id}`, { data: { bcc: ["someone-else@other.test"] } });
     const send = await page.request.post(`/api/inbox/drafts/${d.id}/send`, { data: { token: review.token, confirmed: true } });
     expect(send.status()).toBe(409);
@@ -152,7 +165,7 @@ test.describe("InboxSatori", () => {
     await expect(page.getByText("Stated in email")).toBeVisible();
     await page.getByRole("button", { name: "Create task", exact: true }).click();
     await expect(page.getByText("Task created.")).toBeVisible();
-    const tasks = await (await page.request.get("/api/inbox/tasks?ws=all")).json();
+    const tasks = await (await get(page, "/api/inbox/tasks?ws=all")).json();
     expect(tasks.tasks[0].source_ref.subject).toContain("Q4 plan");
     expect(tasks.tasks[0].provenance.due_date).toBe("explicit");
   });
@@ -197,7 +210,7 @@ test.describe("InboxSatori", () => {
     await page.goto("/inbox/accounts");
     await page.getByRole("button", { name: "Disconnect" }).click();
     await expect(page.getByText(/Disconnected and data deleted/)).toBeVisible();
-    const msgs = await (await page.request.get("/api/inbox/messages?ws=all&view=all")).json();
+    const msgs = await (await get(page, "/api/inbox/messages?ws=all&view=all")).json();
     expect(msgs.messages).toHaveLength(0);
   });
 
@@ -260,7 +273,7 @@ test.describe("Inbox zero", () => {
     await page.locator("li[data-id]").filter({ hasText: "Your receipt for Tuesday" }).click();
     await page.getByRole("button", { name: "Archive", exact: true }).click();
     await expect(page.getByText("Archived in Gmail.")).toBeVisible();
-    const msgs = await (await page.request.get("/api/inbox/messages?ws=all&view=all&q=receipt")).json();
+    const msgs = await (await get(page, "/api/inbox/messages?ws=all&view=all&q=receipt")).json();
     expect(msgs.messages[0].in_inbox).toBe(false);
   });
 
@@ -273,12 +286,12 @@ test.describe("Inbox zero", () => {
     await page.locator("li[data-id]").filter({ hasText: "Your daily tech digest" }).click();
     await page.getByRole("button", { name: "Black Hole sender" }).click();
     await expect(page.getByText(/Sent to the Black Hole\. 1 message\(s\) done, 1 archived out of Gmail/)).toBeVisible();
-    let m = (await (await page.request.get("/api/inbox/messages?ws=all&view=all&q=tech%20digest")).json()).messages[0];
+    let m = (await (await get(page, "/api/inbox/messages?ws=all&view=all&q=tech%20digest")).json()).messages[0];
     expect(m.in_inbox).toBe(false);
     expect(m.done_at).toBeTruthy();
     await page.getByRole("button", { name: /In Black Hole — bring back/ }).click();
     await expect(page.getByText(/Back from the Black Hole: 1 message/)).toBeVisible();
-    m = (await (await page.request.get("/api/inbox/messages?ws=all&view=all&q=tech%20digest")).json()).messages[0];
+    m = (await (await get(page, "/api/inbox/messages?ws=all&view=all&q=tech%20digest")).json()).messages[0];
     expect(m.in_inbox).toBe(true);
     expect(m.done_at).toBeNull();
   });
@@ -307,14 +320,14 @@ test.describe("Bulk Black Hole", () => {
     expect(asked).toContain("deals@shopmore.test");
     expect(asked).toContain("Nothing is deleted");
     // (All Mail keeps archived mail, like Gmail; the server shows what changed.)
-    const promoMsg = (await (await page.request.get("/api/inbox/messages?ws=all&view=all&q=40%25%20off")).json()).messages[0];
+    const promoMsg = (await (await get(page, "/api/inbox/messages?ws=all&view=all&q=40%25%20off")).json()).messages[0];
     expect(promoMsg.in_inbox).toBe(false);
     expect(promoMsg.done_at).toBeTruthy();
     expect(promoMsg.label_ids).not.toContain("TRASH"); // archived, never deleted
 
     await page.getByRole("status").getByRole("button", { name: "Undo" }).click();
     await expect(page.getByText("Back from the Black Hole.")).toBeVisible();
-    const back = (await (await page.request.get("/api/inbox/messages?ws=all&view=all&q=40%25%20off")).json()).messages[0];
+    const back = (await (await get(page, "/api/inbox/messages?ws=all&view=all&q=40%25%20off")).json()).messages[0];
     expect(back.in_inbox).toBe(true);
   });
 
@@ -322,10 +335,10 @@ test.describe("Bulk Black Hole", () => {
     test.skip(info.project.name !== "desktop");
     await page.request.delete("/api/inbox/data", { data: { confirm: "DELETE" } });
     await page.request.post("/api/inbox/demo");
-    const all = (await (await page.request.get("/api/inbox/messages?ws=all&view=all")).json()).messages;
+    const all = (await (await get(page, "/api/inbox/messages?ws=all&view=all")).json()).messages;
     const r = await (await page.request.post("/api/inbox/senders/black-hole", { data: { message_ids: all.map((m: { id: string }) => m.id) } })).json();
     expect(r.senders.length).toBeGreaterThan(3);
-    const after = (await (await page.request.get("/api/inbox/messages?ws=all&view=all")).json()).messages;
+    const after = (await (await get(page, "/api/inbox/messages?ws=all&view=all")).json()).messages;
     expect(after.filter((m: { in_inbox: boolean }) => m.in_inbox).length).toBe(all.filter((m: { in_inbox: boolean }) => m.in_inbox).length);
     expect(r.senders.every((s: { blocked: boolean }) => !s.blocked)).toBe(true);
   });
@@ -344,17 +357,17 @@ test.describe("SaneBox-style Gmail labels", () => {
     await expect(page.getByText(/Labels: Black Hole, /)).toBeVisible();
 
     // In "Gmail", the user moves the promo email into InboxSatori/Black Hole.
-    const boot = await (await page.request.get("/api/inbox/bootstrap")).json();
+    const boot = await (await get(page, "/api/inbox/bootstrap")).json();
     const acc = boot.accounts.find((a: { provider: string }) => a.provider === "demo");
     const bh = Object.entries(acc.settings.training_labels as Record<string, string>).find(([, v]) => v === "black_hole")![0];
-    const promo = (await (await page.request.get("/api/inbox/messages?ws=all&view=all&q=40%25%20off")).json()).messages[0];
+    const promo = (await (await get(page, "/api/inbox/messages?ws=all&view=all&q=40%25%20off")).json()).messages[0];
     expect((await page.request.post("/api/inbox/demo/gmail-move", { data: { message_id: promo.id, label: bh } })).ok()).toBe(true);
     await page.getByRole("button", { name: "Sync now" }).click();
     await expect(page.getByText(/new message/)).toBeVisible();
-    const senders = await (await page.request.get("/api/inbox/senders?ws=all")).json();
+    const senders = await (await get(page, "/api/inbox/senders?ws=all")).json();
     const s = (senders.senders ?? senders).find((x: { email: string }) => x.email === "deals@shopmore.test");
     expect(s.blocked).toBe(true);
-    const after = (await (await page.request.get("/api/inbox/messages?ws=all&view=all&q=40%25%20off")).json()).messages[0];
+    const after = (await (await get(page, "/api/inbox/messages?ws=all&view=all&q=40%25%20off")).json()).messages[0];
     expect(after.label_ids).not.toContain("TRASH");
 
     // Instant updates aren't configured in tests: the push endpoint says so and does nothing.
@@ -384,11 +397,11 @@ test.describe("Bulk Move to teaches senders", () => {
     expect(asked).toContain("Move 2 emails to Low Priority?");
     expect(asked).toContain("deals@shopmore.test");
     expect(asked).toContain("digest@techdigest.test");
-    const senders = await (await page.request.get("/api/inbox/senders?ws=all")).json();
+    const senders = await (await get(page, "/api/inbox/senders?ws=all")).json();
     for (const email of ["deals@shopmore.test", "digest@techdigest.test"]) {
       expect(senders.senders.find((x: { email: string }) => x.email === email).default_category).toBe("low_priority");
     }
-    const m = (await (await page.request.get("/api/inbox/messages?ws=all&view=all&q=40%25%20off")).json()).messages[0];
+    const m = (await (await get(page, "/api/inbox/messages?ws=all&view=all&q=40%25%20off")).json()).messages[0];
     expect(m.category).toBe("low_priority");
     expect(m.c.user_corrected).toBe(true);
   });
@@ -415,12 +428,12 @@ test.describe("Long lists", () => {
     expect(box!.y + box!.height).toBeLessThanOrEqual(560);
 
     // Server paging: pages of 10 add up to the total with no overlaps.
-    const a = await (await page.request.get("/api/inbox/messages?ws=all&view=all&limit=10&page=0")).json();
-    const b = await (await page.request.get("/api/inbox/messages?ws=all&view=all&limit=10&page=1")).json();
+    const a = await (await get(page, "/api/inbox/messages?ws=all&view=all&limit=10&page=0")).json();
+    const b = await (await get(page, "/api/inbox/messages?ws=all&view=all&limit=10&page=1")).json();
     expect(a.total).toBe(n);
     expect(a.messages).toHaveLength(10);
     expect(new Set([...a.messages, ...b.messages].map((m: { id: string }) => m.id)).size).toBe(20);
-    const sel = await (await page.request.get("/api/inbox/messages?ws=all&view=all&ids=1")).json();
+    const sel = await (await get(page, "/api/inbox/messages?ws=all&view=all&ids=1")).json();
     expect(sel.ids).toHaveLength(n);
   });
 });
