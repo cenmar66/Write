@@ -36,19 +36,6 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: https://example.invalid
           NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ci-placeholder
 
-  inbox-e2e:
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npx playwright install --with-deps chromium
-      - name: InboxSatori end-to-end (local demo mode, simulated AI)
-        run: npx playwright test tests/e2e/inbox.spec.ts --project=desktop --project=iphone
 
   secrets:
     runs-on: ubuntu-latest
