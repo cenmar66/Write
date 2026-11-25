@@ -39,12 +39,6 @@ const satoriHosts = (process.env.SATORI_HOSTS ?? "promptsatori.com,www.promptsat
   .filter(Boolean);
 const onSatoriHost = [{ type: "host" as const, value: `(?:${satoriHosts.map((h) => h.replace(/\./g, "\\.")).join("|")})` }];
 
-// InboxSatori's own domains (see src/lib/inbox-host.ts): same idea, its own icons.
-const inboxHosts = (process.env.INBOX_HOSTS ?? "inboxsatori.com,www.inboxsatori.com")
-  .split(",")
-  .map((h) => h.trim().toLowerCase())
-  .filter(Boolean);
-const onInboxHost = [{ type: "host" as const, value: `(?:${inboxHosts.map((h) => h.replace(/\./g, "\\.")).join("|")})` }];
 
 const nextConfig: NextConfig = {
   /* config options here */
@@ -64,10 +58,6 @@ const nextConfig: NextConfig = {
         { source: "/favicon.ico", has: onSatoriHost, destination: "/satori-icons/favicon-48.png" },
         { source: "/icon.svg", has: onSatoriHost, destination: "/satori-icons/icon.svg" },
         { source: "/icons/:file", has: onSatoriHost, destination: "/satori-icons/:file" },
-        { source: "/favicon.ico", has: onInboxHost, destination: "/inbox-icons/favicon-48.png" },
-        { source: "/icon.svg", has: onInboxHost, destination: "/inbox-icons/icon.svg" },
-        { source: "/icons/:file", has: onInboxHost, destination: "/inbox-icons/:file" },
-        { source: "/manifest.webmanifest", has: onInboxHost, destination: "/inbox/manifest.webmanifest" },
       ],
       afterFiles: [],
       fallback: [],
